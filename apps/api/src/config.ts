@@ -1,0 +1,70 @@
+// =============================================================================
+// MindLog API — Environment configuration
+// All env vars are validated at startup. Missing required vars cause a crash.
+// =============================================================================
+
+function required(key: string): string {
+  const value = process.env[key];
+  if (!value) {
+    throw new Error(`Missing required environment variable: ${key}`);
+  }
+  return value;
+}
+
+function optional(key: string, fallback: string): string {
+  return process.env[key] ?? fallback;
+}
+
+function optionalBool(key: string, fallback: boolean): boolean {
+  const val = process.env[key];
+  if (val === undefined) return fallback;
+  return val === 'true';
+}
+
+export const config = {
+  // Server
+  port: Number(optional('API_PORT', '3000')),
+  host: optional('API_HOST', '0.0.0.0'),
+  nodeEnv: optional('NODE_ENV', 'development'),
+  corsOrigin: optional('CORS_ORIGIN', 'http://localhost:5173'),
+
+  // Database
+  databaseUrl: required('DATABASE_URL'),
+
+  // Auth
+  jwtSecret: required('JWT_SECRET'),
+  jwtAccessExpiry: optional('JWT_ACCESS_EXPIRY', '15m'),
+  jwtRefreshExpiry: optional('JWT_REFRESH_EXPIRY', '7d'),
+
+  // Supabase (for auth verification)
+  supabaseUrl: required('SUPABASE_URL'),
+  supabaseServiceRoleKey: required('SUPABASE_SERVICE_ROLE_KEY'),
+
+  // Redis
+  redisUrl: optional('REDIS_URL', 'redis://localhost:6379'),
+
+  // Compliance gates — NEVER enable without BAA in place
+  aiInsightsEnabled: optionalBool('AI_INSIGHTS_ENABLED', false),
+  anthropicBaaSigned: optionalBool('ANTHROPIC_BAA_SIGNED', false),
+
+  // Anthropic (gated — only used if both flags above are true)
+  anthropicApiKey: process.env['ANTHROPIC_API_KEY'] ?? '',
+  anthropicModel: optional('ANTHROPIC_MODEL', 'claude-sonnet-4-5-20250929'),
+
+  // Notifications — Expo Push + Resend email
+  expoPushAccessToken: process.env['EXPO_PUSH_ACCESS_TOKEN'] ?? '',
+  resendApiKey: process.env['RESEND_API_KEY'] ?? '',
+  emailFrom: optional('EMAIL_FROM', 'alerts@mindlog.app'),
+  webAppUrl: optional('WEB_APP_URL', 'http://localhost:5173'),
+
+  // Crisis resources (US)
+  crisisLinePhone: optional('CRISIS_LINE_PHONE', '988'),
+  crisisTextNumber: optional('CRISIS_TEXT_NUMBER', '741741'),
+
+  get isDev(): boolean {
+    return this.nodeEnv === 'development';
+  },
+  get isProd(): boolean {
+    return this.nodeEnv === 'production';
+  },
+} as const;

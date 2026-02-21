@@ -1,0 +1,1773 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MindLog — UX Flow & Application Framework</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0f14;
+    --surface: #161923;
+    --surface2: #1e2432;
+    --border: #2a3147;
+    --accent: #6c8eff;
+    --accent2: #ff7c5c;
+    --accent3: #52d9b4;
+    --accent4: #f5c842;
+    --text: #e8ecf4;
+    --text-muted: #7a85a3;
+    --text-dim: #434d6a;
+    --glow: rgba(108,142,255,0.15);
+    --glow2: rgba(255,124,92,0.12);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Background texture */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: 
+      radial-gradient(ellipse 80% 50% at 20% 10%, rgba(108,142,255,0.06) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 40% at 80% 90%, rgba(255,124,92,0.05) 0%, transparent 50%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .page { position: relative; z-index: 1; }
+
+  /* ── HEADER ── */
+  header {
+    padding: 60px 80px 40px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 40px;
+  }
+
+  .logo {
+    font-family: 'DM Serif Display', serif;
+    font-size: 42px;
+    letter-spacing: -1px;
+    line-height: 1;
+  }
+
+  .logo span { color: var(--accent); }
+
+  .header-meta {
+    text-align: right;
+  }
+
+  .header-meta h2 {
+    font-size: 13px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+  }
+
+  .header-meta p {
+    font-size: 28px;
+    font-weight: 300;
+    color: var(--text);
+    line-height: 1.2;
+  }
+
+  /* ── SECTION LABELS ── */
+  .section {
+    padding: 60px 80px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .section-label {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 40px;
+  }
+
+  .section-label .num {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--accent);
+    background: rgba(108,142,255,0.1);
+    border: 1px solid rgba(108,142,255,0.2);
+    padding: 4px 10px;
+    border-radius: 4px;
+  }
+
+  .section-label h2 {
+    font-family: 'DM Serif Display', serif;
+    font-size: 30px;
+    letter-spacing: -0.5px;
+  }
+
+  /* ── OVERVIEW CARDS ── */
+  .overview-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 48px;
+  }
+
+  .overview-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .overview-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+  }
+
+  .overview-card.c1::before { background: var(--accent); }
+  .overview-card.c2::before { background: var(--accent2); }
+  .overview-card.c3::before { background: var(--accent3); }
+  .overview-card.c4::before { background: var(--accent4); }
+
+  .overview-card .icon {
+    font-size: 28px;
+    margin-bottom: 14px;
+    display: block;
+  }
+
+  .overview-card h3 {
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: var(--text);
+  }
+
+  .overview-card p {
+    font-size: 13px;
+    color: var(--text-muted);
+    line-height: 1.5;
+  }
+
+  /* ── UX FLOW ── */
+  .flow-container {
+    position: relative;
+  }
+
+  .flow-row {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    margin-bottom: 2px;
+  }
+
+  /* Main Navigation Spine */
+  .flow-spine {
+    display: flex;
+    gap: 3px;
+    margin-bottom: 40px;
+  }
+
+  .spine-node {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 16px;
+    text-align: center;
+    position: relative;
+    cursor: default;
+    transition: all 0.2s;
+  }
+
+  .spine-node:hover {
+    border-color: var(--accent);
+    background: var(--surface2);
+  }
+
+  .spine-node .node-icon {
+    font-size: 24px;
+    display: block;
+    margin-bottom: 8px;
+  }
+
+  .spine-node .node-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    display: block;
+    margin-bottom: 4px;
+  }
+
+  .spine-node .node-sub {
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  .spine-node.entry { border-top: 3px solid var(--accent); }
+  .spine-node.wellness { border-top: 3px solid var(--accent3); }
+  .spine-node.triggers { border-top: 3px solid var(--accent2); }
+  .spine-node.symptoms { border-top: 3px solid #c084fc; }
+  .spine-node.notes { border-top: 3px solid var(--accent4); }
+  .spine-node.insights { border-top: 3px solid var(--accent3); }
+
+  .flow-arrow {
+    display: flex;
+    align-items: center;
+    padding: 0 4px;
+    color: var(--text-dim);
+    font-size: 16px;
+  }
+
+  /* Detail Flow Sections */
+  .flow-details {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 32px;
+  }
+
+  .flow-module {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+  }
+
+  .module-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .module-header .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .module-header h4 {
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .module-header .badge {
+    margin-left: auto;
+    font-size: 10px;
+    padding: 3px 8px;
+    border-radius: 20px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .module-body {
+    padding: 16px 20px;
+  }
+
+  .flow-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+
+  .flow-item:last-child { border-bottom: none; }
+
+  .flow-item .fi-icon {
+    font-size: 14px;
+    width: 22px;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  .flow-item .fi-text {
+    font-size: 13px;
+    color: var(--text-muted);
+    line-height: 1.4;
+  }
+
+  .flow-item .fi-text strong {
+    color: var(--text);
+    font-weight: 500;
+    display: block;
+    margin-bottom: 2px;
+  }
+
+  /* Interaction types */
+  .chip {
+    display: inline-block;
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: 3px;
+  }
+
+  .chip-slider { background: rgba(108,142,255,0.15); color: var(--accent); }
+  .chip-toggle { background: rgba(82,217,180,0.12); color: var(--accent3); }
+  .chip-input { background: rgba(245,200,66,0.12); color: var(--accent4); }
+  .chip-stepper { background: rgba(255,124,92,0.12); color: var(--accent2); }
+  .chip-tap { background: rgba(192,132,252,0.12); color: #c084fc; }
+
+  /* ── SCREEN WIREFRAMES ── */
+  .wireframes-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 16px;
+  }
+
+  .wireframe {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .wf-header {
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    position: relative;
+  }
+
+  .wf-back {
+    position: absolute;
+    left: 10px;
+    font-size: 10px;
+    color: var(--accent);
+  }
+
+  .wf-body {
+    padding: 12px;
+    min-height: 200px;
+  }
+
+  .wf-row {
+    height: 10px;
+    background: var(--border);
+    border-radius: 3px;
+    margin-bottom: 8px;
+  }
+
+  .wf-row.short { width: 60%; }
+  .wf-row.mid { width: 80%; }
+
+  .wf-slider {
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    margin: 14px 0 6px;
+    position: relative;
+  }
+
+  .wf-slider::after {
+    content: '';
+    position: absolute;
+    left: 20%;
+    top: -5px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--accent);
+    opacity: 0.7;
+  }
+
+  .wf-toggle-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+
+  .wf-toggle-label {
+    height: 8px;
+    width: 50%;
+    background: var(--border);
+    border-radius: 2px;
+  }
+
+  .wf-toggle {
+    width: 28px;
+    height: 14px;
+    border-radius: 7px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+  }
+
+  .wf-btn {
+    height: 32px;
+    border-radius: 8px;
+    margin-top: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  .wf-tab-bar {
+    display: flex;
+    border-top: 1px solid var(--border);
+    height: 40px;
+  }
+
+  .wf-tab {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 8px;
+    color: var(--text-dim);
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .wf-tab.active { color: var(--accent); }
+
+  .wf-tab-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+    background: currentColor;
+    opacity: 0.5;
+  }
+
+  /* Card chart mini */
+  .wf-chart {
+    height: 60px;
+    margin: 10px 0;
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
+  }
+
+  .wf-bar {
+    flex: 1;
+    border-radius: 2px 2px 0 0;
+    opacity: 0.6;
+  }
+
+  .wf-date-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 12px;
+    background: var(--surface2);
+    font-size: 10px;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* ── DATA ARCHITECTURE ── */
+  .arch-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+
+  .arch-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+  }
+
+  .arch-box-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .arch-box-body {
+    padding: 20px;
+  }
+
+  .data-field {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 7px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    font-size: 13px;
+  }
+
+  .data-field:last-child { border-bottom: none; }
+  .data-field .field-name { color: var(--text); }
+  .data-field .field-type {
+    font-size: 11px;
+    color: var(--accent);
+    font-family: monospace;
+    background: rgba(108,142,255,0.08);
+    padding: 2px 8px;
+    border-radius: 4px;
+  }
+
+  /* ── COMPONENT SYSTEM ── */
+  .comp-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+  }
+
+  .comp-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+  }
+
+  .comp-card h4 {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+
+  .comp-card .comp-type {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-bottom: 16px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  /* Live component previews */
+  .preview-slider {
+    position: relative;
+    padding: 8px 0;
+  }
+
+  .ps-track {
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    position: relative;
+  }
+
+  .ps-fill {
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 65%;
+    background: var(--accent);
+    border-radius: 2px;
+  }
+
+  .ps-thumb {
+    position: absolute;
+    top: -8px;
+    left: calc(65% - 10px);
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: white;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+    border: 2px solid var(--accent);
+  }
+
+  .ps-labels {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 10px;
+    font-size: 10px;
+    color: var(--text-dim);
+  }
+
+  /* Toggle component */
+  .preview-toggle {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 10px;
+  }
+
+  .toggle-track {
+    width: 48px;
+    height: 26px;
+    border-radius: 13px;
+    position: relative;
+    transition: background 0.2s;
+    flex-shrink: 0;
+  }
+
+  .toggle-track.on { background: var(--accent3); }
+  .toggle-track.off { background: var(--surface2); border: 1px solid var(--border); }
+  .toggle-track.na { background: var(--surface2); border: 1px solid var(--border); }
+
+  .toggle-thumb {
+    position: absolute;
+    top: 3px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: white;
+    transition: left 0.2s;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+  }
+
+  .toggle-track.on .toggle-thumb { left: 24px; }
+  .toggle-track.off .toggle-thumb { left: 3px; }
+  .toggle-track.na .toggle-thumb { left: 3px; opacity: 0.5; }
+
+  .toggle-label { font-size: 13px; }
+  .toggle-state { font-size: 11px; color: var(--text-muted); }
+
+  /* Stepper component */
+  .preview-stepper {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 10px 16px;
+    width: fit-content;
+  }
+
+  .stepper-btn {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    color: var(--text);
+    cursor: pointer;
+  }
+
+  .stepper-val {
+    font-size: 22px;
+    font-weight: 600;
+    min-width: 40px;
+    text-align: center;
+  }
+
+  /* Mood ring */
+  .preview-mood {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .mood-dot {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.15s;
+    border: 2px solid transparent;
+  }
+
+  .mood-dot:hover { transform: scale(1.1); }
+
+  .mood-dot.selected { border-color: white; }
+
+  /* ── TECH STACK ── */
+  .tech-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+  }
+
+  .tech-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+  }
+
+  .tech-card .tech-category {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+  }
+
+  .tech-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 0;
+    font-size: 13px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+
+  .tech-item:last-child { border-bottom: none; }
+
+  .tech-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    flex-shrink: 0;
+  }
+
+  /* ── IMPROVEMENTS CALLOUT ── */
+  .improvements {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  .improvement-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px 24px;
+    display: flex;
+    gap: 16px;
+  }
+
+  .improvement-card .imp-icon {
+    font-size: 28px;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  .improvement-card h4 {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+
+  .improvement-card p {
+    font-size: 13px;
+    color: var(--text-muted);
+    line-height: 1.55;
+  }
+
+  /* ── FOOTER ── */
+  footer {
+    padding: 40px 80px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: var(--text-dim);
+    font-size: 12px;
+  }
+
+  /* Utility */
+  .accent { color: var(--accent); }
+  .accent2 { color: var(--accent2); }
+  .accent3 { color: var(--accent3); }
+  .accent4 { color: var(--accent4); }
+  .purple { color: #c084fc; }
+
+  .tag {
+    font-size: 10px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .tag-new { background: rgba(82,217,180,0.12); color: var(--accent3); }
+  .tag-improved { background: rgba(108,142,255,0.12); color: var(--accent); }
+  .tag-removed { background: rgba(255,124,92,0.1); color: var(--accent2); }
+
+  /* Connector line */
+  .connector {
+    display: flex;
+    align-items: center;
+    margin: 6px 0;
+    padding-left: 24px;
+  }
+
+  .connector::before {
+    content: '↓';
+    font-size: 14px;
+    color: var(--text-dim);
+    margin-right: 8px;
+  }
+
+  .connector span {
+    font-size: 11px;
+    color: var(--text-dim);
+    font-style: italic;
+  }
+
+  /* State diagram */
+  .state-flow {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin: 12px 0;
+  }
+
+  .state-node {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+
+  .state-arrow {
+    color: var(--text-dim);
+    font-size: 12px;
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+<!-- HEADER -->
+<header>
+  <div>
+    <div class="logo">Mind<span>Log</span></div>
+    <p style="font-size:13px;color:var(--text-muted);margin-top:8px;">Modernized from Optimism Online · Mental Wellness Tracker</p>
+  </div>
+  <div class="header-meta">
+    <h2>Document Type</h2>
+    <p>UX Flow & Application Framework</p>
+  </div>
+</header>
+
+<!-- SECTION 1: APP OVERVIEW -->
+<section class="section">
+  <div class="section-label">
+    <span class="num">01</span>
+    <h2>Application Overview</h2>
+  </div>
+
+  <div class="overview-grid">
+    <div class="overview-card c1">
+      <span class="icon">📊</span>
+      <h3>Core Data Logging</h3>
+      <p>Daily mood, coping, sleep quality/hours, exercise, and medication — the daily heartbeat of the app.</p>
+    </div>
+    <div class="overview-card c2">
+      <span class="icon">⚡</span>
+      <h3>Triggers & Symptoms</h3>
+      <p>Track what impacts mental state — work stress, relationship factors, mood symptoms from irritability to hopelessness.</p>
+    </div>
+    <div class="overview-card c3">
+      <span class="icon">🛡️</span>
+      <h3>Wellness Strategies</h3>
+      <p>Log protective behaviors: sleep, exercise, relaxation, social support, and meaningful activities.</p>
+    </div>
+    <div class="overview-card c4">
+      <span class="icon">📈</span>
+      <h3>Insights & Reports</h3>
+      <p>Charts and generated reports across custom time periods, shareable with clinicians via email or PDF.</p>
+    </div>
+  </div>
+
+  <div class="improvements">
+    <div class="improvement-card">
+      <div class="imp-icon">✨</div>
+      <div>
+        <h4>What We're Modernizing</h4>
+        <p>The original prototype uses 2016-era iOS toggles, sliders, and + / − steppers with no visual hierarchy. We're rebuilding around a design system with haptic-grade interactions, adaptive theming, and inline AI nudges.</p>
+      </div>
+    </div>
+    <div class="improvement-card">
+      <div class="imp-icon">🎯</div>
+      <div>
+        <h4>Core Design Principle</h4>
+        <p>Reduce daily friction to under 90 seconds per entry. Every interaction should feel intentional — sliders replaced with tap-to-rate rings, N/A toggles replaced with skip gestures, and smart defaults from yesterday's entry.</p>
+      </div>
+    </div>
+    <div class="improvement-card">
+      <div class="imp-icon">🔒</div>
+      <div>
+        <h4>Privacy-First Architecture</h4>
+        <p>All data stored locally with optional encrypted cloud sync. No third-party analytics. Clinician sharing is always explicit and user-initiated.</p>
+      </div>
+    </div>
+    <div class="improvement-card">
+      <div class="imp-icon">🤖</div>
+      <div>
+        <h4>AI-Assisted Insights</h4>
+        <p>Pattern detection (sleep → mood correlation), anomaly flags ("Your mood has been lower than usual for 5 days"), and gentle prompts — never prescriptive, always supportive.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SECTION 2: UX FLOW -->
+<section class="section">
+  <div class="section-label">
+    <span class="num">02</span>
+    <h2>UX Flow — Navigation Architecture</h2>
+  </div>
+
+  <!-- Spine -->
+  <div style="margin-bottom:8px;">
+    <p style="font-size:12px;color:var(--text-muted);margin-bottom:16px;letter-spacing:1px;text-transform:uppercase;">Primary Navigation Spine — Tab Bar (Persistent)</p>
+  </div>
+
+  <div class="flow-spine">
+    <div class="spine-node entry">
+      <span class="node-icon">📋</span>
+      <span class="node-label">Today</span>
+      <span class="node-sub">Daily entry hub</span>
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="spine-node wellness">
+      <span class="node-icon">🛡️</span>
+      <span class="node-label">Wellness</span>
+      <span class="node-sub">Strategies</span>
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="spine-node triggers">
+      <span class="node-icon">⚡</span>
+      <span class="node-label">Triggers</span>
+      <span class="node-sub">What happened</span>
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="spine-node symptoms">
+      <span class="node-icon">💭</span>
+      <span class="node-label">Symptoms</span>
+      <span class="node-sub">How I feel</span>
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="spine-node notes">
+      <span class="node-icon">✏️</span>
+      <span class="node-label">Journal</span>
+      <span class="node-sub">Free text</span>
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="spine-node insights">
+      <span class="node-icon">📈</span>
+      <span class="node-label">Insights</span>
+      <span class="node-sub">Charts & reports</span>
+    </div>
+  </div>
+
+  <!-- Detailed module breakdowns -->
+  <div class="flow-details">
+
+    <!-- TODAY / CORE DATA -->
+    <div class="flow-module">
+      <div class="module-header">
+        <div class="dot" style="background:var(--accent)"></div>
+        <h4>Today — Core Data</h4>
+        <span class="badge" style="background:rgba(108,142,255,0.1);color:var(--accent);">Entry Hub</span>
+      </div>
+      <div class="module-body">
+
+        <div class="state-flow">
+          <div class="state-node">🌅 Open app</div>
+          <div class="state-arrow">→</div>
+          <div class="state-node">Date header</div>
+          <div class="state-arrow">→</div>
+          <div class="state-node">Section list</div>
+        </div>
+
+        <div class="flow-item">
+          <span class="fi-icon">😊</span>
+          <div class="fi-text">
+            <strong>Your Mood</strong>
+            1–10 rating. Replaced by 10-dot color ring with emoji anchors (1=very low, 5=neutral, 10=excellent).
+            <br><span class="chip chip-tap">Tap</span>
+          </div>
+        </div>
+        <div class="flow-item">
+          <span class="fi-icon">🧠</span>
+          <div class="fi-text">
+            <strong>How Coped</strong>
+            1–10 rating. "How well did you manage today?"
+            <br><span class="chip chip-tap">Tap</span>
+          </div>
+        </div>
+        <div class="flow-item">
+          <span class="fi-icon">💤</span>
+          <div class="fi-text">
+            <strong>Sleep Quality + Hours</strong>
+            Quality: 1–10 dot ring. Hours/minutes: scroll wheel picker or numeric input.
+            <br><span class="chip chip-tap">Tap</span> <span class="chip chip-input">Picker</span>
+          </div>
+        </div>
+        <div class="flow-item">
+          <span class="fi-icon">🏃</span>
+          <div class="fi-text">
+            <strong>Exercise</strong>
+            Duration in minutes. Smart presets: 15 / 30 / 60 / custom.
+            <br><span class="chip chip-tap">Tap preset</span> <span class="chip chip-input">Custom</span>
+          </div>
+        </div>
+        <div class="flow-item">
+          <span class="fi-icon">💊</span>
+          <div class="fi-text">
+            <strong>Medicine Taken</strong>
+            Simple yes/no. Medication names come from Settings setup.
+            <br><span class="chip chip-toggle">Toggle</span>
+          </div>
+        </div>
+        <div class="flow-item">
+          <span class="fi-icon">💾</span>
+          <div class="fi-text">
+            <strong>Auto-save</strong>
+            Entries save on field exit. No manual save button required. Completion ring shows progress.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- WELLNESS STRATEGIES -->
+    <div class="flow-module">
+      <div class="module-header">
+        <div class="dot" style="background:var(--accent3)"></div>
+        <h4>Wellness Strategies</h4>
+        <span class="badge" style="background:rgba(82,217,180,0.1);color:var(--accent3);">Protective</span>
+      </div>
+      <div class="module-body">
+
+        <div class="state-flow">
+          <div class="state-node">Strategy list</div>
+          <div class="state-arrow">→</div>
+          <div class="state-node">Rate / skip</div>
+          <div class="state-arrow">→</div>
+          <div class="state-node">Auto-save</div>
+        </div>
+
+        <p style="font-size:11px;color:var(--text-muted);margin-bottom:12px;font-style:italic;">Toggle shows: Did / Didn't / N/A. If Did → optional 1–10 quality slider appears inline.</p>
+
+        <div class="flow-item">
+          <span class="fi-icon">😴</span>
+          <div class="fi-text"><strong>Adequate Sleep</strong> → quality slider if ✓<br><span class="chip chip-toggle">3-state</span> <span class="chip chip-slider">Slider</span></div>
+        </div>
+        <div class="flow-item">
+          <span class="fi-icon">🏃</span>
+          <div class="fi-text"><strong>Exercise</strong> → quality slider if ✓<br><span class="chip chip-toggle">3-state</span></div>
+        </div>
+        <div class="flow-item">
+          <span class="fi-icon">🧘</span>
+          <div class="fi-text"><strong>Relaxation / Meditation</strong><br><span class="chip chip-toggle">3-state</span></div>
+        </div>
+        <div class="flow-item">
+          <span class="fi-icon">🥗</span>
+          <div class="fi-text"><strong>Healthy Meals · Plenty of Water · Min. Caffeine · Min. Alcohol</strong><br><span class="chip chip-toggle">3-state</span></div>
+        </div>
+        <div class="flow-item">
+          <span class="fi-icon">👥</span>
+          <div class="fi-text"><strong>Professional & Social Support</strong><br><span class="chip chip-toggle">3-state</span></div>
+        </div>
+        <div class="flow-item">
+          <span class="fi-icon">🎯</span>
+          <div class="fi-text"><strong>Enjoyable Activities · Activities With Others · Time Outside · Routine Day</strong><br><span class="chip chip-toggle">3-state</span></div>
+        </div>
+        <div class="flow-item">
+          <span class="fi-icon">➕</span>
+          <div class="fi-text"><strong>Custom Strategies</strong> <span class="tag tag-new">New</span><br>User can add personal wellness habits beyond the defaults.<br><span class="chip chip-tap">Add custom</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TRIGGERS + SYMPTOMS -->
+    <div class="flow-module">
+      <div class="module-header">
+        <div class="dot" style="background:var(--accent2)"></div>
+        <h4>Triggers & Symptoms</h4>
+        <span class="badge" style="background:rgba(255,124,92,0.1);color:var(--accent2);">Tracking</span>
+      </div>
+      <div class="module-body">
+
+        <div class="state-flow">
+          <div class="state-node">N/A default</div>
+          <div class="state-arrow">→</div>
+          <div class="state-node">Toggle on</div>
+          <div class="state-arrow">→</div>
+          <div class="state-node">Rate severity</div>
+        </div>
+
+        <p style="font-size:11px;color:var(--text-muted);margin-bottom:12px;font-style:italic;">Only active triggers/symptoms show their rating slider. Inactive collapse. Reduces visual noise.</p>
+
+        <div class="flow-item">
+          <span class="fi-icon">💼</span>
+          <div class="fi-text"><strong>Stress at Work / Home</strong> → 1–10 severity<br><span class="chip chip-toggle">Toggle</span> <span class="chip chip-slider">Severity</span></div>
+        </div>
+        <div class="flow-item">
+          <span class="fi-icon">😴</span>
+          <div class="fi-text"><strong>Lack of Sleep / Exercise</strong> — binary present/absent<br><span class="chip chip-toggle">Toggle</span></div>
+        </div>
+        <div class="flow-item">
+          <span class="fi-icon">💬</span>
+          <div class="fi-text"><strong>Negative Self Talk · Arguing · Relationship Problems</strong><br><span class="chip chip-toggle">Toggle</span> <span class="chip chip-slider">Severity</span></div>
+        </div>
+        <div class="flow-item">
+          <span class="fi-icon">🍷</span>
+          <div class="fi-text"><strong>Alcohol · Recreational Drugs · Poor Diet</strong><br><span class="chip chip-toggle">Toggle</span> <span class="chip chip-slider">Severity</span></div>
+        </div>
+        <div class="flow-item">
+          <span class="fi-icon">🔴</span>
+          <div class="fi-text"><strong>Symptoms: Irritability · Anger · Sadness · Anxiety</strong><br>Symptom severity 1–10 with visual gradient indicator.<br><span class="chip chip-slider">Slider + color</span></div>
+        </div>
+        <div class="flow-item">
+          <span class="fi-icon">⚠️</span>
+          <div class="fi-text"><strong>Suicidal Thoughts</strong> — flagged UI, shows immediate resource prompt if enabled.<br><span class="chip chip-toggle">Toggle</span></div>
+        </div>
+        <div class="flow-item">
+          <span class="fi-icon">➕</span>
+          <div class="fi-text"><strong>Custom Triggers</strong> <span class="tag tag-new">New</span><br>Personalized tracking items beyond defaults.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom row: Journal + Insights -->
+  <div class="flow-details" style="grid-template-columns: 1fr 1fr;">
+
+    <div class="flow-module">
+      <div class="module-header">
+        <div class="dot" style="background:var(--accent4)"></div>
+        <h4>Journal — Notes</h4>
+        <span class="badge" style="background:rgba(245,200,66,0.1);color:var(--accent4);">Free Text</span>
+      </div>
+      <div class="module-body">
+        <div class="state-flow">
+          <div class="state-node">Tap to write</div>
+          <div class="state-arrow">→</div>
+          <div class="state-node">Rich text editor</div>
+          <div class="state-arrow">→</div>
+          <div class="state-node">Auto-save</div>
+        </div>
+        <div class="flow-item">
+          <span class="fi-icon">📝</span>
+          <div class="fi-text"><strong>Free-form note area</strong> — per date, like the original. Plain text + basic markdown support (bold, lists).</div>
+        </div>
+        <div class="flow-item">
+          <span class="fi-icon">💡</span>
+          <div class="fi-text"><strong>Prompt of the day</strong> <span class="tag tag-new">New</span> — Optional writing prompt (e.g. "What was one thing that went well?") to scaffold journaling for new users.</div>
+        </div>
+        <div class="flow-item">
+          <span class="fi-icon">🔍</span>
+          <div class="fi-text"><strong>Search past notes</strong> <span class="tag tag-new">New</span> — Full-text search across journal entries. Filter by date range.</div>
+        </div>
+        <div class="flow-item">
+          <span class="fi-icon">🎤</span>
+          <div class="fi-text"><strong>Voice-to-text input</strong> <span class="tag tag-new">New</span> — Tap microphone to dictate journal entry, auto-transcribed on-device.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="flow-module">
+      <div class="module-header">
+        <div class="dot" style="background:var(--accent3)"></div>
+        <h4>Insights — Charts & Reports</h4>
+        <span class="badge" style="background:rgba(82,217,180,0.1);color:var(--accent3);">Analytics</span>
+      </div>
+      <div class="module-body">
+        <div class="state-flow">
+          <div class="state-node">Choose period</div>
+          <div class="state-arrow">→</div>
+          <div class="state-node">Select metrics</div>
+          <div class="state-arrow">→</div>
+          <div class="state-node">View / Share</div>
+        </div>
+        <div class="flow-item">
+          <span class="fi-icon">📅</span>
+          <div class="fi-text"><strong>Period selector</strong> — 2 weeks / 1 month / 3 months / custom date range. <span class="tag tag-improved">Improved</span> from original's 2-option limit.</div>
+        </div>
+        <div class="flow-item">
+          <span class="fi-icon">📊</span>
+          <div class="fi-text"><strong>Mood + Coping chart</strong> — Line chart. Sleep hours as bar chart overlay. Color-coded band zones (low / moderate / well).</div>
+        </div>
+        <div class="flow-item">
+          <span class="fi-icon">🔗</span>
+          <div class="fi-text"><strong>Correlation view</strong> <span class="tag tag-new">New</span> — "When you exercised 30+ min, your mood averaged 7.2 vs 5.1 without." Scatter plots + trend lines.</div>
+        </div>
+        <div class="flow-item">
+          <span class="fi-icon">📄</span>
+          <div class="fi-text"><strong>Clinician report</strong> — PDF or printable view with structured summary. Share via AirDrop, email, or direct EHR link.</div>
+        </div>
+        <div class="flow-item">
+          <span class="fi-icon">🔔</span>
+          <div class="fi-text"><strong>AI pattern alerts</strong> <span class="tag tag-new">New</span> — "Your sleep has dropped below 6 hours for 4 consecutive days." Gentle, non-alarmist nudges.</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- SECTION 3: SCREEN WIREFRAMES -->
+<section class="section">
+  <div class="section-label">
+    <span class="num">03</span>
+    <h2>Screen Wireframes — Modernized</h2>
+  </div>
+
+  <div class="wireframes-grid">
+
+    <!-- HOME / TODAY -->
+    <div class="wireframe">
+      <div class="wf-header">
+        Today
+      </div>
+      <div class="wf-date-nav">
+        <span>‹</span>
+        <span>Fri 20 Feb</span>
+        <span>›</span>
+      </div>
+      <div class="wf-body">
+        <!-- Completion ring placeholder -->
+        <div style="display:flex;justify-content:center;margin:8px 0 14px;">
+          <div style="width:48px;height:48px;border-radius:50%;border:3px solid var(--accent);border-top-color:var(--border);display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--accent);font-weight:700;">72%</div>
+        </div>
+        <div class="wf-row short" style="margin-bottom:14px;"></div>
+        <!-- Mood dots row -->
+        <div style="display:flex;gap:3px;margin-bottom:10px;">
+          <div style="height:14px;width:14px;border-radius:50%;background:#ef4444;opacity:.5;"></div>
+          <div style="height:14px;width:14px;border-radius:50%;background:#f97316;opacity:.5;"></div>
+          <div style="height:14px;width:14px;border-radius:50%;background:#eab308;opacity:.5;"></div>
+          <div style="height:14px;width:14px;border-radius:50%;background:#84cc16;opacity:.5;"></div>
+          <div style="height:14px;width:14px;border-radius:50%;background:#22c55e;opacity:.6;border:2px solid white;"></div>
+        </div>
+        <div class="wf-row" style="margin-bottom:14px;"></div>
+        <div class="wf-slider"></div>
+        <div class="wf-row short"></div>
+        <div class="wf-row" style="margin-bottom:14px;"></div>
+        <div class="wf-btn" style="background:var(--accent);color:white;font-size:10px;">
+          Save Entry
+        </div>
+      </div>
+      <div class="wf-tab-bar">
+        <div class="wf-tab active">
+          <div class="wf-tab-dot"></div>
+          <span>Today</span>
+        </div>
+        <div class="wf-tab">
+          <div class="wf-tab-dot"></div>
+          <span>Well</span>
+        </div>
+        <div class="wf-tab">
+          <div class="wf-tab-dot"></div>
+          <span>Insights</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- WELLNESS -->
+    <div class="wireframe">
+      <div class="wf-header">
+        <span class="wf-back">‹ Back</span>
+        Wellness
+      </div>
+      <div class="wf-date-nav">
+        <span>‹</span>
+        <span>Fri 20 Feb</span>
+        <span>›</span>
+      </div>
+      <div class="wf-body">
+        <div class="wf-toggle-row">
+          <div class="wf-toggle-label"></div>
+          <div class="wf-toggle" style="background:var(--accent3);opacity:.6;"></div>
+        </div>
+        <div class="wf-slider" style="margin-top:4px;"></div>
+        <div class="wf-toggle-row" style="margin-top:12px;">
+          <div class="wf-toggle-label"></div>
+          <div class="wf-toggle"></div>
+        </div>
+        <div class="wf-toggle-row" style="margin-top:8px;">
+          <div class="wf-toggle-label"></div>
+          <div class="wf-toggle" style="background:var(--accent3);opacity:.6;"></div>
+        </div>
+        <div class="wf-toggle-row" style="margin-top:8px;">
+          <div class="wf-toggle-label"></div>
+          <div class="wf-toggle"></div>
+        </div>
+        <div class="wf-toggle-row" style="margin-top:8px;">
+          <div class="wf-toggle-label"></div>
+          <div class="wf-toggle" style="background:var(--accent3);opacity:.6;"></div>
+        </div>
+        <div class="wf-row short" style="margin-top:14px;"></div>
+        <div class="wf-row mid"></div>
+      </div>
+    </div>
+
+    <!-- TRIGGERS -->
+    <div class="wireframe">
+      <div class="wf-header">
+        <span class="wf-back">‹ Back</span>
+        Triggers
+      </div>
+      <div class="wf-date-nav">
+        <span>‹</span>
+        <span>Fri 20 Feb</span>
+        <span>›</span>
+      </div>
+      <div class="wf-body">
+        <div class="wf-toggle-row">
+          <div class="wf-toggle-label"></div>
+          <div class="wf-toggle" style="background:var(--accent2);opacity:.6;"></div>
+        </div>
+        <div class="wf-slider" style="margin-top:4px;">
+          <div style="position:absolute;top:0;left:0;bottom:0;width:45%;background:var(--accent2);border-radius:2px;opacity:0.5;"></div>
+        </div>
+        <div class="wf-toggle-row" style="margin-top:12px;">
+          <div class="wf-toggle-label"></div>
+          <div class="wf-toggle"></div>
+        </div>
+        <div class="wf-toggle-row" style="margin-top:8px;">
+          <div class="wf-toggle-label"></div>
+          <div class="wf-toggle"></div>
+        </div>
+        <div class="wf-toggle-row" style="margin-top:8px;">
+          <div class="wf-toggle-label"></div>
+          <div class="wf-toggle" style="background:var(--accent2);opacity:.6;"></div>
+        </div>
+        <div class="wf-slider" style="margin-top:4px;">
+          <div style="position:absolute;top:0;left:0;bottom:0;width:70%;background:var(--accent2);border-radius:2px;opacity:0.5;"></div>
+        </div>
+        <div class="wf-toggle-row" style="margin-top:12px;">
+          <div class="wf-toggle-label"></div>
+          <div class="wf-toggle"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SYMPTOMS -->
+    <div class="wireframe">
+      <div class="wf-header">
+        <span class="wf-back">‹ Back</span>
+        Symptoms
+      </div>
+      <div class="wf-date-nav">
+        <span>‹</span>
+        <span>Fri 20 Feb</span>
+        <span>›</span>
+      </div>
+      <div class="wf-body">
+        <div class="wf-toggle-row">
+          <div class="wf-toggle-label"></div>
+          <div class="wf-toggle" style="background:#c084fc;opacity:.6;"></div>
+        </div>
+        <div style="height:4px;background:linear-gradient(to right, #22c55e, #eab308, #ef4444);border-radius:2px;margin:10px 0 16px;position:relative;">
+          <div style="position:absolute;top:-6px;left:40%;width:12px;height:12px;border-radius:50%;background:white;box-shadow:0 1px 4px rgba(0,0,0,.4);border:2px solid #c084fc;"></div>
+        </div>
+        <div class="wf-toggle-row">
+          <div class="wf-toggle-label"></div>
+          <div class="wf-toggle"></div>
+        </div>
+        <div class="wf-toggle-row" style="margin-top:8px;">
+          <div class="wf-toggle-label"></div>
+          <div class="wf-toggle" style="background:#c084fc;opacity:.6;"></div>
+        </div>
+        <div style="height:4px;background:linear-gradient(to right, #22c55e, #eab308, #ef4444);border-radius:2px;margin:10px 0 16px;position:relative;">
+          <div style="position:absolute;top:-6px;left:65%;width:12px;height:12px;border-radius:50%;background:white;box-shadow:0 1px 4px rgba(0,0,0,.4);border:2px solid #ef4444;"></div>
+        </div>
+        <div class="wf-toggle-row">
+          <div class="wf-toggle-label"></div>
+          <div class="wf-toggle"></div>
+        </div>
+        <div class="wf-toggle-row" style="margin-top:8px;">
+          <div class="wf-toggle-label"></div>
+          <div class="wf-toggle"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- JOURNAL -->
+    <div class="wireframe">
+      <div class="wf-header">
+        <span class="wf-back">‹ Back</span>
+        Journal
+      </div>
+      <div class="wf-date-nav">
+        <span>‹</span>
+        <span>Fri 20 Feb</span>
+        <span>›</span>
+      </div>
+      <div class="wf-body">
+        <!-- Prompt card -->
+        <div style="background:rgba(245,200,66,0.08);border:1px solid rgba(245,200,66,0.15);border-radius:8px;padding:8px 10px;margin-bottom:12px;">
+          <div style="height:7px;background:var(--accent4);border-radius:2px;opacity:.4;width:80%;margin-bottom:5px;"></div>
+          <div style="height:6px;background:var(--border);border-radius:2px;width:60%;"></div>
+        </div>
+        <div class="wf-row"></div>
+        <div class="wf-row mid"></div>
+        <div class="wf-row short"></div>
+        <div class="wf-row"></div>
+        <div class="wf-row mid"></div>
+        <div style="margin-top:16px;display:flex;gap:8px;">
+          <div style="width:24px;height:24px;border-radius:50%;background:var(--surface2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:10px;">🎤</div>
+          <div style="flex:1;height:24px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- INSIGHTS -->
+    <div class="wireframe">
+      <div class="wf-header">
+        Insights
+      </div>
+      <div class="wf-body" style="padding:10px;">
+        <!-- Period toggle -->
+        <div style="display:flex;gap:4px;margin-bottom:10px;">
+          <div style="flex:1;height:18px;background:var(--accent);border-radius:4px;opacity:.8;"></div>
+          <div style="flex:1;height:18px;background:var(--border);border-radius:4px;"></div>
+          <div style="flex:1;height:18px;background:var(--border);border-radius:4px;"></div>
+        </div>
+        <!-- Mini chart -->
+        <div class="wf-chart">
+          <div class="wf-bar" style="height:40%;background:var(--accent2);"></div>
+          <div class="wf-bar" style="height:55%;background:var(--accent);"></div>
+          <div class="wf-bar" style="height:30%;background:var(--accent2);"></div>
+          <div class="wf-bar" style="height:70%;background:var(--accent);"></div>
+          <div class="wf-bar" style="height:80%;background:var(--accent);"></div>
+          <div class="wf-bar" style="height:60%;background:var(--accent);"></div>
+          <div class="wf-bar" style="height:45%;background:var(--accent2);"></div>
+          <div class="wf-bar" style="height:75%;background:var(--accent);"></div>
+          <div class="wf-bar" style="height:90%;background:var(--accent3);"></div>
+          <div class="wf-bar" style="height:85%;background:var(--accent3);"></div>
+          <div class="wf-bar" style="height:70%;background:var(--accent);"></div>
+          <div class="wf-bar" style="height:65%;background:var(--accent);"></div>
+          <div class="wf-bar" style="height:80%;background:var(--accent3);"></div>
+          <div class="wf-bar" style="height:95%;background:var(--accent3);"></div>
+        </div>
+        <!-- Insight card -->
+        <div style="background:rgba(82,217,180,0.08);border:1px solid rgba(82,217,180,0.15);border-radius:6px;padding:6px 8px;margin-top:8px;">
+          <div style="height:6px;background:var(--accent3);border-radius:2px;opacity:.5;width:90%;margin-bottom:4px;"></div>
+          <div style="height:5px;background:var(--border);border-radius:2px;width:70%;"></div>
+        </div>
+        <div class="wf-row" style="margin-top:10px;"></div>
+        <div class="wf-btn" style="background:var(--surface2);border:1px solid var(--border);color:var(--text-muted);font-size:9px;margin-top:10px;">
+          Share Report ↑
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <p style="font-size:12px;color:var(--text-dim);margin-top:16px;font-style:italic;">Wireframes are schematic — final visual design will use the design system defined in Section 5.</p>
+</section>
+
+<!-- SECTION 4: DATA ARCHITECTURE -->
+<section class="section">
+  <div class="section-label">
+    <span class="num">04</span>
+    <h2>Data Architecture</h2>
+  </div>
+
+  <div class="arch-grid">
+    <div class="arch-box">
+      <div class="arch-box-header">
+        <span>📋</span> DailyEntry — Core Model
+      </div>
+      <div class="arch-box-body">
+        <div class="data-field"><span class="field-name">id</span><span class="field-type">UUID</span></div>
+        <div class="data-field"><span class="field-name">date</span><span class="field-type">Date</span></div>
+        <div class="data-field"><span class="field-name">mood</span><span class="field-type">Int(1–10)?</span></div>
+        <div class="data-field"><span class="field-name">coping</span><span class="field-type">Int(1–10)?</span></div>
+        <div class="data-field"><span class="field-name">sleepQuality</span><span class="field-type">Int(1–10)?</span></div>
+        <div class="data-field"><span class="field-name">sleepHours</span><span class="field-type">Float?</span></div>
+        <div class="data-field"><span class="field-name">exerciseMinutes</span><span class="field-type">Int?</span></div>
+        <div class="data-field"><span class="field-name">medicineTaken</span><span class="field-type">Bool?</span></div>
+        <div class="data-field"><span class="field-name">notes</span><span class="field-type">String?</span></div>
+        <div class="data-field"><span class="field-name">updatedAt</span><span class="field-type">Timestamp</span></div>
+        <div class="data-field"><span class="field-name">strategies</span><span class="field-type">→StrategyLog[]</span></div>
+        <div class="data-field"><span class="field-name">triggers</span><span class="field-type">→TriggerLog[]</span></div>
+        <div class="data-field"><span class="field-name">symptoms</span><span class="field-type">→SymptomLog[]</span></div>
+      </div>
+    </div>
+
+    <div class="arch-box">
+      <div class="arch-box-header">
+        <span>⚡</span> TriggerLog / StrategyLog / SymptomLog
+      </div>
+      <div class="arch-box-body">
+        <div class="data-field"><span class="field-name">id</span><span class="field-type">UUID</span></div>
+        <div class="data-field"><span class="field-name">entryId</span><span class="field-type">→DailyEntry</span></div>
+        <div class="data-field"><span class="field-name">itemKey</span><span class="field-type">String (enum)</span></div>
+        <div class="data-field"><span class="field-name">state</span><span class="field-type">notApplicable | yes | no</span></div>
+        <div class="data-field"><span class="field-name">severity</span><span class="field-type">Int(1–10)?</span></div>
+        <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
+          <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px;font-style:italic;">Predefined item keys (extensible with custom items):</p>
+          <div class="data-field"><span class="field-name">Triggers</span><span class="field-type">20 default keys</span></div>
+          <div class="data-field"><span class="field-name">Strategies</span><span class="field-type">13 default keys</span></div>
+          <div class="data-field"><span class="field-name">Symptoms</span><span class="field-type">12 default keys</span></div>
+          <div class="data-field"><span class="field-name">Custom items</span><span class="field-type">user-defined</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="arch-box">
+      <div class="arch-box-header">
+        <span>⚙️</span> Settings / UserProfile
+      </div>
+      <div class="arch-box-body">
+        <div class="data-field"><span class="field-name">userId</span><span class="field-type">UUID (local)</span></div>
+        <div class="data-field"><span class="field-name">medications</span><span class="field-type">String[]</span></div>
+        <div class="data-field"><span class="field-name">reminderTime</span><span class="field-type">Time?</span></div>
+        <div class="data-field"><span class="field-name">enabledSections</span><span class="field-type">Section[]</span></div>
+        <div class="data-field"><span class="field-name">customTriggers</span><span class="field-type">CustomItem[]</span></div>
+        <div class="data-field"><span class="field-name">customStrategies</span><span class="field-type">CustomItem[]</span></div>
+        <div class="data-field"><span class="field-name">theme</span><span class="field-type">light | dark | system</span></div>
+        <div class="data-field"><span class="field-name">clinicianEmail</span><span class="field-type">String?</span></div>
+        <div class="data-field"><span class="field-name">syncEnabled</span><span class="field-type">Bool</span></div>
+        <div class="data-field"><span class="field-name">biometricLock</span><span class="field-type">Bool</span></div>
+      </div>
+    </div>
+
+    <div class="arch-box">
+      <div class="arch-box-header">
+        <span>📦</span> Storage Strategy
+      </div>
+      <div class="arch-box-body">
+        <div class="data-field"><span class="field-name">Primary</span><span class="field-type">SQLite / CoreData</span></div>
+        <div class="data-field"><span class="field-name">Cloud Sync</span><span class="field-type">CloudKit (opt-in)</span></div>
+        <div class="data-field"><span class="field-name">Export</span><span class="field-type">JSON / CSV / PDF</span></div>
+        <div class="data-field"><span class="field-name">Encryption</span><span class="field-type">AES-256 at rest</span></div>
+        <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
+          <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px;font-style:italic;">Cross-platform targets:</p>
+          <div class="data-field"><span class="field-name">iOS / iPadOS</span><span class="field-type">SwiftUI</span></div>
+          <div class="data-field"><span class="field-name">Android</span><span class="field-type">Jetpack Compose</span></div>
+          <div class="data-field"><span class="field-name">Web</span><span class="field-type">React + TypeScript</span></div>
+          <div class="data-field"><span class="field-name">Shared logic</span><span class="field-type">Kotlin Multiplatform</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SECTION 5: COMPONENT SYSTEM -->
+<section class="section">
+  <div class="section-label">
+    <span class="num">05</span>
+    <h2>Component System — Interaction Patterns</h2>
+  </div>
+
+  <div class="comp-grid">
+
+    <!-- Rating Ring -->
+    <div class="comp-card">
+      <h4>Rating Ring</h4>
+      <div class="comp-type">Replaces: Slider (mood, coping)</div>
+      <div class="preview-mood">
+        <div class="mood-dot" style="background:#ef4444;">1</div>
+        <div class="mood-dot" style="background:#f97316;">2</div>
+        <div class="mood-dot" style="background:#f59e0b;">3</div>
+        <div class="mood-dot" style="background:#eab308;">4</div>
+        <div class="mood-dot selected" style="background:#84cc16;">5</div>
+        <div class="mood-dot" style="background:#22c55e;">6</div>
+        <div class="mood-dot" style="background:#10b981;">7</div>
+        <div class="mood-dot" style="background:#14b8a6;">8</div>
+        <div class="mood-dot" style="background:#06b6d4;">9</div>
+        <div class="mood-dot" style="background:#6366f1;">10</div>
+      </div>
+      <p style="font-size:12px;color:var(--text-muted);margin-top:12px;line-height:1.5;">One tap to select 1–10. Color gradient from red→indigo. Tapping again in the same spot deselects (N/A). Large tap targets for accessibility.</p>
+    </div>
+
+    <!-- Sentiment Slider -->
+    <div class="comp-card">
+      <h4>Sentiment Slider</h4>
+      <div class="comp-type">Used for: triggers & symptom severity</div>
+      <div class="preview-slider">
+        <div class="ps-track">
+          <div class="ps-fill" style="background:linear-gradient(to right,#22c55e,#eab308,#ef4444);"></div>
+          <div class="ps-thumb"></div>
+        </div>
+        <div class="ps-labels">
+          <span>Minimal</span>
+          <span>Moderate</span>
+          <span>Severe</span>
+        </div>
+      </div>
+      <p style="font-size:12px;color:var(--text-muted);margin-top:12px;line-height:1.5;">Color-coded gradient track (green → amber → red). Only appears when parent item is toggled ON. Hidden by default to reduce visual noise.</p>
+    </div>
+
+    <!-- 3-State Toggle -->
+    <div class="comp-card">
+      <h4>3-State Toggle</h4>
+      <div class="comp-type">Replaces: N/A toggle + separate state</div>
+      <div class="preview-toggle">
+        <div class="toggle-track on">
+          <div class="toggle-thumb"></div>
+        </div>
+        <div>
+          <div class="toggle-label">Did it ✓</div>
+          <div class="toggle-state" style="color:var(--accent3);">Completed</div>
+        </div>
+      </div>
+      <div class="preview-toggle">
+        <div class="toggle-track off">
+          <div class="toggle-thumb"></div>
+        </div>
+        <div>
+          <div class="toggle-label">Didn't do it</div>
+          <div class="toggle-state">Not completed</div>
+        </div>
+      </div>
+      <div class="preview-toggle">
+        <div class="toggle-track na">
+          <div class="toggle-thumb" style="opacity:0.4;"></div>
+        </div>
+        <div>
+          <div class="toggle-label" style="opacity:0.6;">N/A — skip</div>
+          <div class="toggle-state">Tap to cycle</div>
+        </div>
+      </div>
+      <p style="font-size:12px;color:var(--text-muted);margin-top:8px;line-height:1.5;">Tap cycles: N/A → Yes → No → N/A. Swipe right = Yes, swipe left = No for power users.</p>
+    </div>
+
+    <!-- Stepper -->
+    <div class="comp-card">
+      <h4>Smart Stepper</h4>
+      <div class="comp-type">Used for: sleep hours, exercise</div>
+      <div style="margin:12px 0;">
+        <div class="preview-stepper">
+          <div class="stepper-btn">−</div>
+          <div class="stepper-val accent">7</div>
+          <div class="stepper-btn">+</div>
+        </div>
+        <p style="font-size:11px;color:var(--text-muted);margin-top:8px;">Hours</p>
+      </div>
+      <p style="font-size:12px;color:var(--text-muted);margin-top:4px;line-height:1.5;">Replaces original +/− buttons. Long-press to fast-scroll. Tap number to type directly. Scroll wheel picker alternative for sleep (hours:minutes).</p>
+    </div>
+
+    <!-- Date Navigator -->
+    <div class="comp-card">
+      <h4>Date Navigator</h4>
+      <div class="comp-type">Persistent across all entry screens</div>
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;margin:12px 0;">
+        <span style="font-size:18px;color:var(--text-muted);">‹</span>
+        <div style="text-align:center;">
+          <div style="font-size:14px;font-weight:600;">Friday</div>
+          <div style="font-size:11px;color:var(--text-muted);">20 February 2026</div>
+        </div>
+        <span style="font-size:18px;color:var(--text-muted);">›</span>
+      </div>
+      <p style="font-size:12px;color:var(--text-muted);line-height:1.5;">Swipe left/right on any entry screen to move dates. Tap date to open full calendar picker. "Today" badge appears if viewing past date.</p>
+    </div>
+
+    <!-- Completion Ring -->
+    <div class="comp-card">
+      <h4>Daily Completion Ring</h4>
+      <div class="comp-type">New — entry progress indicator</div>
+      <div style="display:flex;align-items:center;gap:16px;margin:12px 0;">
+        <div style="position:relative;width:60px;height:60px;">
+          <svg width="60" height="60" viewBox="0 0 60 60">
+            <circle cx="30" cy="30" r="24" fill="none" stroke="var(--border)" stroke-width="5"/>
+            <circle cx="30" cy="30" r="24" fill="none" stroke="var(--accent)" stroke-width="5"
+              stroke-dasharray="150.8" stroke-dashoffset="45" stroke-linecap="round"
+              transform="rotate(-90 30 30)"/>
+          </svg>
+          <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--accent);">70%</div>
+        </div>
+        <div>
+          <div style="font-size:13px;font-weight:600;">Core Data ✓</div>
+          <div style="font-size:12px;color:var(--text-muted);">Wellness 3/13</div>
+          <div style="font-size:12px;color:var(--text-muted);">Triggers 0/20</div>
+        </div>
+      </div>
+      <p style="font-size:12px;color:var(--text-muted);line-height:1.5;">Shows entry completeness per day. Encourages thorough logging without being guilt-inducing. Visible on Today screen header.</p>
+    </div>
+
+  </div>
+</section>
+
+<!-- SECTION 6: TECH STACK -->
+<section class="section">
+  <div class="section-label">
+    <span class="num">06</span>
+    <h2>Recommended Tech Stack</h2>
+  </div>
+
+  <div class="tech-grid">
+    <div class="tech-card">
+      <div class="tech-category">Mobile — iOS</div>
+      <div class="tech-item"><div class="tech-dot" style="background:var(--accent);"></div>SwiftUI 5+</div>
+      <div class="tech-item"><div class="tech-dot" style="background:var(--accent);"></div>Swift Charts</div>
+      <div class="tech-item"><div class="tech-dot" style="background:var(--accent);"></div>CoreData + CloudKit</div>
+      <div class="tech-item"><div class="tech-dot" style="background:var(--accent);"></div>HealthKit integration</div>
+      <div class="tech-item"><div class="tech-dot" style="background:var(--accent);"></div>LocalAuthentication</div>
+      <div class="tech-item"><div class="tech-dot" style="background:var(--accent);"></div>UserNotifications</div>
+    </div>
+
+    <div class="tech-card">
+      <div class="tech-category">Mobile — Android</div>
+      <div class="tech-item"><div class="tech-dot" style="background:var(--accent3);"></div>Jetpack Compose</div>
+      <div class="tech-item"><div class="tech-dot" style="background:var(--accent3);"></div>Room Database</div>
+      <div class="tech-item"><div class="tech-dot" style="background:var(--accent3);"></div>Health Connect API</div>
+      <div class="tech-item"><div class="tech-dot" style="background:var(--accent3);"></div>WorkManager (reminders)</div>
+      <div class="tech-item"><div class="tech-dot" style="background:var(--accent3);"></div>BiometricPrompt</div>
+      <div class="tech-item"><div class="tech-dot" style="background:var(--accent3);"></div>Vico Charts</div>
+    </div>
+
+    <div class="tech-card">
+      <div class="tech-category">Web / Clinician Portal</div>
+      <div class="tech-item"><div class="tech-dot" style="background:var(--accent2);"></div>React 19 + TypeScript</div>
+      <div class="tech-item"><div class="tech-dot" style="background:var(--accent2);"></div>Recharts / D3.js</div>
+      <div class="tech-item"><div class="tech-dot" style="background:var(--accent2);"></div>Tanstack Query</div>
+      <div class="tech-item"><div class="tech-dot" style="background:var(--accent2);"></div>Supabase (backend)</div>
+      <div class="tech-item"><div class="tech-dot" style="background:var(--accent2);"></div>PDF generation (Puppeteer)</div>
+      <div class="tech-item"><div class="tech-dot" style="background:var(--accent2);"></div>NextJS App Router</div>
+    </div>
+
+    <div class="tech-card">
+      <div class="tech-category">AI / Analytics</div>
+      <div class="tech-item"><div class="tech-dot" style="background:var(--accent4);"></div>On-device ML (CoreML)</div>
+      <div class="tech-item"><div class="tech-dot" style="background:var(--accent4);"></div>Trend detection (local)</div>
+      <div class="tech-item"><div class="tech-dot" style="background:var(--accent4);"></div>Claude API (opt-in insights)</div>
+      <div class="tech-item"><div class="tech-dot" style="background:var(--accent4);"></div>Speech-to-text (Whisper)</div>
+      <div class="tech-item"><div class="tech-dot" style="background:var(--accent4);"></div>Privacy-preserving analytics</div>
+      <div class="tech-item"><div class="tech-dot" style="background:var(--accent4);"></div>No 3rd-party SDKs in core</div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div>
+    <strong style="color:var(--text);">MindLog</strong> — Modernization of Optimism Online
+  </div>
+  <div>
+    UX Flow · Application Framework · Component System
+  </div>
+  <div style="color:var(--accent);">
+    Generated February 2026
+  </div>
+</footer>
+
+</div>
+</body>
+</html>

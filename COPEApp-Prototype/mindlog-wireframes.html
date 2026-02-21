@@ -1,0 +1,2931 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MindLog — Interactive Mobile Wireframes</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,300;1,9..144,400&family=Figtree:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════
+   GLOBAL RESET & VARIABLES
+═══════════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  /* Design system tokens */
+  --bg-deep: #0a0c10;
+  --bg-page: #f0ede8;
+  --phone-bg: #0f1117;
+  --screen-bg: #f7f4ef;
+  --screen-bg2: #efecea;
+  --card: #ffffff;
+  --card-warm: #fdfaf6;
+  --border: #e2ddd6;
+  --border-dark: #d4cec6;
+
+  /* Semantic colors */
+  --ink: #1a1714;
+  --ink-mid: #5c5650;
+  --ink-soft: #9b958e;
+  --ink-ghost: #c8c2bb;
+
+  /* Accent palette */
+  --teal: #2a9d8f;
+  --teal-light: #e8f6f4;
+  --teal-mid: #52b9ae;
+  --amber: #e76f1b;
+  --amber-light: #fef3ea;
+  --amber-mid: #f0943e;
+  --rose: #e05c6e;
+  --rose-light: #fdeef0;
+  --sage: #5a8a6a;
+  --sage-light: #eef5f0;
+  --lavender: #7c6fa0;
+  --lavender-light: #f2f0f8;
+  --gold: #c9972a;
+  --gold-light: #fdf6e8;
+
+  /* Mood gradient stops */
+  --mood-1: #d62c2c;
+  --mood-3: #e07a1a;
+  --mood-5: #c9972a;
+  --mood-7: #5a8a6a;
+  --mood-10: #2a6db5;
+
+  /* Typography */
+  --font-display: 'Fraunces', Georgia, serif;
+  --font-body: 'Figtree', -apple-system, sans-serif;
+
+  /* Spacing */
+  --r-xs: 6px;
+  --r-sm: 10px;
+  --r-md: 16px;
+  --r-lg: 22px;
+  --r-xl: 28px;
+  --r-full: 999px;
+}
+
+body {
+  font-family: var(--font-body);
+  background: var(--bg-deep);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 40px 20px 80px;
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* Subtle noise texture overlay */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.035'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.6;
+}
+
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: 
+    radial-gradient(ellipse 60% 40% at 15% 20%, rgba(42,157,143,0.08) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 60% at 85% 80%, rgba(231,111,27,0.06) 0%, transparent 55%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ═══════════════════════════════════════
+   PAGE HEADER
+═══════════════════════════════════════ */
+.page-header {
+  position: relative;
+  z-index: 10;
+  text-align: center;
+  margin-bottom: 48px;
+}
+
+.page-title {
+  font-family: var(--font-display);
+  font-size: 48px;
+  font-weight: 300;
+  color: #f0ede8;
+  letter-spacing: -1px;
+  line-height: 1;
+  margin-bottom: 8px;
+}
+
+.page-title em {
+  font-style: italic;
+  color: #b8c8a8;
+}
+
+.page-subtitle {
+  font-size: 14px;
+  color: rgba(240,237,232,0.45);
+  font-weight: 400;
+  letter-spacing: 0.5px;
+}
+
+/* ═══════════════════════════════════════
+   SCREEN NAVIGATION
+═══════════════════════════════════════ */
+.screen-nav {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  gap: 8px;
+  margin-bottom: 40px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.nav-btn {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  color: rgba(240,237,232,0.55);
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 8px 16px;
+  border-radius: var(--r-full);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  letter-spacing: 0.3px;
+}
+
+.nav-btn:hover {
+  background: rgba(255,255,255,0.1);
+  color: rgba(240,237,232,0.8);
+}
+
+.nav-btn.active {
+  background: #f0ede8;
+  border-color: #f0ede8;
+  color: #0f1117;
+}
+
+/* ═══════════════════════════════════════
+   PHONE SHELL
+═══════════════════════════════════════ */
+.phone-stage {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 48px;
+  flex-wrap: wrap;
+}
+
+.phone-wrapper {
+  position: relative;
+}
+
+.phone-shell {
+  width: 390px;
+  height: 844px;
+  background: #1c1c1e;
+  border-radius: 54px;
+  padding: 12px;
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,0.08),
+    0 60px 120px rgba(0,0,0,0.7),
+    0 30px 60px rgba(0,0,0,0.5),
+    inset 0 0 0 1px rgba(255,255,255,0.04);
+  position: relative;
+}
+
+/* Side buttons */
+.phone-shell::before {
+  content: '';
+  position: absolute;
+  left: -3px;
+  top: 140px;
+  width: 3px;
+  height: 36px;
+  background: #2c2c2e;
+  border-radius: 2px 0 0 2px;
+  box-shadow: 0 50px 0 #2c2c2e, 0 100px 0 #2c2c2e;
+}
+
+.phone-shell::after {
+  content: '';
+  position: absolute;
+  right: -3px;
+  top: 180px;
+  width: 3px;
+  height: 66px;
+  background: #2c2c2e;
+  border-radius: 0 2px 2px 0;
+}
+
+.phone-screen {
+  width: 100%;
+  height: 100%;
+  background: var(--screen-bg);
+  border-radius: 44px;
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Dynamic Island */
+.dynamic-island {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 120px;
+  height: 34px;
+  background: #000;
+  border-radius: 20px;
+  z-index: 100;
+}
+
+/* Status bar */
+.status-bar {
+  height: 54px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  padding: 0 28px 10px;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.status-time {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+  letter-spacing: -0.3px;
+}
+
+.status-icons {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.status-icons svg {
+  opacity: 0.8;
+}
+
+/* Screen content */
+.screen-content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none;
+}
+.screen-content::-webkit-scrollbar { display: none; }
+
+/* Screen display control */
+.screen { display: none; width: 100%; height: 100%; flex-direction: column; }
+.screen.active { display: flex; }
+
+/* ═══════════════════════════════════════
+   SHARED COMPONENTS
+═══════════════════════════════════════ */
+
+/* Navigation bar */
+.nav-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 24px 10px;
+  flex-shrink: 0;
+  background: var(--screen-bg);
+}
+
+.nav-bar-title {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--ink);
+  letter-spacing: -0.3px;
+}
+
+.nav-back {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--teal);
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 6px 10px 6px 6px;
+  border-radius: var(--r-sm);
+  margin-left: -6px;
+  transition: background 0.15s;
+}
+.nav-back:hover { background: var(--teal-light); }
+
+.nav-action {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--card);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.07);
+}
+.nav-action:hover { background: var(--border); }
+
+/* Date navigator strip */
+.date-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 20px 10px;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border);
+  background: var(--screen-bg);
+}
+
+.date-strip-arrow {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--teal);
+  font-size: 18px;
+  transition: background 0.15s;
+}
+.date-strip-arrow:hover { background: var(--teal-light); }
+
+.date-strip-label {
+  text-align: center;
+}
+
+.date-strip-day {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+  letter-spacing: -0.2px;
+}
+
+.date-strip-full {
+  font-size: 11px;
+  color: var(--ink-soft);
+  margin-top: 1px;
+}
+
+/* Scroll area within a screen */
+.scroll-area {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none;
+  padding: 16px 20px 120px;
+}
+.scroll-area::-webkit-scrollbar { display: none; }
+
+/* Section header within scroll */
+.section-head {
+  margin: 20px 0 10px;
+}
+.section-head:first-child { margin-top: 0; }
+
+.section-head-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  color: var(--ink-soft);
+  margin-bottom: 8px;
+}
+
+/* Card container */
+.card {
+  background: var(--card);
+  border-radius: var(--r-lg);
+  border: 1px solid var(--border);
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+.card-row {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+  position: relative;
+}
+.card-row:last-child { border-bottom: none; }
+
+.card-row-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 2px;
+}
+
+.card-row-sub {
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
+/* ═══════════════════════════════════════
+   BOTTOM TAB BAR
+═══════════════════════════════════════ */
+.tab-bar {
+  display: flex;
+  height: 82px;
+  background: rgba(247,244,239,0.95);
+  border-top: 1px solid var(--border);
+  padding: 8px 0 20px;
+  flex-shrink: 0;
+  backdrop-filter: blur(10px);
+  position: relative;
+  z-index: 10;
+}
+
+.tab-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  cursor: pointer;
+  transition: all 0.2s;
+  padding: 6px 4px;
+  border-radius: var(--r-sm);
+  margin: 0 4px;
+}
+
+.tab-item:hover { background: rgba(0,0,0,0.04); }
+
+.tab-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  transition: all 0.2s;
+}
+
+.tab-item.active .tab-icon {
+  background: var(--teal);
+}
+
+.tab-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--ink-ghost);
+  letter-spacing: 0.3px;
+  transition: color 0.2s;
+}
+
+.tab-item.active .tab-label { color: var(--teal); }
+
+/* ═══════════════════════════════════════
+   SCREEN 1: TODAY / HOME
+═══════════════════════════════════════ */
+.today-header {
+  padding: 10px 24px 20px;
+  background: linear-gradient(160deg, #1a3a35 0%, #0f2420 100%);
+  position: relative;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.today-header::before {
+  content: '';
+  position: absolute;
+  top: -40px; right: -40px;
+  width: 200px; height: 200px;
+  background: radial-gradient(circle, rgba(42,157,143,0.25) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.today-greeting {
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 300;
+  color: rgba(240,237,232,0.95);
+  letter-spacing: -0.5px;
+  line-height: 1.2;
+  margin-bottom: 4px;
+}
+
+.today-date-label {
+  font-size: 13px;
+  color: rgba(240,237,232,0.5);
+  font-weight: 400;
+  margin-bottom: 20px;
+}
+
+/* Completion ring */
+.completion-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.ring-wrapper {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  flex-shrink: 0;
+}
+
+.ring-svg {
+  transform: rotate(-90deg);
+}
+
+.ring-text {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.ring-pct {
+  font-size: 14px;
+  font-weight: 700;
+  color: #e8f6f4;
+  line-height: 1;
+}
+
+.ring-pct-label {
+  font-size: 8px;
+  color: rgba(232,246,244,0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.completion-details {
+  flex: 1;
+}
+
+.completion-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 5px;
+}
+
+.completion-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.completion-text {
+  font-size: 12px;
+  color: rgba(240,237,232,0.7);
+}
+
+.completion-text strong {
+  color: rgba(240,237,232,0.95);
+  font-weight: 600;
+}
+
+/* Today quick entry cards */
+.entry-card {
+  background: var(--card);
+  border-radius: var(--r-lg);
+  border: 1px solid var(--border);
+  overflow: hidden;
+  margin-bottom: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+.entry-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px 10px;
+}
+
+.entry-card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.entry-card-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+}
+
+.entry-card-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.entry-status-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: var(--r-full);
+}
+
+/* Mood ring component */
+.mood-ring {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 16px 16px;
+  gap: 4px;
+}
+
+.mood-pip {
+  flex: 1;
+  height: 36px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.9);
+  cursor: pointer;
+  transition: all 0.15s;
+  position: relative;
+}
+
+.mood-pip:hover { transform: translateY(-2px); }
+
+.mood-pip.selected::after {
+  content: '';
+  position: absolute;
+  bottom: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--ink);
+}
+
+.mood-pip.selected {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  transform: translateY(-3px);
+}
+
+/* Sleep hours display */
+.sleep-display {
+  padding: 4px 16px 16px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.sleep-big {
+  text-align: center;
+}
+
+.sleep-num {
+  font-family: var(--font-display);
+  font-size: 36px;
+  font-weight: 300;
+  color: var(--ink);
+  line-height: 1;
+  letter-spacing: -1px;
+}
+
+.sleep-unit {
+  font-size: 11px;
+  color: var(--ink-soft);
+  margin-top: 2px;
+}
+
+.sleep-stepper-group {
+  flex: 1;
+}
+
+.sleep-stepper {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  background: var(--screen-bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+
+.stepper-minus, .stepper-plus {
+  width: 40px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  color: var(--teal);
+  cursor: pointer;
+  font-weight: 300;
+  transition: background 0.1s;
+  flex-shrink: 0;
+}
+.stepper-minus:hover, .stepper-plus:hover { background: var(--teal-light); }
+
+.stepper-val {
+  flex: 1;
+  text-align: center;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ink);
+  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  padding: 0 4px;
+}
+
+.stepper-label {
+  font-size: 10px;
+  color: var(--ink-soft);
+  text-align: center;
+}
+
+/* Medicine toggle */
+.medicine-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+}
+
+.med-info {}
+.med-name { font-size: 14px; font-weight: 600; color: var(--ink); }
+.med-sub { font-size: 12px; color: var(--ink-soft); }
+
+.toggle-pill {
+  width: 50px;
+  height: 28px;
+  border-radius: 14px;
+  position: relative;
+  transition: background 0.25s;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.toggle-pill.on { background: var(--teal); }
+.toggle-pill.off { background: var(--ink-ghost); }
+
+.toggle-pill .knob {
+  position: absolute;
+  top: 3px;
+  width: 22px;
+  height: 22px;
+  background: white;
+  border-radius: 50%;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+  transition: left 0.25s;
+}
+
+.toggle-pill.on .knob { left: 25px; }
+.toggle-pill.off .knob { left: 3px; }
+
+/* Exercise presets */
+.exercise-presets {
+  display: flex;
+  gap: 6px;
+  padding: 4px 16px 16px;
+}
+
+.preset-btn {
+  flex: 1;
+  height: 34px;
+  border-radius: var(--r-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1.5px solid var(--border);
+  background: var(--screen-bg2);
+  color: var(--ink-mid);
+  transition: all 0.15s;
+}
+
+.preset-btn.active {
+  background: var(--teal);
+  border-color: var(--teal);
+  color: white;
+}
+
+.preset-btn:hover:not(.active) {
+  border-color: var(--teal);
+  color: var(--teal);
+}
+
+/* ═══════════════════════════════════════
+   SCREEN 2: WELLNESS STRATEGIES
+═══════════════════════════════════════ */
+.wellness-header {
+  padding: 12px 24px 18px;
+  background: linear-gradient(150deg, #1e3a2a 0%, #122216 100%);
+  flex-shrink: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.wellness-header::before {
+  content: '';
+  position: absolute;
+  bottom: -30px; right: -30px;
+  width: 160px; height: 160px;
+  background: radial-gradient(circle, rgba(90,138,106,0.3) 0%, transparent 70%);
+}
+
+.screen-header-title {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 400;
+  color: rgba(240,237,232,0.95);
+  letter-spacing: -0.3px;
+  margin-bottom: 4px;
+}
+
+.screen-header-sub {
+  font-size: 12px;
+  color: rgba(240,237,232,0.45);
+}
+
+.screen-header-stat-row {
+  display: flex;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.screen-stat {
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: var(--r-sm);
+  padding: 8px 12px;
+  flex: 1;
+}
+
+.screen-stat-num {
+  font-size: 20px;
+  font-weight: 700;
+  font-family: var(--font-display);
+  color: rgba(240,237,232,0.95);
+  line-height: 1;
+}
+
+.screen-stat-label {
+  font-size: 10px;
+  color: rgba(240,237,232,0.45);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 3px;
+}
+
+/* Three-state strategy item */
+.strategy-item {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+  position: relative;
+}
+.strategy-item:last-child { border-bottom: none; }
+
+.strategy-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0;
+}
+
+.strategy-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.strategy-icon {
+  font-size: 18px;
+  width: 24px;
+  text-align: center;
+}
+
+.strategy-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.strategy-name.dimmed { color: var(--ink-ghost); }
+
+/* 3-state selector */
+.tristate {
+  display: flex;
+  background: var(--screen-bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-full);
+  overflow: hidden;
+}
+
+.tristate-btn {
+  padding: 5px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink-ghost);
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.tristate-btn.active-yes {
+  background: var(--sage);
+  color: white;
+  border-radius: var(--r-full);
+}
+
+.tristate-btn.active-no {
+  background: var(--rose);
+  color: white;
+  border-radius: var(--r-full);
+}
+
+.tristate-btn.active-na {
+  background: var(--ink-ghost);
+  color: white;
+  border-radius: var(--r-full);
+}
+
+/* Strategy slider (inline, appears when YES) */
+.strategy-slider-wrap {
+  margin-top: 10px;
+  padding: 8px 12px;
+  background: var(--sage-light);
+  border-radius: var(--r-sm);
+}
+
+.strategy-slider-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--ink-soft);
+  margin-bottom: 6px;
+}
+
+.strategy-slider-label span:last-child {
+  font-weight: 700;
+  color: var(--sage);
+}
+
+.gradient-track {
+  height: 6px;
+  border-radius: 3px;
+  background: linear-gradient(to right, #dbecd1, #5a8a6a);
+  position: relative;
+}
+
+.gradient-thumb {
+  position: absolute;
+  top: -7px;
+  width: 20px;
+  height: 20px;
+  background: white;
+  border: 2px solid var(--sage);
+  border-radius: 50%;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+}
+
+/* ═══════════════════════════════════════
+   SCREEN 3: TRIGGERS
+═══════════════════════════════════════ */
+.triggers-header {
+  padding: 12px 24px 18px;
+  background: linear-gradient(150deg, #3a1e1e 0%, #241212 100%);
+  flex-shrink: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.triggers-header::before {
+  content: '';
+  position: absolute;
+  bottom: -30px; right: -30px;
+  width: 160px; height: 160px;
+  background: radial-gradient(circle, rgba(224,92,110,0.25) 0%, transparent 70%);
+}
+
+.trigger-item {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+}
+.trigger-item:last-child { border-bottom: none; }
+
+.trigger-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.trigger-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.trigger-icon {
+  font-size: 16px;
+  width: 22px;
+  text-align: center;
+}
+
+.trigger-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+/* Severity slider (red-themed) */
+.severity-wrap {
+  margin-top: 10px;
+  padding: 8px 12px;
+  background: var(--rose-light);
+  border-radius: var(--r-sm);
+}
+
+.severity-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--ink-soft);
+  margin-bottom: 6px;
+}
+
+.severity-label span:last-child {
+  font-weight: 700;
+  color: var(--rose);
+}
+
+.severity-track {
+  height: 6px;
+  border-radius: 3px;
+  background: linear-gradient(to right, #fde8eb, #e05c6e);
+  position: relative;
+}
+
+.severity-thumb {
+  position: absolute;
+  top: -7px;
+  width: 20px;
+  height: 20px;
+  background: white;
+  border: 2px solid var(--rose);
+  border-radius: 50%;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+}
+
+/* Active trigger badge */
+.trigger-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: var(--r-full);
+  background: var(--rose-light);
+  color: var(--rose);
+}
+
+/* ═══════════════════════════════════════
+   SCREEN 4: SYMPTOMS
+═══════════════════════════════════════ */
+.symptoms-header {
+  padding: 12px 24px 18px;
+  background: linear-gradient(150deg, #2a1e3a 0%, #1a1224 100%);
+  flex-shrink: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.symptoms-header::before {
+  content: '';
+  position: absolute;
+  bottom: -30px; right: -30px;
+  width: 160px; height: 160px;
+  background: radial-gradient(circle, rgba(124,111,160,0.3) 0%, transparent 70%);
+}
+
+.symptom-item {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+}
+.symptom-item:last-child { border-bottom: none; }
+
+.symptom-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.symptom-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.symptom-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+/* Symptom gradient slider (lavender) */
+.symptom-slider-wrap {
+  margin-top: 10px;
+  padding: 8px 12px;
+  background: var(--lavender-light);
+  border-radius: var(--r-sm);
+}
+
+.symptom-slider-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--ink-soft);
+  margin-bottom: 6px;
+}
+
+.symptom-slider-label span:last-child {
+  font-weight: 700;
+  color: var(--lavender);
+}
+
+.symptom-track {
+  height: 6px;
+  border-radius: 3px;
+  background: linear-gradient(to right, #e5e0f5, #7c6fa0);
+  position: relative;
+}
+
+.symptom-thumb {
+  position: absolute;
+  top: -7px;
+  width: 20px;
+  height: 20px;
+  background: white;
+  border: 2px solid var(--lavender);
+  border-radius: 50%;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+}
+
+/* Warning symptom */
+.symptom-warning {
+  background: #fff8e1;
+  border: 1px solid #f5d76e;
+  border-radius: var(--r-sm);
+  padding: 10px 14px;
+  margin-top: 10px;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.symptom-warning-text {
+  font-size: 12px;
+  color: #8a6d00;
+  line-height: 1.4;
+}
+
+.symptom-warning-text a {
+  color: var(--amber);
+  font-weight: 700;
+  text-decoration: underline;
+}
+
+/* ═══════════════════════════════════════
+   SCREEN 5: JOURNAL
+═══════════════════════════════════════ */
+.journal-header {
+  padding: 12px 24px 18px;
+  background: linear-gradient(150deg, #2e2810 0%, #1c1a0a 100%);
+  flex-shrink: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.journal-header::before {
+  content: '';
+  position: absolute;
+  bottom: -30px; right: -30px;
+  width: 160px; height: 160px;
+  background: radial-gradient(circle, rgba(201,151,42,0.3) 0%, transparent 70%);
+}
+
+.prompt-card {
+  background: var(--gold-light);
+  border: 1px solid rgba(201,151,42,0.25);
+  border-radius: var(--r-md);
+  padding: 14px 16px;
+  margin-bottom: 14px;
+}
+
+.prompt-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.prompt-tag {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--gold);
+}
+
+.prompt-text {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-style: italic;
+  font-weight: 400;
+  color: var(--ink);
+  line-height: 1.5;
+}
+
+/* Journal textarea area */
+.journal-area {
+  background: var(--card);
+  border-radius: var(--r-lg);
+  border: 1px solid var(--border);
+  overflow: hidden;
+  margin-bottom: 14px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+.journal-toolbar {
+  display: flex;
+  gap: 2px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--screen-bg2);
+}
+
+.toolbar-btn {
+  width: 30px;
+  height: 28px;
+  border-radius: var(--r-xs);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-mid);
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.toolbar-btn:hover { background: var(--border); }
+.toolbar-btn.active { background: var(--gold-light); color: var(--gold); }
+
+.journal-text-area {
+  padding: 14px 16px;
+  min-height: 160px;
+  position: relative;
+}
+
+.journal-text {
+  font-size: 14px;
+  color: var(--ink);
+  line-height: 1.65;
+}
+
+.journal-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 16px;
+  background: var(--teal);
+  vertical-align: middle;
+  margin-left: 1px;
+  animation: blink 1s step-end infinite;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.journal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  border-top: 1px solid var(--border);
+  background: var(--screen-bg2);
+}
+
+.word-count {
+  font-size: 11px;
+  color: var(--ink-ghost);
+}
+
+.voice-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--teal-light);
+  border: 1px solid rgba(42,157,143,0.2);
+  border-radius: var(--r-full);
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--teal);
+  cursor: pointer;
+}
+
+/* Past entries */
+.past-entry-item {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.past-entry-item:hover { background: var(--screen-bg2); }
+.past-entry-item:last-child { border-bottom: none; }
+
+.past-entry-date {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+
+.past-entry-preview {
+  font-size: 13px;
+  color: var(--ink-mid);
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ═══════════════════════════════════════
+   SCREEN 6: INSIGHTS
+═══════════════════════════════════════ */
+.insights-header {
+  padding: 12px 24px 18px;
+  background: linear-gradient(150deg, #0f2535 0%, #091820 100%);
+  flex-shrink: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.insights-header::before {
+  content: '';
+  position: absolute;
+  bottom: -30px; right: -30px;
+  width: 160px; height: 160px;
+  background: radial-gradient(circle, rgba(42,109,181,0.25) 0%, transparent 70%);
+}
+
+/* Period selector */
+.period-selector {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.period-btn {
+  flex: 1;
+  height: 32px;
+  border-radius: var(--r-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1.5px solid var(--border);
+  background: var(--card);
+  color: var(--ink-mid);
+  transition: all 0.15s;
+}
+
+.period-btn.active {
+  background: #2a6db5;
+  border-color: #2a6db5;
+  color: white;
+}
+
+/* Chart card */
+.chart-card {
+  background: var(--card);
+  border-radius: var(--r-lg);
+  border: 1px solid var(--border);
+  overflow: hidden;
+  margin-bottom: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+.chart-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px 10px;
+}
+
+.chart-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.chart-legend {
+  display: flex;
+  gap: 10px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: var(--ink-soft);
+}
+
+.legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+/* The main chart area */
+.chart-area {
+  padding: 0 16px 16px;
+  position: relative;
+}
+
+/* SVG-based chart */
+.chart-svg {
+  width: 100%;
+  overflow: visible;
+}
+
+/* Insight alert card */
+.insight-alert {
+  background: #e8f6f4;
+  border: 1px solid rgba(42,157,143,0.25);
+  border-radius: var(--r-md);
+  padding: 12px 16px;
+  margin-bottom: 10px;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.insight-alert-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: var(--teal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.insight-alert-body {}
+.insight-alert-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #1a4a44;
+  margin-bottom: 3px;
+}
+.insight-alert-text {
+  font-size: 12px;
+  color: #2d6b64;
+  line-height: 1.4;
+}
+
+/* Correlation card */
+.corr-card {
+  background: var(--card);
+  border-radius: var(--r-lg);
+  border: 1px solid var(--border);
+  padding: 14px 16px;
+  margin-bottom: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+.corr-title {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--ink-soft);
+  margin-bottom: 10px;
+}
+
+.corr-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.corr-label {
+  font-size: 12px;
+  color: var(--ink-mid);
+  width: 80px;
+  flex-shrink: 0;
+}
+
+.corr-bar-track {
+  flex: 1;
+  height: 8px;
+  background: var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.corr-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  background: linear-gradient(to right, var(--teal-mid), var(--teal));
+}
+
+.corr-val {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--teal);
+  width: 24px;
+  text-align: right;
+}
+
+/* Share button */
+.share-btn {
+  background: var(--teal);
+  border-radius: var(--r-md);
+  padding: 14px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  color: white;
+  cursor: pointer;
+  margin-bottom: 12px;
+  transition: opacity 0.15s;
+  box-shadow: 0 4px 14px rgba(42,157,143,0.35);
+}
+.share-btn:hover { opacity: 0.9; }
+
+/* ═══════════════════════════════════════
+   ANIMATIONS
+═══════════════════════════════════════ */
+@keyframes fadeSlideUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.screen.active .screen-content > * {
+  animation: fadeSlideUp 0.3s ease both;
+}
+.screen.active .screen-content > *:nth-child(1) { animation-delay: 0.05s; }
+.screen.active .screen-content > *:nth-child(2) { animation-delay: 0.1s; }
+.screen.active .screen-content > *:nth-child(3) { animation-delay: 0.15s; }
+.screen.active .screen-content > *:nth-child(4) { animation-delay: 0.2s; }
+.screen.active .screen-content > *:nth-child(5) { animation-delay: 0.25s; }
+
+/* ═══════════════════════════════════════
+   ANNOTATION PANEL (beside phone)
+═══════════════════════════════════════ */
+.annotation-panel {
+  width: 280px;
+  align-self: flex-start;
+  position: sticky;
+  top: 40px;
+}
+
+.annotation-title {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 400;
+  color: rgba(240,237,232,0.9);
+  letter-spacing: -0.3px;
+  margin-bottom: 4px;
+  line-height: 1.2;
+}
+
+.annotation-sub {
+  font-size: 12px;
+  color: rgba(240,237,232,0.35);
+  margin-bottom: 20px;
+}
+
+.annotation-card {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: var(--r-md);
+  padding: 16px;
+  margin-bottom: 10px;
+}
+
+.ann-tag {
+  display: inline-block;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  padding: 3px 8px;
+  border-radius: var(--r-full);
+  margin-bottom: 8px;
+}
+
+.ann-tag.new { background: rgba(42,157,143,0.2); color: #52b9ae; }
+.ann-tag.improved { background: rgba(108,150,255,0.2); color: #8aabff; }
+.ann-tag.removed { background: rgba(224,92,110,0.2); color: #f09ba6; }
+
+.ann-text {
+  font-size: 12.5px;
+  color: rgba(240,237,232,0.6);
+  line-height: 1.55;
+}
+
+.ann-text strong {
+  color: rgba(240,237,232,0.9);
+  font-weight: 600;
+}
+
+.screen-dot-nav {
+  display: flex;
+  gap: 6px;
+  margin-top: 24px;
+  flex-wrap: wrap;
+}
+
+.sdot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.15);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.sdot.active {
+  background: rgba(240,237,232,0.8);
+  width: 24px;
+  border-radius: 4px;
+}
+</style>
+</head>
+<body>
+
+<!-- ═══ PAGE HEADER ═══ -->
+<div class="page-header">
+  <div class="page-title">Mind<em>Log</em></div>
+  <div class="page-subtitle">High-fidelity mobile wireframes · All 6 screens</div>
+</div>
+
+<!-- ═══ SCREEN NAV ═══ -->
+<div class="screen-nav">
+  <button class="nav-btn active" onclick="switchScreen(0)">① Today</button>
+  <button class="nav-btn" onclick="switchScreen(1)">② Wellness</button>
+  <button class="nav-btn" onclick="switchScreen(2)">③ Triggers</button>
+  <button class="nav-btn" onclick="switchScreen(3)">④ Symptoms</button>
+  <button class="nav-btn" onclick="switchScreen(4)">⑤ Journal</button>
+  <button class="nav-btn" onclick="switchScreen(5)">⑥ Insights</button>
+</div>
+
+<!-- ═══ STAGE ═══ -->
+<div class="phone-stage">
+
+  <!-- ── PHONE ── -->
+  <div class="phone-wrapper">
+    <div class="phone-shell">
+      <div class="phone-screen">
+        <div class="dynamic-island"></div>
+
+        <!-- ▸▸▸ STATUS BAR -->
+        <div class="status-bar">
+          <span class="status-time">9:41</span>
+          <div class="status-icons">
+            <svg width="17" height="12" viewBox="0 0 17 12" fill="none">
+              <rect x="0" y="3" width="3" height="9" rx="1" fill="#1a1714"/>
+              <rect x="4.5" y="2" width="3" height="10" rx="1" fill="#1a1714"/>
+              <rect x="9" y="0" width="3" height="12" rx="1" fill="#1a1714"/>
+              <rect x="13.5" y="0" width="3" height="12" rx="1" fill="#1a1714" opacity="0.3"/>
+            </svg>
+            <svg width="16" height="12" viewBox="0 0 16 12" fill="#1a1714">
+              <path d="M8 2C10.7 2 13.1 3.2 14.7 5.1L16 3.7C14 1.4 11.1 0 8 0C4.9 0 2 1.4 0 3.7L1.3 5.1C2.9 3.2 5.3 2 8 2Z"/>
+              <path d="M8 5C9.9 5 11.6 5.8 12.8 7.1L14.1 5.7C12.5 4.1 10.4 3 8 3C5.6 3 3.5 4.1 1.9 5.7L3.2 7.1C4.4 5.8 6.1 5 8 5Z"/>
+              <circle cx="8" cy="10" r="2"/>
+            </svg>
+            <svg width="25" height="12" viewBox="0 0 25 12" fill="none">
+              <rect x="0.5" y="0.5" width="21" height="11" rx="3.5" stroke="#1a1714" stroke-opacity="0.35"/>
+              <rect x="2" y="2" width="16" height="8" rx="2" fill="#1a1714"/>
+              <path d="M23 4V8C23.8 7.7 24.5 7 24.5 6C24.5 5 23.8 4.3 23 4Z" fill="#1a1714" opacity="0.4"/>
+            </svg>
+          </div>
+        </div>
+
+        <!-- ▸▸▸ SCREEN 1: TODAY -->
+        <div class="screen active" id="screen-today">
+          <!-- Dark header -->
+          <div class="today-header">
+            <div class="today-greeting">Good morning,<br>here's your check-in</div>
+            <div class="today-date-label">Friday, 20 February 2026</div>
+            <div class="completion-row">
+              <div class="ring-wrapper">
+                <svg class="ring-svg" width="64" height="64" viewBox="0 0 64 64">
+                  <circle cx="32" cy="32" r="26" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="5"/>
+                  <circle cx="32" cy="32" r="26" fill="none" stroke="#52b9ae" stroke-width="5"
+                    stroke-dasharray="163.4" stroke-dashoffset="57" stroke-linecap="round"/>
+                </svg>
+                <div class="ring-text">
+                  <div class="ring-pct">65%</div>
+                  <div class="ring-pct-label">done</div>
+                </div>
+              </div>
+              <div class="completion-details">
+                <div class="completion-item">
+                  <div class="completion-dot" style="background:#52b9ae;"></div>
+                  <div class="completion-text"><strong>Core Data</strong> complete ✓</div>
+                </div>
+                <div class="completion-item">
+                  <div class="completion-dot" style="background:#f0943e;"></div>
+                  <div class="completion-text"><strong>Wellness</strong> 4 of 13 logged</div>
+                </div>
+                <div class="completion-item">
+                  <div class="completion-dot" style="background:rgba(255,255,255,0.2);"></div>
+                  <div class="completion-text">Triggers not started</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Scroll content -->
+          <div class="screen-content">
+            <div class="scroll-area">
+
+              <!-- Mood Card -->
+              <div class="section-head"><div class="section-head-label">Your Mood</div></div>
+              <div class="entry-card">
+                <div class="entry-card-header">
+                  <div class="entry-card-title">
+                    <div class="entry-card-icon" style="background:#fef3ea;">😊</div>
+                    <span class="entry-card-name">How are you feeling?</span>
+                  </div>
+                  <span class="entry-status-badge" style="background:#e8f6f4;color:#2a9d8f;">7 · Good</span>
+                </div>
+                <div class="mood-ring">
+                  <div class="mood-pip" style="background:#d62c2c;">1</div>
+                  <div class="mood-pip" style="background:#e05a2a;">2</div>
+                  <div class="mood-pip" style="background:#e07a1a;">3</div>
+                  <div class="mood-pip" style="background:#d09416;">4</div>
+                  <div class="mood-pip" style="background:#c9972a;">5</div>
+                  <div class="mood-pip" style="background:#8aaa30;">6</div>
+                  <div class="mood-pip selected" style="background:#5a8a6a;">7</div>
+                  <div class="mood-pip" style="background:#2a9d7e;">8</div>
+                  <div class="mood-pip" style="background:#2a8ab5;">9</div>
+                  <div class="mood-pip" style="background:#2a6db5;">10</div>
+                </div>
+              </div>
+
+              <!-- Coping Card -->
+              <div class="entry-card">
+                <div class="entry-card-header">
+                  <div class="entry-card-title">
+                    <div class="entry-card-icon" style="background:#eef5f0;">🧠</div>
+                    <span class="entry-card-name">How well did you cope?</span>
+                  </div>
+                  <span class="entry-status-badge" style="background:#e8f6f4;color:#2a9d8f;">6 · OK</span>
+                </div>
+                <div class="mood-ring">
+                  <div class="mood-pip" style="background:#d62c2c;">1</div>
+                  <div class="mood-pip" style="background:#e05a2a;">2</div>
+                  <div class="mood-pip" style="background:#e07a1a;">3</div>
+                  <div class="mood-pip" style="background:#d09416;">4</div>
+                  <div class="mood-pip" style="background:#c9972a;">5</div>
+                  <div class="mood-pip selected" style="background:#8aaa30;">6</div>
+                  <div class="mood-pip" style="background:#5a8a6a;">7</div>
+                  <div class="mood-pip" style="background:#2a9d7e;">8</div>
+                  <div class="mood-pip" style="background:#2a8ab5;">9</div>
+                  <div class="mood-pip" style="background:#2a6db5;">10</div>
+                </div>
+              </div>
+
+              <!-- Sleep Card -->
+              <div class="section-head"><div class="section-head-label">Sleep</div></div>
+              <div class="entry-card">
+                <div class="entry-card-header">
+                  <div class="entry-card-title">
+                    <div class="entry-card-icon" style="background:#f2f0f8;">💤</div>
+                    <span class="entry-card-name">Last night's sleep</span>
+                  </div>
+                  <span class="entry-status-badge" style="background:#f2f0f8;color:#7c6fa0;">7h 30m</span>
+                </div>
+                <div class="sleep-display">
+                  <div class="sleep-big">
+                    <div class="sleep-num" style="color:#7c6fa0;">7<span style="font-size:18px;color:var(--ink-soft);">h</span></div>
+                    <div class="sleep-unit">hours</div>
+                  </div>
+                  <div style="width:1px;height:50px;background:var(--border);"></div>
+                  <div class="sleep-stepper-group">
+                    <div class="sleep-stepper">
+                      <div class="stepper-minus">−</div>
+                      <div class="stepper-val">7</div>
+                      <div class="stepper-plus">+</div>
+                    </div>
+                    <div class="stepper-label">Hours</div>
+                    <div class="sleep-stepper" style="margin-top:6px;">
+                      <div class="stepper-minus">−</div>
+                      <div class="stepper-val">30</div>
+                      <div class="stepper-plus">+</div>
+                    </div>
+                    <div class="stepper-label">Minutes</div>
+                  </div>
+                </div>
+                <!-- Sleep quality sub-rating -->
+                <div style="padding: 0 16px 14px;">
+                  <div style="font-size:12px;color:var(--ink-soft);margin-bottom:8px;">Sleep Quality</div>
+                  <div class="mood-ring" style="padding:0;">
+                    <div class="mood-pip" style="background:#d62c2c;height:28px;font-size:10px;">1</div>
+                    <div class="mood-pip" style="background:#e05a2a;height:28px;font-size:10px;">2</div>
+                    <div class="mood-pip" style="background:#e07a1a;height:28px;font-size:10px;">3</div>
+                    <div class="mood-pip" style="background:#d09416;height:28px;font-size:10px;">4</div>
+                    <div class="mood-pip" style="background:#c9972a;height:28px;font-size:10px;">5</div>
+                    <div class="mood-pip" style="background:#8aaa30;height:28px;font-size:10px;">6</div>
+                    <div class="mood-pip selected" style="background:#5a8a6a;height:28px;font-size:10px;">7</div>
+                    <div class="mood-pip" style="background:#2a9d7e;height:28px;font-size:10px;">8</div>
+                    <div class="mood-pip" style="background:#2a8ab5;height:28px;font-size:10px;">9</div>
+                    <div class="mood-pip" style="background:#2a6db5;height:28px;font-size:10px;">10</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Exercise Card -->
+              <div class="section-head"><div class="section-head-label">Exercise</div></div>
+              <div class="entry-card">
+                <div class="entry-card-header">
+                  <div class="entry-card-title">
+                    <div class="entry-card-icon" style="background:#eef5f0;">🏃</div>
+                    <span class="entry-card-name">Exercise today</span>
+                  </div>
+                  <span class="entry-status-badge" style="background:#eef5f0;color:#5a8a6a;">30 min</span>
+                </div>
+                <div class="exercise-presets">
+                  <div class="preset-btn">15m</div>
+                  <div class="preset-btn active">30m</div>
+                  <div class="preset-btn">60m</div>
+                  <div class="preset-btn">90m</div>
+                  <div class="preset-btn">···</div>
+                </div>
+              </div>
+
+              <!-- Medicine Card -->
+              <div class="section-head"><div class="section-head-label">Medicine</div></div>
+              <div class="entry-card">
+                <div class="medicine-row">
+                  <div class="med-info">
+                    <div class="med-name">Lamotrigine 100mg</div>
+                    <div class="med-sub">Morning dose</div>
+                  </div>
+                  <div class="toggle-pill on"><div class="knob"></div></div>
+                </div>
+                <div style="height:1px;background:var(--border);"></div>
+                <div class="medicine-row">
+                  <div class="med-info">
+                    <div class="med-name">Sertraline 50mg</div>
+                    <div class="med-sub">Evening dose</div>
+                  </div>
+                  <div class="toggle-pill off"><div class="knob"></div></div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- Tab Bar -->
+          <div class="tab-bar">
+            <div class="tab-item active" onclick="switchScreen(0)">
+              <div class="tab-icon">📋</div>
+              <span class="tab-label">Today</span>
+            </div>
+            <div class="tab-item" onclick="switchScreen(1)">
+              <div class="tab-icon">🛡️</div>
+              <span class="tab-label">Wellness</span>
+            </div>
+            <div class="tab-item" onclick="switchScreen(2)">
+              <div class="tab-icon">⚡</div>
+              <span class="tab-label">Triggers</span>
+            </div>
+            <div class="tab-item" onclick="switchScreen(3)">
+              <div class="tab-icon">💭</div>
+              <span class="tab-label">Symptoms</span>
+            </div>
+            <div class="tab-item" onclick="switchScreen(4)">
+              <div class="tab-icon">✏️</div>
+              <span class="tab-label">Journal</span>
+            </div>
+            <div class="tab-item" onclick="switchScreen(5)">
+              <div class="tab-icon">📈</div>
+              <span class="tab-label">Insights</span>
+            </div>
+          </div>
+        </div>
+        <!-- END SCREEN 1 -->
+
+        <!-- ▸▸▸ SCREEN 2: WELLNESS -->
+        <div class="screen" id="screen-wellness">
+          <div class="wellness-header">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+              <div style="color:rgba(240,237,232,0.5);font-size:14px;cursor:pointer;">← Today</div>
+              <div style="font-size:11px;color:rgba(240,237,232,0.35);">Fri 20 Feb</div>
+            </div>
+            <div class="screen-header-title">Stay Well Strategies</div>
+            <div class="screen-header-sub">Track what keeps you well today</div>
+            <div class="screen-header-stat-row">
+              <div class="screen-stat">
+                <div class="screen-stat-num" style="color:#7ec8a0;">4</div>
+                <div class="screen-stat-label">Done</div>
+              </div>
+              <div class="screen-stat">
+                <div class="screen-stat-num" style="color:#f09ba6;">2</div>
+                <div class="screen-stat-label">Didn't</div>
+              </div>
+              <div class="screen-stat">
+                <div class="screen-stat-num">7</div>
+                <div class="screen-stat-label">N/A</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="date-strip" style="background:var(--screen-bg);">
+            <div class="date-strip-arrow">‹</div>
+            <div class="date-strip-label">
+              <div class="date-strip-day">Friday, 20 February</div>
+              <div class="date-strip-full">Tap date to jump to any day</div>
+            </div>
+            <div class="date-strip-arrow">›</div>
+          </div>
+
+          <div class="screen-content">
+            <div class="scroll-area">
+
+              <div class="section-head"><div class="section-head-label">Physical</div></div>
+              <div class="card">
+                <!-- Adequate Sleep — YES with slider -->
+                <div class="strategy-item">
+                  <div class="strategy-top">
+                    <div class="strategy-left">
+                      <div class="strategy-icon">😴</div>
+                      <div class="strategy-name">Adequate Sleep</div>
+                    </div>
+                    <div class="tristate">
+                      <div class="tristate-btn active-yes">Yes</div>
+                      <div class="tristate-btn">No</div>
+                      <div class="tristate-btn">N/A</div>
+                    </div>
+                  </div>
+                  <div class="strategy-slider-wrap">
+                    <div class="strategy-slider-label">
+                      <span>Quality</span>
+                      <span>7 / 10</span>
+                    </div>
+                    <div class="gradient-track">
+                      <div class="gradient-thumb" style="left:calc(65% - 10px);"></div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Exercise — YES no slider for brevity -->
+                <div class="strategy-item">
+                  <div class="strategy-top">
+                    <div class="strategy-left">
+                      <div class="strategy-icon">🏃</div>
+                      <div class="strategy-name">Exercise</div>
+                    </div>
+                    <div class="tristate">
+                      <div class="tristate-btn active-yes">Yes</div>
+                      <div class="tristate-btn">No</div>
+                      <div class="tristate-btn">N/A</div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Relaxation — NO -->
+                <div class="strategy-item">
+                  <div class="strategy-top">
+                    <div class="strategy-left">
+                      <div class="strategy-icon">🧘</div>
+                      <div class="strategy-name dimmed">Relaxation / Meditation</div>
+                    </div>
+                    <div class="tristate">
+                      <div class="tristate-btn">Yes</div>
+                      <div class="tristate-btn active-no">No</div>
+                      <div class="tristate-btn">N/A</div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Healthy Meals — YES -->
+                <div class="strategy-item">
+                  <div class="strategy-top">
+                    <div class="strategy-left">
+                      <div class="strategy-icon">🥗</div>
+                      <div class="strategy-name">Healthy Meals</div>
+                    </div>
+                    <div class="tristate">
+                      <div class="tristate-btn active-yes">Yes</div>
+                      <div class="tristate-btn">No</div>
+                      <div class="tristate-btn">N/A</div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Water — N/A -->
+                <div class="strategy-item">
+                  <div class="strategy-top">
+                    <div class="strategy-left">
+                      <div class="strategy-icon">💧</div>
+                      <div class="strategy-name dimmed">Plenty of Water</div>
+                    </div>
+                    <div class="tristate">
+                      <div class="tristate-btn">Yes</div>
+                      <div class="tristate-btn">No</div>
+                      <div class="tristate-btn active-na">N/A</div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Caffeine — NO -->
+                <div class="strategy-item">
+                  <div class="strategy-top">
+                    <div class="strategy-left">
+                      <div class="strategy-icon">☕</div>
+                      <div class="strategy-name dimmed">Minimal Caffeine</div>
+                    </div>
+                    <div class="tristate">
+                      <div class="tristate-btn">Yes</div>
+                      <div class="tristate-btn active-no">No</div>
+                      <div class="tristate-btn">N/A</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="section-head"><div class="section-head-label">Social & Mental</div></div>
+              <div class="card">
+                <div class="strategy-item">
+                  <div class="strategy-top">
+                    <div class="strategy-left">
+                      <div class="strategy-icon">👨‍⚕️</div>
+                      <div class="strategy-name dimmed">Professional Support</div>
+                    </div>
+                    <div class="tristate">
+                      <div class="tristate-btn">Yes</div>
+                      <div class="tristate-btn">No</div>
+                      <div class="tristate-btn active-na">N/A</div>
+                    </div>
+                  </div>
+                </div>
+                <div class="strategy-item">
+                  <div class="strategy-top">
+                    <div class="strategy-left">
+                      <div class="strategy-icon">👥</div>
+                      <div class="strategy-name">Social Support</div>
+                    </div>
+                    <div class="tristate">
+                      <div class="tristate-btn active-yes">Yes</div>
+                      <div class="tristate-btn">No</div>
+                      <div class="tristate-btn">N/A</div>
+                    </div>
+                  </div>
+                </div>
+                <div class="strategy-item">
+                  <div class="strategy-top">
+                    <div class="strategy-left">
+                      <div class="strategy-icon">🎯</div>
+                      <div class="strategy-name">Enjoyable Activities</div>
+                    </div>
+                    <div class="tristate">
+                      <div class="tristate-btn active-yes">Yes</div>
+                      <div class="tristate-btn">No</div>
+                      <div class="tristate-btn">N/A</div>
+                    </div>
+                  </div>
+                </div>
+                <div class="strategy-item">
+                  <div class="strategy-top">
+                    <div class="strategy-left">
+                      <div class="strategy-icon">🌳</div>
+                      <div class="strategy-name dimmed">Time Outside</div>
+                    </div>
+                    <div class="tristate">
+                      <div class="tristate-btn">Yes</div>
+                      <div class="tristate-btn active-no">No</div>
+                      <div class="tristate-btn">N/A</div>
+                    </div>
+                  </div>
+                </div>
+                <div class="strategy-item">
+                  <div class="strategy-top">
+                    <div class="strategy-left">
+                      <div class="strategy-icon">💭</div>
+                      <div class="strategy-name dimmed">Positive Thinking</div>
+                    </div>
+                    <div class="tristate">
+                      <div class="tristate-btn">Yes</div>
+                      <div class="tristate-btn">No</div>
+                      <div class="tristate-btn active-na">N/A</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Add custom -->
+              <div style="margin-top:12px;padding:14px 18px;background:var(--card);border:1.5px dashed var(--border-dark);border-radius:var(--r-lg);display:flex;align-items:center;gap:10px;cursor:pointer;transition:background 0.15s;">
+                <div style="width:28px;height:28px;border-radius:8px;background:var(--teal-light);display:flex;align-items:center;justify-content:center;font-size:16px;">＋</div>
+                <div style="font-size:14px;font-weight:600;color:var(--teal);">Add custom strategy</div>
+              </div>
+
+            </div>
+          </div>
+
+          <div class="tab-bar">
+            <div class="tab-item" onclick="switchScreen(0)"><div class="tab-icon">📋</div><span class="tab-label">Today</span></div>
+            <div class="tab-item active" onclick="switchScreen(1)"><div class="tab-icon">🛡️</div><span class="tab-label">Wellness</span></div>
+            <div class="tab-item" onclick="switchScreen(2)"><div class="tab-icon">⚡</div><span class="tab-label">Triggers</span></div>
+            <div class="tab-item" onclick="switchScreen(3)"><div class="tab-icon">💭</div><span class="tab-label">Symptoms</span></div>
+            <div class="tab-item" onclick="switchScreen(4)"><div class="tab-icon">✏️</div><span class="tab-label">Journal</span></div>
+            <div class="tab-item" onclick="switchScreen(5)"><div class="tab-icon">📈</div><span class="tab-label">Insights</span></div>
+          </div>
+        </div>
+        <!-- END SCREEN 2 -->
+
+        <!-- ▸▸▸ SCREEN 3: TRIGGERS -->
+        <div class="screen" id="screen-triggers">
+          <div class="triggers-header">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+              <div style="color:rgba(240,237,232,0.5);font-size:14px;cursor:pointer;">← Today</div>
+              <div style="font-size:11px;color:rgba(240,237,232,0.35);">Fri 20 Feb</div>
+            </div>
+            <div class="screen-header-title">Triggers</div>
+            <div class="screen-header-sub">What's affecting you today?</div>
+            <div class="screen-header-stat-row">
+              <div class="screen-stat">
+                <div class="screen-stat-num" style="color:#f09ba6;">3</div>
+                <div class="screen-stat-label">Active</div>
+              </div>
+              <div class="screen-stat">
+                <div class="screen-stat-num">15</div>
+                <div class="screen-stat-label">N/A</div>
+              </div>
+              <div class="screen-stat">
+                <div class="screen-stat-num" style="color:#c09020;">6.2</div>
+                <div class="screen-stat-label">Avg Severity</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="date-strip" style="background:var(--screen-bg);">
+            <div class="date-strip-arrow">‹</div>
+            <div class="date-strip-label">
+              <div class="date-strip-day">Friday, 20 February</div>
+            </div>
+            <div class="date-strip-arrow">›</div>
+          </div>
+
+          <div class="screen-content">
+            <div class="scroll-area">
+
+              <div class="section-head"><div class="section-head-label">Work & Home</div></div>
+              <div class="card">
+                <!-- Stress at work — ACTIVE with slider -->
+                <div class="trigger-item">
+                  <div class="trigger-top">
+                    <div class="trigger-left">
+                      <div class="trigger-icon">💼</div>
+                      <div class="trigger-name">Stress at Work</div>
+                    </div>
+                    <div class="tristate">
+                      <div class="tristate-btn active-yes" style="background:var(--rose);color:white;border-radius:var(--r-full);">On</div>
+                      <div class="tristate-btn active-na" style="background:none;color:var(--ink-ghost);">N/A</div>
+                    </div>
+                  </div>
+                  <div class="severity-wrap">
+                    <div class="severity-label">
+                      <span>Severity</span>
+                      <span>7 / 10 · High</span>
+                    </div>
+                    <div class="severity-track">
+                      <div class="severity-thumb" style="left:calc(65% - 10px);"></div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Stress at home — N/A -->
+                <div class="trigger-item">
+                  <div class="trigger-top">
+                    <div class="trigger-left">
+                      <div class="trigger-icon">🏠</div>
+                      <div class="trigger-name" style="color:var(--ink-ghost);">Stress at Home</div>
+                    </div>
+                    <div class="tristate">
+                      <div class="tristate-btn" style="color:var(--ink-ghost);">On</div>
+                      <div class="tristate-btn active-na" style="background:var(--ink-ghost);color:white;border-radius:var(--r-full);">N/A</div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Too much to do — ACTIVE -->
+                <div class="trigger-item">
+                  <div class="trigger-top">
+                    <div class="trigger-left">
+                      <div class="trigger-icon">📋</div>
+                      <div class="trigger-name">Too Much To Do</div>
+                    </div>
+                    <div class="tristate">
+                      <div class="tristate-btn active-yes" style="background:var(--rose);color:white;border-radius:var(--r-full);">On</div>
+                      <div class="tristate-btn active-na" style="background:none;color:var(--ink-ghost);">N/A</div>
+                    </div>
+                  </div>
+                  <div class="severity-wrap">
+                    <div class="severity-label">
+                      <span>Severity</span>
+                      <span>5 / 10 · Moderate</span>
+                    </div>
+                    <div class="severity-track">
+                      <div class="severity-thumb" style="left:calc(44% - 10px);"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="section-head"><div class="section-head-label">Behavioural</div></div>
+              <div class="card">
+                <div class="trigger-item">
+                  <div class="trigger-top">
+                    <div class="trigger-left"><div class="trigger-icon">😴</div><div class="trigger-name" style="color:var(--ink-ghost);">Lack of Sleep</div></div>
+                    <div class="tristate"><div class="tristate-btn" style="color:var(--ink-ghost);">On</div><div class="tristate-btn active-na" style="background:var(--ink-ghost);color:white;border-radius:var(--r-full);">N/A</div></div>
+                  </div>
+                </div>
+                <div class="trigger-item">
+                  <div class="trigger-top">
+                    <div class="trigger-left"><div class="trigger-icon">🏃</div><div class="trigger-name" style="color:var(--ink-ghost);">Lack of Exercise</div></div>
+                    <div class="tristate"><div class="tristate-btn" style="color:var(--ink-ghost);">On</div><div class="tristate-btn active-na" style="background:var(--ink-ghost);color:white;border-radius:var(--r-full);">N/A</div></div>
+                  </div>
+                </div>
+                <div class="trigger-item">
+                  <div class="trigger-top">
+                    <div class="trigger-left"><div class="trigger-icon">💬</div><div class="trigger-name">Negative Self Talk</div></div>
+                    <div class="tristate"><div class="tristate-btn active-yes" style="background:var(--rose);color:white;border-radius:var(--r-full);">On</div><div class="tristate-btn style="color:var(--ink-ghost);">N/A</div></div>
+                  </div>
+                  <div class="severity-wrap">
+                    <div class="severity-label"><span>Severity</span><span>6 / 10</span></div>
+                    <div class="severity-track"><div class="severity-thumb" style="left:calc(54% - 10px);"></div></div>
+                  </div>
+                </div>
+                <div class="trigger-item">
+                  <div class="trigger-top">
+                    <div class="trigger-left"><div class="trigger-icon">🍷</div><div class="trigger-name" style="color:var(--ink-ghost);">Alcohol Consumption</div></div>
+                    <div class="tristate"><div class="tristate-btn" style="color:var(--ink-ghost);">On</div><div class="tristate-btn active-na" style="background:var(--ink-ghost);color:white;border-radius:var(--r-full);">N/A</div></div>
+                  </div>
+                </div>
+              </div>
+
+              <div style="margin-top:12px;padding:14px 18px;background:var(--card);border:1.5px dashed var(--border-dark);border-radius:var(--r-lg);display:flex;align-items:center;gap:10px;cursor:pointer;">
+                <div style="width:28px;height:28px;border-radius:8px;background:var(--rose-light);display:flex;align-items:center;justify-content:center;font-size:16px;">＋</div>
+                <div style="font-size:14px;font-weight:600;color:var(--rose);">Add custom trigger</div>
+              </div>
+
+            </div>
+          </div>
+
+          <div class="tab-bar">
+            <div class="tab-item" onclick="switchScreen(0)"><div class="tab-icon">📋</div><span class="tab-label">Today</span></div>
+            <div class="tab-item" onclick="switchScreen(1)"><div class="tab-icon">🛡️</div><span class="tab-label">Wellness</span></div>
+            <div class="tab-item active" onclick="switchScreen(2)"><div class="tab-icon">⚡</div><span class="tab-label">Triggers</span></div>
+            <div class="tab-item" onclick="switchScreen(3)"><div class="tab-icon">💭</div><span class="tab-label">Symptoms</span></div>
+            <div class="tab-item" onclick="switchScreen(4)"><div class="tab-icon">✏️</div><span class="tab-label">Journal</span></div>
+            <div class="tab-item" onclick="switchScreen(5)"><div class="tab-icon">📈</div><span class="tab-label">Insights</span></div>
+          </div>
+        </div>
+        <!-- END SCREEN 3 -->
+
+        <!-- ▸▸▸ SCREEN 4: SYMPTOMS -->
+        <div class="screen" id="screen-symptoms">
+          <div class="symptoms-header">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+              <div style="color:rgba(240,237,232,0.5);font-size:14px;cursor:pointer;">← Today</div>
+              <div style="font-size:11px;color:rgba(240,237,232,0.35);">Fri 20 Feb</div>
+            </div>
+            <div class="screen-header-title">Symptoms</div>
+            <div class="screen-header-sub">How you're experiencing things right now</div>
+            <div class="screen-header-stat-row">
+              <div class="screen-stat">
+                <div class="screen-stat-num" style="color:#c4aee0;">2</div>
+                <div class="screen-stat-label">Present</div>
+              </div>
+              <div class="screen-stat">
+                <div class="screen-stat-num">10</div>
+                <div class="screen-stat-label">N/A</div>
+              </div>
+              <div class="screen-stat">
+                <div class="screen-stat-num" style="color:#c4aee0;">4.5</div>
+                <div class="screen-stat-label">Avg Level</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="date-strip" style="background:var(--screen-bg);">
+            <div class="date-strip-arrow">‹</div>
+            <div class="date-strip-label"><div class="date-strip-day">Friday, 20 February</div></div>
+            <div class="date-strip-arrow">›</div>
+          </div>
+
+          <div class="screen-content">
+            <div class="scroll-area">
+
+              <div class="section-head"><div class="section-head-label">Mood Symptoms</div></div>
+              <div class="card">
+                <!-- Irritability — present with slider -->
+                <div class="symptom-item">
+                  <div class="symptom-top">
+                    <div class="symptom-left">
+                      <div style="font-size:16px;width:22px;text-align:center;">😠</div>
+                      <div class="symptom-name">Irritability</div>
+                    </div>
+                    <div class="tristate">
+                      <div class="tristate-btn active-yes" style="background:var(--lavender);color:white;border-radius:var(--r-full);">On</div>
+                      <div class="tristate-btn" style="color:var(--ink-ghost);">N/A</div>
+                    </div>
+                  </div>
+                  <div class="symptom-slider-wrap">
+                    <div class="symptom-slider-label"><span>Intensity</span><span>4 / 10 · Mild</span></div>
+                    <div class="symptom-track"><div class="symptom-thumb" style="left:calc(33% - 10px);"></div></div>
+                  </div>
+                </div>
+
+                <div class="symptom-item">
+                  <div class="symptom-top">
+                    <div class="symptom-left">
+                      <div style="font-size:16px;width:22px;text-align:center;">😤</div>
+                      <div class="symptom-name" style="color:var(--ink-ghost);">Anger</div>
+                    </div>
+                    <div class="tristate">
+                      <div class="tristate-btn" style="color:var(--ink-ghost);">On</div>
+                      <div class="tristate-btn active-na" style="background:var(--ink-ghost);color:white;border-radius:var(--r-full);">N/A</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="symptom-item">
+                  <div class="symptom-top">
+                    <div class="symptom-left">
+                      <div style="font-size:16px;width:22px;text-align:center;">😢</div>
+                      <div class="symptom-name" style="color:var(--ink-ghost);">Sadness</div>
+                    </div>
+                    <div class="tristate">
+                      <div class="tristate-btn" style="color:var(--ink-ghost);">On</div>
+                      <div class="tristate-btn active-na" style="background:var(--ink-ghost);color:white;border-radius:var(--r-full);">N/A</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="symptom-item">
+                  <div class="symptom-top">
+                    <div class="symptom-left">
+                      <div style="font-size:16px;width:22px;text-align:center;">😰</div>
+                      <div class="symptom-name">Anxiety</div>
+                    </div>
+                    <div class="tristate">
+                      <div class="tristate-btn active-yes" style="background:var(--lavender);color:white;border-radius:var(--r-full);">On</div>
+                      <div class="tristate-btn" style="color:var(--ink-ghost);">N/A</div>
+                    </div>
+                  </div>
+                  <div class="symptom-slider-wrap">
+                    <div class="symptom-slider-label"><span>Intensity</span><span>5 / 10 · Moderate</span></div>
+                    <div class="symptom-track"><div class="symptom-thumb" style="left:calc(44% - 10px);"></div></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="section-head"><div class="section-head-label">Cognitive & Physical</div></div>
+              <div class="card">
+                <div class="symptom-item">
+                  <div class="symptom-top">
+                    <div class="symptom-left"><div style="font-size:16px;width:22px;text-align:center;">😔</div><div class="symptom-name" style="color:var(--ink-ghost);">Feeling Guilty</div></div>
+                    <div class="tristate"><div class="tristate-btn" style="color:var(--ink-ghost);">On</div><div class="tristate-btn active-na" style="background:var(--ink-ghost);color:white;border-radius:var(--r-full);">N/A</div></div>
+                  </div>
+                </div>
+                <div class="symptom-item">
+                  <div class="symptom-top">
+                    <div class="symptom-left"><div style="font-size:16px;width:22px;text-align:center;">🌑</div><div class="symptom-name" style="color:var(--ink-ghost);">Feeling Hopeless</div></div>
+                    <div class="tristate"><div class="tristate-btn" style="color:var(--ink-ghost);">On</div><div class="tristate-btn active-na" style="background:var(--ink-ghost);color:white;border-radius:var(--r-full);">N/A</div></div>
+                  </div>
+                </div>
+                <div class="symptom-item">
+                  <div class="symptom-top">
+                    <div class="symptom-left"><div style="font-size:16px;width:22px;text-align:center;">🔋</div><div class="symptom-name" style="color:var(--ink-ghost);">Loss of Energy</div></div>
+                    <div class="tristate"><div class="tristate-btn" style="color:var(--ink-ghost);">On</div><div class="tristate-btn active-na" style="background:var(--ink-ghost);color:white;border-radius:var(--r-full);">N/A</div></div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Suicidal Thoughts — special warning UI -->
+              <div class="section-head"><div class="section-head-label">Safety Check</div></div>
+              <div class="card">
+                <div class="symptom-item">
+                  <div class="symptom-top">
+                    <div class="symptom-left">
+                      <div style="font-size:16px;width:22px;text-align:center;">⚠️</div>
+                      <div class="symptom-name" style="color:var(--ink-ghost);">Suicidal Thoughts</div>
+                    </div>
+                    <div class="tristate">
+                      <div class="tristate-btn" style="color:var(--ink-ghost);">On</div>
+                      <div class="tristate-btn active-na" style="background:var(--ink-ghost);color:white;border-radius:var(--r-full);">N/A</div>
+                    </div>
+                  </div>
+                  <div style="background:#fff8e1;border:1px solid #f5d76e;border-radius:var(--r-sm);padding:10px 12px;margin-top:10px;font-size:12px;color:#6b5400;line-height:1.4;">
+                    If you're having thoughts of suicide, please reach out. <span style="color:#c9972a;font-weight:700;text-decoration:underline;">Tap here for resources →</span>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <div class="tab-bar">
+            <div class="tab-item" onclick="switchScreen(0)"><div class="tab-icon">📋</div><span class="tab-label">Today</span></div>
+            <div class="tab-item" onclick="switchScreen(1)"><div class="tab-icon">🛡️</div><span class="tab-label">Wellness</span></div>
+            <div class="tab-item" onclick="switchScreen(2)"><div class="tab-icon">⚡</div><span class="tab-label">Triggers</span></div>
+            <div class="tab-item active" onclick="switchScreen(3)"><div class="tab-icon">💭</div><span class="tab-label">Symptoms</span></div>
+            <div class="tab-item" onclick="switchScreen(4)"><div class="tab-icon">✏️</div><span class="tab-label">Journal</span></div>
+            <div class="tab-item" onclick="switchScreen(5)"><div class="tab-icon">📈</div><span class="tab-label">Insights</span></div>
+          </div>
+        </div>
+        <!-- END SCREEN 4 -->
+
+        <!-- ▸▸▸ SCREEN 5: JOURNAL -->
+        <div class="screen" id="screen-journal">
+          <div class="journal-header">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+              <div style="color:rgba(240,237,232,0.5);font-size:14px;cursor:pointer;">← Today</div>
+              <div style="font-size:11px;color:rgba(240,237,232,0.35);">Fri 20 Feb</div>
+            </div>
+            <div class="screen-header-title">Journal</div>
+            <div class="screen-header-sub">Your private space to reflect</div>
+          </div>
+
+          <div class="date-strip" style="background:var(--screen-bg);">
+            <div class="date-strip-arrow">‹</div>
+            <div class="date-strip-label"><div class="date-strip-day">Friday, 20 February</div></div>
+            <div class="date-strip-arrow">›</div>
+          </div>
+
+          <div class="screen-content">
+            <div class="scroll-area">
+
+              <!-- Prompt card -->
+              <div class="prompt-card">
+                <div class="prompt-header">
+                  <span style="font-size:14px;">✨</span>
+                  <span class="prompt-tag">Today's prompt</span>
+                </div>
+                <div class="prompt-text">"What's one small thing that went well today, even if today was hard?"</div>
+              </div>
+
+              <!-- Writing area -->
+              <div class="journal-area">
+                <div class="journal-toolbar">
+                  <div class="toolbar-btn active" style="font-weight:900;">B</div>
+                  <div class="toolbar-btn" style="font-style:italic;">I</div>
+                  <div class="toolbar-btn" style="text-decoration:underline;font-size:11px;">U</div>
+                  <div class="toolbar-btn">• —</div>
+                  <div class="toolbar-btn">1.</div>
+                </div>
+                <div class="journal-text-area">
+                  <div class="journal-text">
+                    Had a tough morning with the project deadline, but my 1:1 with Sarah went surprisingly well. She noticed I'd been quieter than usual and checked in — it meant a lot.<br><br>
+                    The walk at lunch helped. Even 15 minutes outside reset something.<div class="journal-cursor"></div>
+                  </div>
+                </div>
+                <div class="journal-footer">
+                  <div class="word-count">42 words</div>
+                  <div class="voice-btn">🎤 Voice</div>
+                </div>
+              </div>
+
+              <!-- Past entries -->
+              <div class="section-head"><div class="section-head-label">Recent Entries</div></div>
+              <div class="card">
+                <div class="past-entry-item">
+                  <div class="past-entry-date">Thu 19 Feb</div>
+                  <div class="past-entry-preview">Felt the anxiety spike around 3pm again. Tried the breathing technique from last session and it helped more than I expected...</div>
+                </div>
+                <div class="past-entry-item">
+                  <div class="past-entry-date">Wed 18 Feb</div>
+                  <div class="past-entry-preview">Good day overall. Dinner with Jamie was the highlight. Laughed properly for the first time in a while...</div>
+                </div>
+                <div class="past-entry-item">
+                  <div class="past-entry-date">Tue 17 Feb</div>
+                  <div class="past-entry-preview">Slept badly — woke at 3am again and couldn't get back. Everything felt harder as a result. Need to look at the sleep routine...</div>
+                </div>
+              </div>
+
+              <!-- Search -->
+              <div style="margin-top:12px;background:var(--card);border:1px solid var(--border);border-radius:var(--r-md);padding:12px 16px;display:flex;align-items:center;gap:10px;cursor:pointer;">
+                <span style="font-size:16px;color:var(--ink-ghost);">🔍</span>
+                <span style="font-size:14px;color:var(--ink-ghost);">Search past entries…</span>
+              </div>
+
+            </div>
+          </div>
+
+          <div class="tab-bar">
+            <div class="tab-item" onclick="switchScreen(0)"><div class="tab-icon">📋</div><span class="tab-label">Today</span></div>
+            <div class="tab-item" onclick="switchScreen(1)"><div class="tab-icon">🛡️</div><span class="tab-label">Wellness</span></div>
+            <div class="tab-item" onclick="switchScreen(2)"><div class="tab-icon">⚡</div><span class="tab-label">Triggers</span></div>
+            <div class="tab-item" onclick="switchScreen(3)"><div class="tab-icon">💭</div><span class="tab-label">Symptoms</span></div>
+            <div class="tab-item active" onclick="switchScreen(4)"><div class="tab-icon">✏️</div><span class="tab-label">Journal</span></div>
+            <div class="tab-item" onclick="switchScreen(5)"><div class="tab-icon">📈</div><span class="tab-label">Insights</span></div>
+          </div>
+        </div>
+        <!-- END SCREEN 5 -->
+
+        <!-- ▸▸▸ SCREEN 6: INSIGHTS -->
+        <div class="screen" id="screen-insights">
+          <div class="insights-header">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+              <div style="color:rgba(240,237,232,0.5);font-size:14px;">← Today</div>
+              <div style="font-size:11px;color:rgba(240,237,232,0.35);">Generated now</div>
+            </div>
+            <div class="screen-header-title">Insights</div>
+            <div class="screen-header-sub">Patterns from your data</div>
+          </div>
+
+          <div class="screen-content">
+            <div class="scroll-area">
+
+              <!-- Period picker -->
+              <div class="period-selector">
+                <div class="period-btn">2W</div>
+                <div class="period-btn active">1M</div>
+                <div class="period-btn">3M</div>
+                <div class="period-btn">Custom</div>
+              </div>
+
+              <!-- AI Insight alert -->
+              <div class="insight-alert">
+                <div class="insight-alert-icon">💡</div>
+                <div class="insight-alert-body">
+                  <div class="insight-alert-title">Pattern detected</div>
+                  <div class="insight-alert-text">Your mood averages <strong>1.8 points higher</strong> on days with 30+ min exercise. You've exercised 18 of 28 days this month.</div>
+                </div>
+              </div>
+
+              <!-- Mood & Coping chart -->
+              <div class="chart-card">
+                <div class="chart-card-header">
+                  <div class="chart-title">Mood & Coping</div>
+                  <div class="chart-legend">
+                    <div class="legend-item"><div class="legend-dot" style="background:#5a8a6a;"></div> Mood</div>
+                    <div class="legend-item"><div class="legend-dot" style="background:#9b958e;"></div> Coped</div>
+                  </div>
+                </div>
+                <div class="chart-area">
+                  <svg class="chart-svg" viewBox="0 0 320 100" xmlns="http://www.w3.org/2000/svg" height="100">
+                    <!-- Grid lines -->
+                    <line x1="0" y1="20" x2="320" y2="20" stroke="#e2ddd6" stroke-width="0.5"/>
+                    <line x1="0" y1="50" x2="320" y2="50" stroke="#e2ddd6" stroke-width="0.5"/>
+                    <line x1="0" y1="80" x2="320" y2="80" stroke="#e2ddd6" stroke-width="0.5"/>
+                    <!-- Y labels -->
+                    <text x="0" y="18" font-size="8" fill="#9b958e">10</text>
+                    <text x="0" y="48" font-size="8" fill="#9b958e">5</text>
+                    <text x="0" y="78" font-size="8" fill="#9b958e">1</text>
+
+                    <!-- Coping line (gray) -->
+                    <polyline
+                      points="18,36 36,28 54,44 72,32 90,24 108,40 126,36 144,28 162,32 180,24 198,28 216,36 234,20 252,24 270,28 288,32 306,28"
+                      fill="none" stroke="#9b958e" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" opacity="0.7"/>
+
+                    <!-- Mood area -->
+                    <defs>
+                      <linearGradient id="moodGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stop-color="#5a8a6a" stop-opacity="0.15"/>
+                        <stop offset="100%" stop-color="#5a8a6a" stop-opacity="0"/>
+                      </linearGradient>
+                    </defs>
+                    <path
+                      d="M18,40 L36,36 L54,50 L72,36 L90,28 L108,44 L126,40 L144,32 L162,36 L180,28 L198,32 L216,40 L234,24 L252,28 L270,32 L288,36 L306,32 L306,100 L18,100 Z"
+                      fill="url(#moodGrad)"/>
+                    <polyline
+                      points="18,40 36,36 54,50 72,36 90,28 108,44 126,40 144,32 162,36 180,28 198,32 216,40 234,24 252,28 270,32 288,36 306,32"
+                      fill="none" stroke="#5a8a6a" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+
+                    <!-- Selected point -->
+                    <circle cx="306" cy="32" r="4" fill="white" stroke="#5a8a6a" stroke-width="2"/>
+                    <text x="295" y="26" font-size="8" fill="#5a8a6a" font-weight="700">7</text>
+
+                    <!-- X axis labels -->
+                    <text x="18" y="98" font-size="7" fill="#9b958e" text-anchor="middle">1</text>
+                    <text x="90" y="98" font-size="7" fill="#9b958e" text-anchor="middle">7</text>
+                    <text x="162" y="98" font-size="7" fill="#9b958e" text-anchor="middle">14</text>
+                    <text x="234" y="98" font-size="7" fill="#9b958e" text-anchor="middle">21</text>
+                    <text x="306" y="98" font-size="7" fill="#5a8a6a" text-anchor="middle" font-weight="700">28</text>
+                  </svg>
+                </div>
+              </div>
+
+              <!-- Sleep chart -->
+              <div class="chart-card">
+                <div class="chart-card-header">
+                  <div class="chart-title">Sleep Hours</div>
+                  <div class="chart-legend">
+                    <div class="legend-item"><div class="legend-dot" style="background:#7c6fa0;border-radius:2px;width:14px;height:6px;"></div> Hours</div>
+                  </div>
+                </div>
+                <div class="chart-area">
+                  <svg class="chart-svg" viewBox="0 0 320 80" xmlns="http://www.w3.org/2000/svg" height="80">
+                    <line x1="0" y1="16" x2="320" y2="16" stroke="#e2ddd6" stroke-width="0.5"/>
+                    <line x1="0" y1="40" x2="320" y2="40" stroke="#e2ddd6" stroke-width="0.5"/>
+                    <line x1="0" y1="64" x2="320" y2="64" stroke="#e2ddd6" stroke-width="0.5"/>
+                    <text x="0" y="14" font-size="8" fill="#9b958e">10h</text>
+                    <text x="0" y="38" font-size="8" fill="#9b958e">7h</text>
+                    <text x="0" y="62" font-size="8" fill="#9b958e">4h</text>
+
+                    <!-- Sleep bars -->
+                    <rect x="16" y="28" width="7" height="36" rx="2" fill="#7c6fa0" opacity="0.7"/>
+                    <rect x="27" y="20" width="7" height="44" rx="2" fill="#7c6fa0" opacity="0.7"/>
+                    <rect x="38" y="32" width="7" height="32" rx="2" fill="#7c6fa0" opacity="0.5"/>
+                    <rect x="49" y="16" width="7" height="48" rx="2" fill="#7c6fa0" opacity="0.7"/>
+                    <rect x="60" y="24" width="7" height="40" rx="2" fill="#7c6fa0" opacity="0.7"/>
+                    <rect x="71" y="40" width="7" height="24" rx="2" fill="#e05c6e" opacity="0.7"/>
+                    <rect x="82" y="28" width="7" height="36" rx="2" fill="#7c6fa0" opacity="0.7"/>
+                    <rect x="93" y="20" width="7" height="44" rx="2" fill="#7c6fa0" opacity="0.7"/>
+                    <rect x="104" y="28" width="7" height="36" rx="2" fill="#7c6fa0" opacity="0.7"/>
+                    <rect x="115" y="24" width="7" height="40" rx="2" fill="#7c6fa0" opacity="0.7"/>
+                    <rect x="126" y="16" width="7" height="48" rx="2" fill="#7c6fa0" opacity="0.7"/>
+                    <rect x="137" y="36" width="7" height="28" rx="2" fill="#e05c6e" opacity="0.7"/>
+                    <rect x="148" y="20" width="7" height="44" rx="2" fill="#7c6fa0" opacity="0.7"/>
+                    <rect x="159" y="24" width="7" height="40" rx="2" fill="#7c6fa0" opacity="0.7"/>
+                    <rect x="170" y="20" width="7" height="44" rx="2" fill="#7c6fa0" opacity="0.7"/>
+                    <rect x="181" y="28" width="7" height="36" rx="2" fill="#7c6fa0" opacity="0.7"/>
+                    <rect x="192" y="16" width="7" height="48" rx="2" fill="#7c6fa0" opacity="0.7"/>
+                    <rect x="203" y="24" width="7" height="40" rx="2" fill="#7c6fa0" opacity="0.7"/>
+                    <rect x="214" y="28" width="7" height="36" rx="2" fill="#7c6fa0" opacity="0.7"/>
+                    <rect x="225" y="20" width="7" height="44" rx="2" fill="#7c6fa0" opacity="0.7"/>
+                    <rect x="236" y="24" width="7" height="40" rx="2" fill="#7c6fa0" opacity="0.7"/>
+                    <rect x="247" y="28" width="7" height="36" rx="2" fill="#7c6fa0" opacity="0.7"/>
+                    <rect x="258" y="16" width="7" height="48" rx="2" fill="#7c6fa0" opacity="0.7"/>
+                    <rect x="269" y="20" width="7" height="44" rx="2" fill="#7c6fa0" opacity="0.7"/>
+                    <rect x="280" y="28" width="7" height="36" rx="2" fill="#7c6fa0" opacity="0.7"/>
+                    <rect x="291" y="24" width="7" height="40" rx="2" fill="#7c6fa0" opacity="0.7"/>
+                    <rect x="302" y="28" width="7" height="36" rx="2" fill="#2a9d8f" opacity="0.9"/>
+
+                    <!-- Reference line 7h recommended -->
+                    <line x1="0" y1="40" x2="320" y2="40" stroke="#5a8a6a" stroke-width="0.8" stroke-dasharray="4,3" opacity="0.6"/>
+                    <text x="245" y="37" font-size="7" fill="#5a8a6a">7h target</text>
+                  </svg>
+                </div>
+              </div>
+
+              <!-- Correlation card -->
+              <div class="corr-card">
+                <div class="corr-title">Correlations this month</div>
+                <div class="corr-row">
+                  <div class="corr-label">Exercise</div>
+                  <div class="corr-bar-track"><div class="corr-bar-fill" style="width:82%;"></div></div>
+                  <div class="corr-val">+1.8</div>
+                </div>
+                <div class="corr-row">
+                  <div class="corr-label">7h+ Sleep</div>
+                  <div class="corr-bar-track"><div class="corr-bar-fill" style="width:68%;"></div></div>
+                  <div class="corr-val">+1.4</div>
+                </div>
+                <div class="corr-row">
+                  <div class="corr-label">Social time</div>
+                  <div class="corr-bar-track"><div class="corr-bar-fill" style="width:55%;"></div></div>
+                  <div class="corr-val">+1.1</div>
+                </div>
+                <div class="corr-row">
+                  <div class="corr-label">Work stress</div>
+                  <div class="corr-bar-track"><div class="corr-bar-fill" style="width:60%;background:linear-gradient(to right,#fde8eb,#e05c6e);"></div></div>
+                  <div class="corr-val" style="color:var(--rose);">−1.3</div>
+                </div>
+                <div style="font-size:11px;color:var(--ink-ghost);margin-top:8px;">Mood score change on days factor is present vs absent</div>
+              </div>
+
+              <!-- Share report button -->
+              <div class="share-btn">
+                📄 &nbsp; Generate Clinician Report
+              </div>
+
+              <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r-md);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+                <div>
+                  <div style="font-size:13px;font-weight:700;color:var(--ink);">Export Data</div>
+                  <div style="font-size:11px;color:var(--ink-soft);">JSON · CSV · PDF</div>
+                </div>
+                <div style="font-size:18px;color:var(--ink-ghost);">↗</div>
+              </div>
+
+            </div>
+          </div>
+
+          <div class="tab-bar">
+            <div class="tab-item" onclick="switchScreen(0)"><div class="tab-icon">📋</div><span class="tab-label">Today</span></div>
+            <div class="tab-item" onclick="switchScreen(1)"><div class="tab-icon">🛡️</div><span class="tab-label">Wellness</span></div>
+            <div class="tab-item" onclick="switchScreen(2)"><div class="tab-icon">⚡</div><span class="tab-label">Triggers</span></div>
+            <div class="tab-item" onclick="switchScreen(3)"><div class="tab-icon">💭</div><span class="tab-label">Symptoms</span></div>
+            <div class="tab-item" onclick="switchScreen(4)"><div class="tab-icon">✏️</div><span class="tab-label">Journal</span></div>
+            <div class="tab-item active" onclick="switchScreen(5)"><div class="tab-icon">📈</div><span class="tab-label">Insights</span></div>
+          </div>
+        </div>
+        <!-- END SCREEN 6 -->
+
+      </div><!-- end phone-screen -->
+    </div><!-- end phone-shell -->
+  </div><!-- end phone-wrapper -->
+
+  <!-- ── ANNOTATION PANEL ── -->
+  <div class="annotation-panel">
+    <div id="ann-title" class="annotation-title">Today</div>
+    <div id="ann-sub" class="annotation-sub">Screen 1 of 6</div>
+
+    <div id="ann-body">
+      <!-- Content injected by JS -->
+    </div>
+
+    <div class="screen-dot-nav">
+      <div class="sdot active" onclick="switchScreen(0)"></div>
+      <div class="sdot" onclick="switchScreen(1)"></div>
+      <div class="sdot" onclick="switchScreen(2)"></div>
+      <div class="sdot" onclick="switchScreen(3)"></div>
+      <div class="sdot" onclick="switchScreen(4)"></div>
+      <div class="sdot" onclick="switchScreen(5)"></div>
+    </div>
+  </div>
+
+</div><!-- end phone-stage -->
+
+<script>
+const screens = ['today','wellness','triggers','symptoms','journal','insights'];
+const screenTitles = ['Today — Core Entry', 'Stay Well Strategies', 'Triggers', 'Symptoms', 'Journal', 'Insights'];
+const screenSubs = ['Screen 1 of 6 · Daily hub', 'Screen 2 of 6 · Protective factors', 'Screen 3 of 6 · Stress factors', 'Screen 4 of 6 · Mental state', 'Screen 5 of 6 · Reflection', 'Screen 6 of 6 · Analytics'];
+
+const annotations = [
+  // Today
+  `<div class="annotation-card">
+    <span class="ann-tag new">New</span>
+    <div class="ann-text"><strong>Greeting header with dark gradient</strong> — Creates a warm, contained entry moment. Replaces the plain orange bar. Completion ring gives users a motivating progress signal.</div>
+  </div>
+  <div class="annotation-card">
+    <span class="ann-tag improved">Improved</span>
+    <div class="ann-text"><strong>10-dot mood ring</strong> replaces the old 1–10 slider. Color gradient from red→blue means meaning is immediate, no label reading required. Selected dot lifts slightly.</div>
+  </div>
+  <div class="annotation-card">
+    <span class="ann-tag new">New</span>
+    <div class="ann-text"><strong>Exercise quick-pick presets</strong> (15m / 30m / 60m / 90m) remove the need for + / − tapping. Tap custom for anything else. Matches real-world workout patterns.</div>
+  </div>
+  <div class="annotation-card">
+    <span class="ann-tag improved">Improved</span>
+    <div class="ann-text"><strong>Medicine toggles</strong> are now named with dosage (from Settings). Visual on/off is clear. Medication names set once in Settings, never re-entered.</div>
+  </div>`,
+
+  // Wellness
+  `<div class="annotation-card">
+    <span class="ann-tag improved">Improved</span>
+    <div class="ann-text"><strong>3-state selector</strong> (Yes / No / N/A) replaces the binary toggle + N/A toggle pattern. One element, one interaction. Dimmed names for N/A items reduce visual weight.</div>
+  </div>
+  <div class="annotation-card">
+    <span class="ann-tag new">New</span>
+    <div class="ann-text"><strong>Inline quality slider</strong> only appears when a strategy is marked Yes. The progressive disclosure keeps the list scannable until detail is needed.</div>
+  </div>
+  <div class="annotation-card">
+    <span class="ann-tag new">New</span>
+    <div class="ann-text"><strong>Summary stats in header</strong> (4 done / 2 didn't / 7 N/A) give an immediate sense of the day's wellness without scrolling the full list.</div>
+  </div>
+  <div class="annotation-card">
+    <span class="ann-tag new">New</span>
+    <div class="ann-text"><strong>Add custom strategy</strong> — Users can track personal wellbeing habits beyond the 13 defaults. Items are reorderable and can be toggled off globally in Settings.</div>
+  </div>`,
+
+  // Triggers
+  `<div class="annotation-card">
+    <span class="ann-tag improved">Improved</span>
+    <div class="ann-text"><strong>On / N/A binary</strong> — Triggers are either present or not applicable. No "No" state needed (not having a trigger is the baseline). Simplifies from the original 3-state.</div>
+  </div>
+  <div class="annotation-card">
+    <span class="ann-tag improved">Improved</span>
+    <div class="ann-text"><strong>Severity slider only appears when active</strong> — In the original, all sliders were visible at all times. Here they expand inline, keeping inactive items compact.</div>
+  </div>
+  <div class="annotation-card">
+    <span class="ann-tag new">New</span>
+    <div class="ann-text"><strong>Active count + average severity</strong> in the header give clinicians and users a quick daily summary without opening each item.</div>
+  </div>
+  <div class="annotation-card">
+    <span class="ann-tag new">New</span>
+    <div class="ann-text"><strong>Category grouping</strong> (Work & Home / Behavioural / Relational) replaces the flat unorganized list of 20+ items in the original prototype.</div>
+  </div>`,
+
+  // Symptoms
+  `<div class="annotation-card">
+    <span class="ann-tag improved">Improved</span>
+    <div class="ann-text"><strong>Lavender color theme</strong> differentiates Symptoms from Triggers visually. Each section of the app has its own palette — green for wellness, red for triggers, purple for symptoms.</div>
+  </div>
+  <div class="annotation-card">
+    <span class="ann-tag improved">Improved</span>
+    <div class="ann-text"><strong>Collapsed-by-default sliders</strong> — Symptom intensity tracks only expand when the symptom is marked active. The original showed all sliders simultaneously, creating overwhelming density.</div>
+  </div>
+  <div class="annotation-card">
+    <span class="ann-tag new">New</span>
+    <div class="ann-text"><strong>Safety check section</strong> — Suicidal thoughts is visually separated with a gentle warning card that appears when tapped On. Provides immediate resource link, non-alarmist wording.</div>
+  </div>`,
+
+  // Journal
+  `<div class="annotation-card">
+    <span class="ann-tag new">New</span>
+    <div class="ann-text"><strong>Daily prompt card</strong> — Optional writing prompt scaffolds journaling for users who struggle to start. Tap to dismiss. New prompt each day, pulled from a curated library.</div>
+  </div>
+  <div class="annotation-card">
+    <span class="ann-tag improved">Improved</span>
+    <div class="ann-text"><strong>Rich text toolbar</strong> replaces the plain textarea from the original. Bold, italic, lists — enough formatting for meaningful journaling, nothing overwhelming.</div>
+  </div>
+  <div class="annotation-card">
+    <span class="ann-tag new">New</span>
+    <div class="ann-text"><strong>Voice-to-text input</strong> — On-device transcription via Whisper. No cloud upload. Especially useful for users who prefer speaking to typing, or during low-energy periods.</div>
+  </div>
+  <div class="annotation-card">
+    <span class="ann-tag new">New</span>
+    <div class="ann-text"><strong>Past entries preview + search</strong> — Recent journal entries are shown below the current entry with a preview. Full-text search allows finding specific reflections across time.</div>
+  </div>`,
+
+  // Insights
+  `<div class="annotation-card">
+    <span class="ann-tag new">New</span>
+    <div class="ann-text"><strong>AI pattern detection</strong> — Auto-generated insight cards surface meaningful correlations ("Mood +1.8 on exercise days"). On-device ML, no data leaves the phone.</div>
+  </div>
+  <div class="annotation-card">
+    <span class="ann-tag improved">Improved</span>
+    <div class="ann-text"><strong>Correlation bars</strong> show mood score impact of each factor (exercise, sleep, social time, work stress) in a scannable horizontal format — more actionable than raw charts.</div>
+  </div>
+  <div class="annotation-card">
+    <span class="ann-tag improved">Improved</span>
+    <div class="ann-text"><strong>Sleep chart with target line</strong> — 7h recommended line shown as dashed reference. Below-target bars shown in rose. Immediately readable without needing axis labels.</div>
+  </div>
+  <div class="annotation-card">
+    <span class="ann-tag improved">Improved</span>
+    <div class="ann-text"><strong>Clinician report button</strong> — One tap to generate a structured PDF. Optionally email directly to therapist. Period, metric selection and data scope chosen before generation.</div>
+  </div>`
+];
+
+let currentScreen = 0;
+
+function switchScreen(idx) {
+  // Hide all screens
+  screens.forEach((s, i) => {
+    const el = document.getElementById('screen-' + s);
+    el.classList.remove('active');
+  });
+
+  // Show target
+  document.getElementById('screen-' + screens[idx]).classList.add('active');
+
+  // Update nav buttons
+  document.querySelectorAll('.screen-nav .nav-btn').forEach((btn, i) => {
+    btn.classList.toggle('active', i === idx);
+  });
+
+  // Update dots
+  document.querySelectorAll('.sdot').forEach((d, i) => {
+    d.classList.toggle('active', i === idx);
+  });
+
+  // Update annotation panel
+  document.getElementById('ann-title').textContent = screenTitles[idx];
+  document.getElementById('ann-sub').textContent = screenSubs[idx];
+  document.getElementById('ann-body').innerHTML = annotations[idx];
+
+  currentScreen = idx;
+}
+
+// Init
+switchScreen(0);
+</script>
+</body>
+</html>

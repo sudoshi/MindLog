@@ -1,0 +1,2010 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MindLog Clinical — Population Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,300;1,9..40,400&display=swap" rel="stylesheet">
+<style>
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   DATA MODEL (documented as types in comments)
+   
+   Patient {
+     id, mrn, firstName, lastName, dob, gender,
+     diagnoses: string[],           // ICD-10 codes + labels
+     medications: { name, dose, frequency }[],
+     clinicianId, assignedSince,
+     status: 'active'|'inactive'|'crisis'|'discharged',
+     riskLevel: 'low'|'moderate'|'high'|'critical',
+     nextAppointment: Date,
+     consentToShare: boolean,
+     trackingStreak: number,         // consecutive days logged
+     lastCheckin: Date
+   }
+   
+   DailyEntry {
+     patientId, date,
+     mood: 1–10,
+     coping: 1–10,
+     sleep: { hours, minutes, quality: 1–10 },
+     exercise: { minutes },
+     medicationsTaken: { name, taken }[],
+     journalWordCount: number,
+     completionPct: number
+   }
+   
+   WellnessLog {
+     patientId, date,
+     strategies: { name, state: 'y'|'n'|'na', quality: 1–10 }[]
+   }
+   
+   TriggerLog {
+     patientId, date,
+     triggers: { name, active: boolean, severity: 1–10 }[]
+   }
+   
+   SymptomLog {
+     patientId, date,
+     symptoms: { name, present: boolean, intensity: 1–10 }[],
+     safetyFlag: boolean
+   }
+   
+   ClinicalAlert {
+     id, patientId, type:
+       'missed_checkin'|'mood_decline'|'safety_flag'|
+       'trigger_escalation'|'med_nonadherence'|
+       'symptom_emergence'|'streak_broken',
+     severity: 'info'|'warning'|'critical',
+     title, body, createdAt,
+     acknowledgedAt, acknowledgedBy,
+     autoResolved: boolean
+   }
+   
+   ClinicianNote {
+     id, patientId, clinicianId,
+     type: 'observation'|'intervention'|'appointment_summary',
+     body, createdAt, linkedDate
+   }
+   
+   PopulationSnapshot {
+     clinicianId, generatedAt,
+     totalPatients, activeToday,
+     avgMood, avgCoping, avgSleep,
+     criticalAlerts, warnings,
+     moodDistribution: { bucket, count }[],
+     topTriggers: { name, prevalence }[]
+   }
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #0c0f18;
+  --surface: #131825;
+  --surface2: #1a2030;
+  --surface3: #202840;
+  --border: rgba(255,255,255,.07);
+  --border2: rgba(255,255,255,.12);
+  --ink: #e8edf5;
+  --ink-mid: #8b95a8;
+  --ink-soft: #545f74;
+  --ink-ghost: #2e3848;
+  
+  /* Semantic */
+  --critical: #ff4d6d;
+  --critical-bg: rgba(255,77,109,.12);
+  --critical-border: rgba(255,77,109,.25);
+  --warning: #f59e0b;
+  --warning-bg: rgba(245,158,11,.12);
+  --warning-border: rgba(245,158,11,.25);
+  --safe: #10b981;
+  --safe-bg: rgba(16,185,129,.1);
+  --safe-border: rgba(16,185,129,.2);
+  --info: #6ea8fe;
+  --info-bg: rgba(110,168,254,.1);
+  --info-border: rgba(110,168,254,.2);
+  
+  /* Mood scale */
+  --m1: #c0392b; --m2: #e05a2a; --m3: #d08020;
+  --m4: #c9972a; --m5: #a0a030;
+  --m6: #6a9a4a; --m7: #3a9a6a; --m8: #2a9d8a;
+  --m9: #2a7ab5; --m10: #2a5ab5;
+  
+  --font-display: 'DM Serif Display', Georgia, serif;
+  --font-body: 'DM Sans', -apple-system, sans-serif;
+  --r-xs: 4px; --r-sm: 8px; --r-md: 12px; --r-lg: 16px; --r-xl: 20px;
+}
+
+html { font-size: 14px; }
+body {
+  font-family: var(--font-body);
+  background: var(--bg);
+  color: var(--ink);
+  min-height: 100vh;
+  display: flex;
+  overflow: hidden;
+}
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 60% 50% at 80% 0%, rgba(110,168,254,.04) 0%, transparent 60%),
+    radial-gradient(ellipse 40% 40% at 10% 100%, rgba(16,185,129,.03) 0%, transparent 55%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── LAYOUT ── */
+.app { display: flex; width: 100%; height: 100vh; overflow: hidden; position: relative; z-index: 1; }
+
+/* ── SIDEBAR ── */
+.sidebar {
+  width: 220px;
+  min-width: 220px;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+}
+.sidebar-brand {
+  padding: 20px 18px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.brand-name {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 400;
+  color: var(--ink);
+  letter-spacing: -.3px;
+  line-height: 1;
+}
+.brand-name em { font-style: italic; color: #6ea8fe; }
+.brand-role {
+  font-size: 11px;
+  color: var(--ink-soft);
+  margin-top: 5px;
+  letter-spacing: .3px;
+}
+.clinician-badge {
+  margin: 12px 18px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+.clinician-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #2a7ab5, #1a5a8a);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-size: 14px;
+  color: white;
+  flex-shrink: 0;
+}
+.clinician-name { font-size: 12px; font-weight: 600; color: var(--ink); }
+.clinician-dept { font-size: 10px; color: var(--ink-soft); margin-top: 1px; }
+
+.nav-section { padding: 8px 10px 4px; }
+.nav-section-label {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  color: var(--ink-soft);
+  padding: 0 8px;
+  margin-bottom: 4px;
+}
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  color: var(--ink-mid);
+  font-size: 13px;
+  font-weight: 500;
+  transition: all .15s;
+  position: relative;
+}
+.nav-item:hover { background: var(--surface2); color: var(--ink); }
+.nav-item.active { background: rgba(110,168,254,.12); color: #6ea8fe; }
+.nav-icon { font-size: 15px; width: 20px; text-align: center; }
+.nav-badge {
+  margin-left: auto;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 9px;
+  font-size: 10px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 5px;
+}
+.nav-badge.critical { background: var(--critical-bg); color: var(--critical); border: 1px solid var(--critical-border); }
+.nav-badge.warning { background: var(--warning-bg); color: var(--warning); border: 1px solid var(--warning-border); }
+
+.sidebar-footer {
+  margin-top: auto;
+  padding: 12px;
+  border-top: 1px solid var(--border);
+}
+.sidebar-footer-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: var(--r-sm);
+  color: var(--ink-soft);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all .15s;
+}
+.sidebar-footer-btn:hover { color: var(--ink); background: var(--surface2); }
+
+/* ── MAIN ── */
+.main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+/* ── TOP BAR ── */
+.topbar {
+  height: 56px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+  gap: 16px;
+  flex-shrink: 0;
+}
+.topbar-title { font-size: 16px; font-weight: 600; color: var(--ink); }
+.topbar-subtitle { font-size: 12px; color: var(--ink-soft); margin-left: 2px; }
+.topbar-spacer { flex: 1; }
+.search-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  border-radius: var(--r-md);
+  padding: 7px 12px;
+  width: 240px;
+}
+.search-bar input {
+  background: none;
+  border: none;
+  outline: none;
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--ink);
+  width: 100%;
+}
+.search-bar input::placeholder { color: var(--ink-soft); }
+.search-icon { font-size: 14px; color: var(--ink-soft); }
+.topbar-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: var(--r-sm);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all .15s;
+  border: 1px solid var(--border2);
+  background: var(--surface2);
+  color: var(--ink-mid);
+}
+.topbar-btn:hover { color: var(--ink); background: var(--surface3); }
+.topbar-btn.primary { background: rgba(110,168,254,.15); border-color: rgba(110,168,254,.3); color: #6ea8fe; }
+.alert-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--critical);
+  box-shadow: 0 0 6px var(--critical);
+  animation: pulse 2s infinite;
+}
+@keyframes pulse { 0%,100%{opacity:1;transform:scale(1);} 50%{opacity:.6;transform:scale(1.2);} }
+
+/* ── CONTENT AREA ── */
+.content {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.view { display: none; flex: 1; overflow-y: auto; }
+.view.active { display: block; }
+.view::-webkit-scrollbar { width: 6px; }
+.view::-webkit-scrollbar-track { background: transparent; }
+.view::-webkit-scrollbar-thumb { background: var(--surface3); border-radius: 3px; }
+.view-pad { padding: 20px 24px; }
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   POPULATION OVERVIEW VIEW
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
+/* Metric cards row */
+.metric-row {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.metric-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 14px 16px;
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color .2s;
+}
+.metric-card:hover { border-color: var(--border2); }
+.metric-card.critical { border-color: var(--critical-border); }
+.metric-card.warning { border-color: var(--warning-border); }
+.metric-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .8px;
+  color: var(--ink-soft);
+  margin-bottom: 8px;
+}
+.metric-value {
+  font-family: var(--font-display);
+  font-size: 30px;
+  font-weight: 400;
+  line-height: 1;
+  color: var(--ink);
+  letter-spacing: -.5px;
+  margin-bottom: 4px;
+}
+.metric-delta {
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+.metric-delta.up { color: var(--safe); }
+.metric-delta.down { color: var(--critical); }
+.metric-delta.flat { color: var(--ink-soft); }
+.metric-accent {
+  position: absolute;
+  bottom: 0; right: 0;
+  width: 60px; height: 40px;
+  opacity: .4;
+}
+
+/* Alert strip */
+.alert-strip {
+  background: var(--critical-bg);
+  border: 1px solid var(--critical-border);
+  border-radius: var(--r-lg);
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+  cursor: pointer;
+  transition: background .15s;
+}
+.alert-strip:hover { background: rgba(255,77,109,.18); }
+.alert-strip-icon { font-size: 18px; }
+.alert-strip-text { flex: 1; }
+.alert-strip-title { font-size: 13px; font-weight: 700; color: var(--critical); }
+.alert-strip-body { font-size: 12px; color: rgba(255,77,109,.7); margin-top: 1px; }
+.alert-strip-action { font-size: 12px; font-weight: 700; color: var(--critical); white-space: nowrap; }
+
+/* Two-column layout */
+.two-col { display: grid; grid-template-columns: 1fr 340px; gap: 16px; align-items: start; }
+.three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+
+/* Panel */
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+}
+.panel-title { font-size: 13px; font-weight: 700; color: var(--ink); }
+.panel-sub { font-size: 11px; color: var(--ink-soft); margin-top: 1px; }
+.panel-action {
+  font-size: 11px;
+  font-weight: 600;
+  color: #6ea8fe;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: var(--r-sm);
+  transition: background .1s;
+}
+.panel-action:hover { background: var(--info-bg); }
+
+/* ── HEATMAP ── */
+.heatmap-container { padding: 12px 16px 16px; overflow-x: auto; }
+.heatmap-header-row {
+  display: grid;
+  gap: 3px;
+  margin-bottom: 6px;
+}
+.heatmap-row { display: flex; align-items: center; gap: 0; margin-bottom: 3px; }
+.heatmap-label {
+  width: 130px;
+  min-width: 130px;
+  font-size: 12px;
+  color: var(--ink-mid);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding-right: 10px;
+  cursor: pointer;
+  transition: color .15s;
+}
+.heatmap-label:hover { color: var(--info); }
+.heatmap-cells { display: flex; gap: 2px; flex: 1; }
+.heatmap-cell {
+  width: 14px;
+  height: 22px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  cursor: pointer;
+  position: relative;
+  transition: transform .1s;
+}
+.heatmap-cell:hover { transform: scaleY(1.2); z-index: 10; }
+.heatmap-cell.no-data { background: var(--surface3); }
+.heatmap-cell.m1 { background: var(--m1); }
+.heatmap-cell.m2 { background: var(--m2); }
+.heatmap-cell.m3 { background: var(--m3); }
+.heatmap-cell.m4 { background: var(--m4); }
+.heatmap-cell.m5 { background: var(--m5); }
+.heatmap-cell.m6 { background: var(--m6); }
+.heatmap-cell.m7 { background: var(--m7); }
+.heatmap-cell.m8 { background: var(--m8); }
+.heatmap-cell.m9 { background: var(--m9); }
+.heatmap-cell.m10 { background: var(--m10); }
+.heatmap-cell.safety { background: var(--critical) !important; box-shadow: 0 0 0 2px rgba(255,77,109,.5); }
+.heatmap-date-labels { display: flex; gap: 2px; margin-left: 130px; margin-bottom: 4px; }
+.heatmap-date-label { width: 14px; flex-shrink: 0; text-align: center; font-size: 8px; color: var(--ink-soft); }
+.heatmap-legend {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  margin-left: 130px;
+  font-size: 10px;
+  color: var(--ink-soft);
+}
+.legend-cells { display: flex; gap: 2px; }
+.legend-cell { width: 12px; height: 12px; border-radius: 2px; }
+
+/* Alert list */
+.alert-list { padding: 0; }
+.alert-item {
+  display: flex;
+  gap: 12px;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background .1s;
+}
+.alert-item:hover { background: var(--surface2); }
+.alert-item:last-child { border-bottom: none; }
+.alert-item-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+.alert-item-icon.critical { background: var(--critical-bg); }
+.alert-item-icon.warning { background: var(--warning-bg); }
+.alert-item-icon.info { background: var(--info-bg); }
+.alert-item-content { flex: 1; min-width: 0; }
+.alert-item-patient { font-size: 12px; font-weight: 700; color: var(--ink); }
+.alert-item-title { font-size: 12px; color: var(--ink-mid); margin-top: 1px; line-height: 1.4; }
+.alert-item-time { font-size: 10px; color: var(--ink-soft); margin-top: 3px; }
+.alert-item-tag {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: var(--r-full, 999px);
+  white-space: nowrap;
+  align-self: flex-start;
+  margin-top: 2px;
+}
+.alert-item-tag.critical { background: var(--critical-bg); color: var(--critical); border: 1px solid var(--critical-border); }
+.alert-item-tag.warning { background: var(--warning-bg); color: var(--warning); border: 1px solid var(--warning-border); }
+.alert-item-tag.info { background: var(--info-bg); color: var(--info); border: 1px solid var(--info-border); }
+
+/* Mini bar chart */
+.mini-bar-chart { padding: 12px 18px; }
+.mini-bar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.mini-bar-label { font-size: 11px; color: var(--ink-mid); width: 80px; flex-shrink: 0; }
+.mini-bar-track { flex: 1; height: 8px; background: var(--surface3); border-radius: 4px; overflow: hidden; }
+.mini-bar-fill { height: 100%; border-radius: 4px; transition: width .8s cubic-bezier(.34,1.56,.64,1); }
+.mini-bar-val { font-size: 11px; font-weight: 600; color: var(--ink-mid); width: 28px; text-align: right; }
+
+/* Mood distribution chart */
+.dist-chart { padding: 12px 18px; display: flex; gap: 2px; align-items: flex-end; height: 80px; }
+.dist-bar-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.dist-bar { width: 100%; border-radius: 2px 2px 0 0; transition: height .6s ease; cursor: pointer; }
+.dist-bar-lbl { font-size: 8px; color: var(--ink-soft); }
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   PATIENT LIST VIEW
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.patient-table { width: 100%; border-collapse: collapse; }
+.patient-table th {
+  text-align: left;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .8px;
+  color: var(--ink-soft);
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border2);
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+}
+.patient-table th:hover { color: var(--ink-mid); }
+.patient-table tbody tr {
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background .1s;
+}
+.patient-table tbody tr:hover { background: var(--surface2); }
+.patient-table tbody tr.selected { background: rgba(110,168,254,.08); }
+.patient-table td { padding: 11px 16px; font-size: 13px; color: var(--ink-mid); vertical-align: middle; }
+.patient-name { font-weight: 600; color: var(--ink); }
+.patient-mrn { font-size: 11px; color: var(--ink-soft); margin-top: 1px; }
+.risk-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 999px;
+}
+.risk-badge.critical { background: var(--critical-bg); color: var(--critical); border: 1px solid var(--critical-border); }
+.risk-badge.high { background: rgba(245,158,11,.12); color: #f59e0b; border: 1px solid rgba(245,158,11,.25); }
+.risk-badge.moderate { background: rgba(110,168,254,.1); color: #6ea8fe; border: 1px solid rgba(110,168,254,.2); }
+.risk-badge.low { background: var(--safe-bg); color: var(--safe); border: 1px solid var(--safe-border); }
+.mood-sparkline {
+  display: flex;
+  gap: 2px;
+  align-items: flex-end;
+  height: 24px;
+}
+.sparkline-bar {
+  width: 5px;
+  border-radius: 1px;
+  flex-shrink: 0;
+}
+.streak-count { display: flex; align-items: center; gap: 4px; font-size: 12px; }
+.streak-fire { font-size: 13px; }
+.last-checkin { font-size: 11px; color: var(--ink-soft); }
+
+/* Filter bar */
+.filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 0;
+}
+.filter-chip {
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid var(--border2);
+  background: var(--surface2);
+  color: var(--ink-mid);
+  transition: all .15s;
+  white-space: nowrap;
+}
+.filter-chip:hover { color: var(--ink); border-color: var(--border2); }
+.filter-chip.active { background: rgba(110,168,254,.15); border-color: rgba(110,168,254,.4); color: #6ea8fe; }
+.filter-chip.critical { border-color: var(--critical-border); color: var(--critical); background: var(--critical-bg); }
+.filter-spacer { flex: 1; }
+.sort-select {
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  border-radius: var(--r-sm);
+  padding: 5px 10px;
+  font-family: var(--font-body);
+  font-size: 12px;
+  color: var(--ink-mid);
+  outline: none;
+  cursor: pointer;
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   PATIENT DETAIL VIEW
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.patient-detail-header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 16px 24px 14px;
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+.patient-avatar-large {
+  width: 52px; height: 52px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-size: 20px;
+  color: white;
+  flex-shrink: 0;
+}
+.patient-detail-name { font-size: 20px; font-weight: 700; color: var(--ink); line-height: 1; margin-bottom: 4px; }
+.patient-detail-meta { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 6px; }
+.meta-chip {
+  font-size: 11px;
+  color: var(--ink-soft);
+  background: var(--surface2);
+  padding: 3px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+}
+.detail-header-right { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.detail-action-btn {
+  padding: 7px 14px;
+  border-radius: var(--r-sm);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid var(--border2);
+  background: var(--surface2);
+  color: var(--ink-mid);
+  transition: all .15s;
+  white-space: nowrap;
+}
+.detail-action-btn:hover { color: var(--ink); background: var(--surface3); }
+.detail-action-btn.primary { background: rgba(110,168,254,.15); border-color: rgba(110,168,254,.3); color: #6ea8fe; }
+
+.detail-tab-bar {
+  display: flex;
+  gap: 2px;
+  padding: 8px 24px 0;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+}
+.detail-tab {
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+  transition: all .15s;
+  margin-bottom: -1px;
+}
+.detail-tab:hover { color: var(--ink-mid); }
+.detail-tab.active { color: #6ea8fe; border-bottom-color: #6ea8fe; }
+
+/* Recent entries table */
+.entry-row {
+  display: grid;
+  grid-template-columns: 80px 70px 70px 80px 80px 60px 1fr;
+  align-items: center;
+  gap: 0;
+  padding: 9px 18px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background .1s;
+}
+.entry-row:hover { background: var(--surface2); }
+.entry-row.header {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .8px;
+  color: var(--ink-soft);
+  cursor: default;
+  background: var(--surface);
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+.entry-row.header:hover { background: var(--surface); }
+.mood-dot {
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: white;
+}
+.flags { display: flex; gap: 3px; }
+.flag {
+  width: 18px; height: 18px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+}
+.flag.trigger { background: rgba(245,158,11,.15); color: #f59e0b; }
+.flag.symptom { background: var(--info-bg); color: var(--info); }
+.flag.missed-med { background: var(--critical-bg); color: var(--critical); }
+.flag.journal { background: rgba(16,185,129,.1); color: var(--safe); }
+.flag.safety { background: var(--critical-bg); color: var(--critical); border: 1px solid var(--critical-border); }
+
+/* Timeline/chart area in detail */
+.detail-chart-area {
+  padding: 16px 18px;
+  position: relative;
+}
+.inline-chart-container { position: relative; }
+
+/* Clinician notes */
+.note-item {
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--border);
+}
+.note-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 5px;
+}
+.note-type {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .8px;
+  padding: 2px 7px;
+  border-radius: 999px;
+}
+.note-type.observation { background: var(--info-bg); color: var(--info); }
+.note-type.intervention { background: var(--warning-bg); color: var(--warning); }
+.note-type.appointment { background: var(--safe-bg); color: var(--safe); }
+.note-date { font-size: 11px; color: var(--ink-soft); }
+.note-body { font-size: 13px; color: var(--ink-mid); line-height: 1.5; }
+.add-note-area {
+  padding: 14px 18px;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+.note-textarea {
+  width: 100%;
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  border-radius: var(--r-md);
+  padding: 10px 14px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--ink);
+  resize: none;
+  min-height: 60px;
+  outline: none;
+  transition: border-color .2s;
+  margin-bottom: 8px;
+}
+.note-textarea:focus { border-color: rgba(110,168,254,.4); }
+.note-actions { display: flex; gap: 8px; align-items: center; }
+.note-type-select {
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  border-radius: var(--r-sm);
+  padding: 6px 10px;
+  font-family: var(--font-body);
+  font-size: 12px;
+  color: var(--ink-mid);
+  outline: none;
+}
+.save-note-btn {
+  background: rgba(110,168,254,.15);
+  border: 1px solid rgba(110,168,254,.3);
+  border-radius: var(--r-sm);
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #6ea8fe;
+  cursor: pointer;
+  transition: all .15s;
+}
+.save-note-btn:hover { background: rgba(110,168,254,.25); }
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   ALERTS VIEW
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.alert-full-item {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  gap: 14px;
+  cursor: pointer;
+  transition: background .1s;
+}
+.alert-full-item:hover { background: var(--surface2); }
+.alert-full-item.acknowledged { opacity: .5; }
+.alert-full-left { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.alert-full-icon {
+  width: 38px; height: 38px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+}
+.alert-full-content { flex: 1; }
+.alert-full-header { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 4px; }
+.alert-full-patient { font-size: 13px; font-weight: 700; color: var(--ink); }
+.alert-full-title { font-size: 13px; color: var(--ink-mid); flex: 1; }
+.alert-full-body { font-size: 12px; color: var(--ink-soft); line-height: 1.5; margin-bottom: 6px; }
+.alert-full-actions { display: flex; gap: 8px; }
+.ack-btn {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  border: 1px solid var(--border2);
+  background: var(--surface2);
+  color: var(--ink-mid);
+  transition: all .15s;
+}
+.ack-btn:hover { color: var(--ink); }
+.ack-btn.primary { background: rgba(110,168,254,.1); border-color: rgba(110,168,254,.3); color: #6ea8fe; }
+.ack-btn.critical { background: var(--critical-bg); border-color: var(--critical-border); color: var(--critical); }
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   UTILITY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.section-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .8px;
+  color: var(--ink-soft);
+  margin-bottom: 8px;
+}
+.empty-state {
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--ink-soft);
+  font-size: 13px;
+}
+.tooltip {
+  position: fixed;
+  background: var(--surface3);
+  border: 1px solid var(--border2);
+  border-radius: var(--r-sm);
+  padding: 6px 10px;
+  font-size: 11px;
+  color: var(--ink);
+  pointer-events: none;
+  z-index: 1000;
+  white-space: nowrap;
+  box-shadow: 0 4px 16px rgba(0,0,0,.4);
+  opacity: 0;
+  transition: opacity .15s;
+}
+.tooltip.show { opacity: 1; }
+
+/* scroll container */
+.scroll-x { overflow-x: auto; scrollbar-width: thin; scrollbar-color: var(--surface3) transparent; }
+
+/* Stagger animation */
+@keyframes fadeSlideIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+.anim { animation: fadeSlideIn .3s ease both; }
+.anim-d1 { animation-delay: .05s; }
+.anim-d2 { animation-delay: .1s; }
+.anim-d3 { animation-delay: .15s; }
+.anim-d4 { animation-delay: .2s; }
+.anim-d5 { animation-delay: .25s; }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ════════════ SIDEBAR ════════════ -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-name">Mind<em>Log</em> Clinical</div>
+      <div class="brand-role">Population Health Dashboard</div>
+    </div>
+    <div class="clinician-badge">
+      <div class="clinician-avatar">AH</div>
+      <div>
+        <div class="clinician-name">Dr. Amelia Huang</div>
+        <div class="clinician-dept">Psychiatry · Rm B-204</div>
+      </div>
+    </div>
+    <div class="nav-section">
+      <div class="nav-section-label">Overview</div>
+      <div class="nav-item active" onclick="switchView('population')">
+        <span class="nav-icon">🌐</span> Population
+      </div>
+      <div class="nav-item" onclick="switchView('patients')">
+        <span class="nav-icon">👥</span> All Patients
+        <span class="nav-badge warning" id="navPatientBadge">24</span>
+      </div>
+      <div class="nav-item" onclick="switchView('alerts')">
+        <span class="nav-icon">🔔</span> Alerts
+        <span class="nav-badge critical" id="navAlertBadge">3</span>
+      </div>
+    </div>
+    <div class="nav-section">
+      <div class="nav-section-label">Clinical Tools</div>
+      <div class="nav-item" onclick="switchView('trends')">
+        <span class="nav-icon">📈</span> Population Trends
+      </div>
+      <div class="nav-item" onclick="switchView('reports')">
+        <span class="nav-icon">📄</span> Reports
+      </div>
+    </div>
+    <div class="sidebar-footer">
+      <div class="sidebar-footer-btn">⚙ Settings</div>
+      <div class="sidebar-footer-btn">📤 Export</div>
+    </div>
+  </aside>
+
+  <!-- ════════════ MAIN ════════════ -->
+  <div class="main">
+    <!-- Top bar -->
+    <div class="topbar">
+      <div>
+        <div class="topbar-title" id="topbarTitle">Population Overview</div>
+        <div class="topbar-subtitle" id="topbarSub">Friday, 20 February 2026 · 24 active patients</div>
+      </div>
+      <div class="topbar-spacer"></div>
+      <div class="search-bar">
+        <span class="search-icon">🔍</span>
+        <input type="text" placeholder="Search patients…" oninput="handleSearch(this.value)">
+      </div>
+      <div class="topbar-btn primary" onclick="switchView('alerts')">
+        <div class="alert-dot"></div>
+        3 Critical Alerts
+      </div>
+      <div class="topbar-btn">↗ Export</div>
+    </div>
+
+    <!-- ═══ VIEWS ═══ -->
+    <div class="content">
+
+      <!-- ── POPULATION VIEW ── -->
+      <div class="view active" id="v-population">
+        <div class="view-pad">
+
+          <!-- Metrics -->
+          <div class="metric-row anim">
+            <div class="metric-card critical" onclick="switchView('alerts')">
+              <div class="metric-label">Critical Alerts</div>
+              <div class="metric-value" style="color:var(--critical);">3</div>
+              <div class="metric-delta down">↑ 2 since yesterday</div>
+            </div>
+            <div class="metric-card warning">
+              <div class="metric-label">Active Today</div>
+              <div class="metric-value">18</div>
+              <div class="metric-delta flat">of 24 patients logged</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-label">Avg Mood</div>
+              <div class="metric-value" style="color:#2a9d7e;">6.4</div>
+              <div class="metric-delta up">↑ 0.3 vs last week</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-label">Avg Sleep</div>
+              <div class="metric-value" style="color:#7c6fa0;">6.8h</div>
+              <div class="metric-delta down">↓ 0.2h vs last week</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-label">Med Adherence</div>
+              <div class="metric-value" style="color:var(--safe);">84%</div>
+              <div class="metric-delta up">↑ 3% this month</div>
+            </div>
+          </div>
+
+          <!-- Safety alert strip -->
+          <div class="alert-strip anim anim-d1" onclick="showAlertDetail('safety')">
+            <div class="alert-strip-icon">⚠️</div>
+            <div class="alert-strip-text">
+              <div class="alert-strip-title">Safety flag: Marcus Webb reported suicidal ideation today</div>
+              <div class="alert-strip-body">Triggered 11:42 AM · Risk protocol activated · Awaiting clinical review</div>
+            </div>
+            <div class="alert-strip-action">Review Now →</div>
+          </div>
+
+          <div class="two-col">
+            <!-- LEFT: Heatmap + Distribution -->
+            <div>
+              <!-- Heatmap panel -->
+              <div class="panel anim anim-d2">
+                <div class="panel-header">
+                  <div>
+                    <div class="panel-title">Mood Heatmap — Last 30 Days</div>
+                    <div class="panel-sub">One row per patient · Hover for details · Click to open</div>
+                  </div>
+                  <div class="panel-action" onclick="switchView('patients')">All patients →</div>
+                </div>
+                <div class="heatmap-container scroll-x" id="heatmapContainer">
+                  <!-- JS renders -->
+                </div>
+              </div>
+
+              <!-- Mood distribution -->
+              <div class="panel anim anim-d3">
+                <div class="panel-header">
+                  <div class="panel-title">Mood Distribution — Today</div>
+                  <div class="panel-sub">Reported by 18 patients this morning</div>
+                </div>
+                <div class="dist-chart" id="distChart">
+                  <!-- JS renders -->
+                </div>
+              </div>
+
+              <!-- Top triggers -->
+              <div class="panel anim anim-d4">
+                <div class="panel-header">
+                  <div class="panel-title">Active Triggers — Population (7d)</div>
+                </div>
+                <div class="mini-bar-chart" id="triggerBars">
+                  <!-- JS renders -->
+                </div>
+              </div>
+            </div>
+
+            <!-- RIGHT: Alerts + Recent activity -->
+            <div>
+              <div class="panel anim anim-d2" style="margin-bottom:14px;">
+                <div class="panel-header">
+                  <div>
+                    <div class="panel-title">Active Alerts</div>
+                    <div class="panel-sub">Requires your attention</div>
+                  </div>
+                  <div class="panel-action" onclick="switchView('alerts')">All →</div>
+                </div>
+                <div class="alert-list" id="alertList">
+                  <!-- JS renders -->
+                </div>
+              </div>
+
+              <div class="panel anim anim-d3">
+                <div class="panel-header">
+                  <div class="panel-title">Check-In Activity</div>
+                  <div class="panel-sub">Who logged today</div>
+                </div>
+                <div id="checkinList" style="padding: 0 0 8px;">
+                  <!-- JS renders -->
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ── PATIENTS LIST VIEW ── -->
+      <div class="view" id="v-patients">
+        <div style="padding: 12px 24px 0;">
+          <div class="filter-bar">
+            <div class="filter-chip active" onclick="filterPatients(this,'all')">All (24)</div>
+            <div class="filter-chip critical" onclick="filterPatients(this,'critical')">⚠ Critical (3)</div>
+            <div class="filter-chip" onclick="filterPatients(this,'high')">High risk (6)</div>
+            <div class="filter-chip" onclick="filterPatients(this,'not-logged')">Not logged (6)</div>
+            <div class="filter-chip" onclick="filterPatients(this,'streak')">🔥 Streak 7d+</div>
+            <div class="filter-spacer"></div>
+            <select class="sort-select" onchange="sortPatients(this.value)">
+              <option value="risk">Sort: Risk level</option>
+              <option value="mood">Sort: Mood (worst first)</option>
+              <option value="streak">Sort: Streak</option>
+              <option value="last-checkin">Sort: Last check-in</option>
+              <option value="name">Sort: Name</option>
+            </select>
+          </div>
+        </div>
+        <div style="padding: 0 24px;">
+          <table class="patient-table">
+            <thead>
+              <tr>
+                <th onclick="sortPatients('name')">Patient ↕</th>
+                <th onclick="sortPatients('diagnosis')">Diagnosis</th>
+                <th onclick="sortPatients('risk')">Risk ↕</th>
+                <th onclick="sortPatients('mood')">Mood trend</th>
+                <th onclick="sortPatients('mood-today')">Today</th>
+                <th onclick="sortPatients('streak')">Streak ↕</th>
+                <th onclick="sortPatients('last-checkin')">Last check-in</th>
+                <th>Next Appt</th>
+              </tr>
+            </thead>
+            <tbody id="patientTableBody">
+              <!-- JS renders -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ── PATIENT DETAIL VIEW ── -->
+      <div class="view" id="v-patient-detail">
+        <div class="patient-detail-header" id="detailHeader"></div>
+        <div class="detail-tab-bar" id="detailTabs"></div>
+        <div id="detailBody" style="overflow-y:auto; flex:1;"></div>
+      </div>
+
+      <!-- ── ALERTS VIEW ── -->
+      <div class="view" id="v-alerts">
+        <div style="padding: 12px 24px 0;">
+          <div class="filter-bar">
+            <div class="filter-chip active" onclick="filterAlerts(this,'all')">All alerts (11)</div>
+            <div class="filter-chip critical" onclick="filterAlerts(this,'critical')">Critical (3)</div>
+            <div class="filter-chip" onclick="filterAlerts(this,'warning')">Warning (5)</div>
+            <div class="filter-chip" onclick="filterAlerts(this,'info')">Info (3)</div>
+            <div class="filter-chip" onclick="filterAlerts(this,'unack')">Unacknowledged</div>
+          </div>
+        </div>
+        <div id="alertsBody" style="padding: 0 0 40px;"></div>
+      </div>
+
+      <!-- ── TRENDS VIEW ── -->
+      <div class="view" id="v-trends">
+        <div class="view-pad">
+          <div class="three-col">
+            <div class="panel">
+              <div class="panel-header"><div class="panel-title">Population Mood — 30d</div></div>
+              <div style="padding:14px 16px;">
+                <canvas id="trendMoodChart" width="320" height="110" style="width:100%;"></canvas>
+              </div>
+            </div>
+            <div class="panel">
+              <div class="panel-header"><div class="panel-title">Population Sleep — 30d</div></div>
+              <div style="padding:14px 16px;">
+                <canvas id="trendSleepChart" width="320" height="110" style="width:100%;"></canvas>
+              </div>
+            </div>
+            <div class="panel">
+              <div class="panel-header"><div class="panel-title">Medication Adherence — 30d</div></div>
+              <div style="padding:14px 16px;">
+                <canvas id="trendMedChart" width="320" height="110" style="width:100%;"></canvas>
+              </div>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-header">
+              <div class="panel-title">Risk Level Distribution Over Time</div>
+              <div class="panel-sub">Weekly snapshots · 12 weeks</div>
+            </div>
+            <div style="padding:16px 18px;">
+              <canvas id="riskStackChart" width="900" height="140" style="width:100%;"></canvas>
+            </div>
+          </div>
+          <div class="two-col">
+            <div class="panel">
+              <div class="panel-header"><div class="panel-title">Top Triggers — Population (30d)</div></div>
+              <div class="mini-bar-chart" id="trendTriggerBars"></div>
+            </div>
+            <div class="panel">
+              <div class="panel-header"><div class="panel-title">Tracking Engagement</div></div>
+              <div style="padding:14px 18px;">
+                <div style="font-family:var(--font-display);font-size:38px;color:var(--safe);margin-bottom:4px;">74%</div>
+                <div style="font-size:12px;color:var(--ink-soft);">Average check-in completion rate this month</div>
+                <div style="margin-top:14px;">
+                  <div class="mini-bar-row"><div class="mini-bar-label">Daily (7d)</div><div class="mini-bar-track"><div class="mini-bar-fill" style="width:78%;background:var(--safe);"></div></div><div class="mini-bar-val">78%</div></div>
+                  <div class="mini-bar-row"><div class="mini-bar-label">Weekly (4w)</div><div class="mini-bar-track"><div class="mini-bar-fill" style="width:74%;background:#6ea8fe;"></div></div><div class="mini-bar-val">74%</div></div>
+                  <div class="mini-bar-row"><div class="mini-bar-label">Monthly</div><div class="mini-bar-track"><div class="mini-bar-fill" style="width:68%;background:#a78bfa;"></div></div><div class="mini-bar-val">68%</div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── REPORTS VIEW ── -->
+      <div class="view" id="v-reports">
+        <div class="view-pad">
+          <div class="panel">
+            <div class="panel-header"><div class="panel-title">Generate Clinical Reports</div></div>
+            <div style="padding:20px 20px;">
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+                <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-lg);padding:18px;cursor:pointer;transition:border-color .2s;" onmouseover="this.style.borderColor='rgba(110,168,254,.4)'" onmouseout="this.style.borderColor='var(--border)'">
+                  <div style="font-size:28px;margin-bottom:10px;">📄</div>
+                  <div style="font-size:14px;font-weight:700;color:var(--ink);margin-bottom:4px;">Individual Patient</div>
+                  <div style="font-size:12px;color:var(--ink-soft);">30-day mood, triggers, symptoms. Export as PDF for clinical handoff.</div>
+                  <div style="margin-top:14px;font-size:12px;font-weight:600;color:#6ea8fe;">Generate →</div>
+                </div>
+                <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-lg);padding:18px;cursor:pointer;transition:border-color .2s;" onmouseover="this.style.borderColor='rgba(110,168,254,.4)'" onmouseout="this.style.borderColor='var(--border)'">
+                  <div style="font-size:28px;margin-bottom:10px;">👥</div>
+                  <div style="font-size:14px;font-weight:700;color:var(--ink);margin-bottom:4px;">Population Summary</div>
+                  <div style="font-size:12px;color:var(--ink-soft);">Aggregate outcomes across your caseload. Suitable for department review.</div>
+                  <div style="margin-top:14px;font-size:12px;font-weight:600;color:#6ea8fe;">Generate →</div>
+                </div>
+                <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-lg);padding:18px;cursor:pointer;transition:border-color .2s;" onmouseover="this.style.borderColor='rgba(110,168,254,.4)'" onmouseout="this.style.borderColor='var(--border)'">
+                  <div style="font-size:28px;margin-bottom:10px;">🔄</div>
+                  <div style="font-size:14px;font-weight:700;color:var(--ink);margin-bottom:4px;">Handover Report</div>
+                  <div style="font-size:12px;color:var(--ink-soft);">Flagged patients, active alerts, and outstanding actions for cover clinician.</div>
+                  <div style="margin-top:14px;font-size:12px;font-weight:600;color:#6ea8fe;">Generate →</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- end content -->
+  </div><!-- end main -->
+</div>
+
+<!-- Tooltip -->
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+// ═══════════════════════════════════════════════════
+// DATA MODEL — SYNTHETIC PATIENT POPULATION
+// ═══════════════════════════════════════════════════
+
+const MOOD_COLORS=['#c0392b','#e05a2a','#d08020','#c9972a','#a0a030','#6a9a4a','#3a9a6a','#2a9d8a','#2a7ab5','#2a5ab5'];
+const DIAGNOSES=['Bipolar I','Bipolar II','MDD','MDD + Anxiety','GAD','PTSD','Schizoaffective','OCD','Borderline PD','Dysthymia'];
+const MEDICATIONS=['Lithium 400mg','Lamotrigine 100mg','Quetiapine 50mg','Sertraline 50mg','Fluoxetine 20mg','Venlafaxine 75mg','Aripiprazole 5mg','Valproate 500mg','Clonazepam 0.5mg'];
+const FIRST_NAMES=['Marcus','Elena','David','Priya','James','Sarah','Tom','Aiko','Carlos','Fatima','Luke','Nadia','Ben','Sofia','Raj','Chloe','Omar','Ingrid','Sam','Zara','Patrick','Lin','Helena','Felix'];
+const LAST_NAMES=['Webb','Kovac','Müller','Sharma','Chen','O\'Brien','Park','Tanaka','Santos','Al-Rashid','Morrison','Petrov','Walsh','Romano','Patel','Martin','Hassan','Berg','Taylor','Khan','Murphy','Zhang','Andersen','Reyes'];
+const TRIGGER_NAMES=['Work Stress','Home Stress','Too Much To Do','Lack of Sleep','Negative Self Talk','Relationship Issues','Financial Stress','Social Isolation','Health Anxiety','Alcohol'];
+const SYMPTOM_NAMES=['Irritability','Anxiety','Sadness','Low Energy','Sleep Problems','Poor Concentration','Hopelessness'];
+
+// Seed random for reproducibility
+let seed=42;
+function rng(){seed=(seed*1664525+1013904223)&0xffffffff;return (seed>>>0)/0xffffffff;}
+function randInt(a,b){return Math.floor(rng()*(b-a+1))+a;}
+function randEl(arr){return arr[randInt(0,arr.length-1)];}
+function randFloat(a,b){return rng()*(b-a)+a;}
+
+// Generate 30 days of mood data per patient
+function genMoodHistory(baseline, volatility, hasCrisisToday){
+  const days=[];
+  let mood=baseline;
+  for(let i=29;i>=0;i--){
+    mood+=randFloat(-volatility,volatility);
+    mood=Math.max(1,Math.min(10,mood));
+    const logged=rng()>0.18;
+    days.push({
+      dayOffset:i,
+      logged,
+      mood:logged?Math.round(mood):null,
+      sleep:logged?randFloat(4.5,9):null,
+      exercise:logged?randInt(0,60):null,
+      medTaken:logged?rng()>0.15:null,
+      hasTrigger:logged?rng()>0.55:null,
+      hasSymptom:logged?rng()>0.6:null,
+      safetyFlag:i===0&&hasCrisisToday,
+    });
+  }
+  return days;
+}
+
+// Generate patients
+const PATIENTS = FIRST_NAMES.map((fn,idx) => {
+  seed=42+idx*7919;
+  const riskRoll=rng();
+  const riskLevel=idx===0?'critical':riskRoll<0.1?'critical':riskRoll<0.3?'high':riskRoll<0.65?'moderate':'low';
+  const baseline=riskLevel==='critical'?randFloat(2,5):riskLevel==='high'?randFloat(3,6):riskLevel==='moderate'?randFloat(5,7.5):randFloat(6,9);
+  const volatility=riskLevel==='critical'?1.8:riskLevel==='high'?1.2:0.8;
+  const hasCrisisToday=idx===0;
+  const history=genMoodHistory(baseline,volatility,hasCrisisToday);
+  const lastLog=history.find(d=>d.logged&&d.dayOffset===0);
+  const streak=(()=>{let s=0;for(const d of history){if(d.dayOffset>7)break;if(d.logged)s++;else break;}return s;})();
+  const meds=[randEl(MEDICATIONS),randEl(MEDICATIONS)].filter((v,i,a)=>a.indexOf(v)===i);
+  const apptDays=randInt(1,21);
+  const appt=new Date(2026,1,20+apptDays);
+  return{
+    id:`pt_${idx}`,
+    mrn:`MRN-${(10000+idx).toString()}`,
+    firstName:fn,
+    lastName:LAST_NAMES[idx],
+    dob:`${randInt(1960,2000)}-${String(randInt(1,12)).padStart(2,'0')}-${String(randInt(1,28)).padStart(2,'0')}`,
+    gender:rng()>.5?'F':'M',
+    diagnosis:DIAGNOSES[idx%DIAGNOSES.length],
+    medications:meds,
+    riskLevel,
+    status:hasCrisisToday?'crisis':riskLevel==='critical'?'crisis':'active',
+    trackingStreak:streak,
+    lastCheckin:history.find(d=>d.logged)?.dayOffset===0?'Today':history.find(d=>d.logged)?.dayOffset===1?'Yesterday':`${history.find(d=>d.logged)?.dayOffset||'?'}d ago`,
+    moodToday:lastLog?.mood||null,
+    history,
+    meds,
+    nextAppt:`${appt.toLocaleDateString('en-GB',{day:'numeric',month:'short'})}`,
+    notes:[
+      {type:'observation',body:'Patient reports sleep disruption correlating with weekend social events. Discussed sleep hygiene strategies.',date:'15 Feb'},
+      {type:'appointment',body:'Monthly review. Lamotrigine dose stable. Mood tracking shows consistent logging. Progress noted in coping.',date:'10 Feb'},
+    ],
+    color:['#2a7ab5','#5a8a6a','#c9972a','#7c6fa0','#2a9d8f','#e05a2a','#2a6db5','#9a5a8a','#4a8a3a','#c04060'][idx%10],
+  };
+});
+
+// Alerts
+const ALERTS=[
+  {id:'a1',patientId:'pt_0',type:'safety_flag',severity:'critical',title:'Suicidal ideation reported',body:'Patient reported suicidal thoughts in today\'s symptom check. Flagged automatically at 11:42 AM. Crisis protocol activated.',time:'11:42 AM today',icon:'🚨',ack:false},
+  {id:'a2',patientId:'pt_2',type:'mood_decline',severity:'critical',title:'Severe mood decline — 4-day trend',body:'Mood has dropped from 7 to 3 over the last 4 days. No changes in medication or reported triggers.',time:'8:00 AM today',icon:'📉',ack:false},
+  {id:'a3',patientId:'pt_5',type:'missed_checkin',severity:'critical',title:'Missed check-ins: 5 consecutive days',body:'Patient has not logged since Feb 15. Last entry showed high work stress (8/10) and poor sleep.',time:'Yesterday',icon:'❌',ack:false},
+  {id:'a4',patientId:'pt_1',type:'med_nonadherence',severity:'warning',title:'Medication non-adherence — 3 days',body:'Lithium 400mg reported as not taken on Feb 17, 18, 19. Patient noted "forgot" in journal entries.',time:'2 days ago',icon:'💊',ack:false},
+  {id:'a5',patientId:'pt_8',type:'trigger_escalation',severity:'warning',title:'Escalating trigger severity',body:'Work Stress severity increased from 4 to 8 over 7 days. Now the most prevalent trigger for this patient.',time:'3 days ago',icon:'⚡',ack:false},
+  {id:'a6',patientId:'pt_3',type:'symptom_emergence',severity:'warning',title:'New symptom: Hopelessness',body:'Patient logged Hopelessness for the first time — rated 6/10. Previously this symptom was marked N/A.',time:'Yesterday',icon:'💭',ack:false},
+  {id:'a7',patientId:'pt_11',type:'mood_decline',severity:'warning',title:'Mood below baseline',body:'Average mood this week is 4.2 vs established baseline of 6.5. Sleep also down to 5.8h average.',time:'This week',icon:'📊',ack:false},
+  {id:'a8',patientId:'pt_6',type:'streak_broken',severity:'info',title:'Tracking streak broken (was 22 days)',body:'Patient missed logging yesterday after a 22-day streak. Consider a check-in at next appointment.',time:'Yesterday',icon:'🔥',ack:false},
+  {id:'a9',patientId:'pt_14',type:'missed_checkin',severity:'info',title:'No check-in this morning',body:'Typically logs before 9 AM. No entry as of 12 PM.',time:'Today 12:00 PM',icon:'⏰',ack:true},
+  {id:'a10',patientId:'pt_9',type:'mood_decline',severity:'info',title:'Mild mood dip over weekend',body:'Mood dropped to 5 on Saturday and Sunday, recovering to 7 Monday. Consistent with reported pattern.',time:'Mon 17 Feb',icon:'📅',ack:true},
+  {id:'a11',patientId:'pt_4',type:'med_nonadherence',severity:'info',title:'Occasional missed dose',body:'Patient missed medication once in the past 7 days.',time:'Wed 18 Feb',icon:'💊',ack:true},
+];
+
+function getPatient(id){return PATIENTS.find(p=>p.id===id);}
+
+// ═══════════════════════════════════════════════════
+// TOOLTIP
+// ═══════════════════════════════════════════════════
+const tip=document.getElementById('tooltip');
+let tipTimer;
+function showTip(e,text){
+  tip.textContent=text;
+  tip.style.left=(e.clientX+12)+'px';
+  tip.style.top=(e.clientY-8)+'px';
+  clearTimeout(tipTimer);
+  tip.classList.add('show');
+}
+function hideTip(){tip.classList.remove('show');}
+
+// ═══════════════════════════════════════════════════
+// HEATMAP
+// ═══════════════════════════════════════════════════
+function buildHeatmap(){
+  const container=document.getElementById('heatmapContainer');
+  if(!container)return;
+  const days=Array.from({length:30},(_,i)=>30-i);
+  let html='';
+  // Date labels
+  html+=`<div class="heatmap-date-labels">`;
+  days.forEach((d,i)=>{
+    if(i===0||i===6||i===13||i===20||i===27||i===29)html+=`<div class="heatmap-date-label">${i===29?'T':days[i]}</div>`;
+    else html+=`<div class="heatmap-date-label"></div>`;
+  });
+  html+=`</div>`;
+  // Rows — top 16 patients by risk priority
+  const sorted=[...PATIENTS].sort((a,b)=>{
+    const ord={critical:0,high:1,moderate:2,low:3};
+    return ord[a.riskLevel]-ord[b.riskLevel];
+  }).slice(0,16);
+  sorted.forEach(p=>{
+    html+=`<div class="heatmap-row">
+      <div class="heatmap-label" onclick="openPatientDetail('${p.id}')">${p.firstName} ${p.lastName[0]}.</div>
+      <div class="heatmap-cells">`;
+    p.history.forEach((day,i)=>{
+      const cls=day.safetyFlag?'safety':!day.logged?'no-data':day.mood?`m${Math.round(day.mood)}`:'no-data';
+      const label=day.safetyFlag?'⚠ Safety flag':!day.logged?'Not logged':`Mood: ${day.mood}/10 · Sleep: ${day.sleep?.toFixed(1)}h`;
+      html+=`<div class="heatmap-cell ${cls}" 
+        onmouseenter="showTip(event,'${p.firstName}: ${label}')"
+        onmouseleave="hideTip()"
+        onclick="openPatientDetail('${p.id}')"></div>`;
+    });
+    html+=`</div></div>`;
+  });
+  // Legend
+  html+=`<div class="heatmap-legend">Low <div class="legend-cells">`;
+  for(let i=1;i<=10;i++)html+=`<div class="legend-cell" style="background:var(--m${i});"></div>`;
+  html+=`</div> High &nbsp; <div class="legend-cell" style="background:var(--surface3);border:1px solid var(--border2);"></div> No data &nbsp; <div class="legend-cell" style="background:var(--critical);box-shadow:0 0 4px var(--critical);"></div> Safety flag</div>`;
+  container.innerHTML=html;
+}
+
+// ═══════════════════════════════════════════════════
+// MOOD DISTRIBUTION
+// ═══════════════════════════════════════════════════
+function buildDistribution(){
+  const el=document.getElementById('distChart');
+  if(!el)return;
+  // Count today's moods
+  const buckets=new Array(10).fill(0);
+  PATIENTS.forEach(p=>{if(p.moodToday)buckets[Math.round(p.moodToday)-1]++;});
+  const max=Math.max(...buckets,1);
+  el.innerHTML=buckets.map((count,i)=>`
+    <div class="dist-bar-wrap">
+      <div class="dist-bar" style="height:${Math.max(4,(count/max)*56)}px;background:${MOOD_COLORS[i]};" 
+        onmouseenter="showTip(event,'Mood ${i+1}: ${count} patient${count!==1?'s':''}')"
+        onmouseleave="hideTip()"></div>
+      <div class="dist-bar-lbl">${i+1}</div>
+    </div>`).join('');
+}
+
+// ═══════════════════════════════════════════════════
+// TRIGGER BARS
+// ═══════════════════════════════════════════════════
+function buildTriggerBars(elId){
+  const el=document.getElementById(elId);
+  if(!el)return;
+  const counts=TRIGGER_NAMES.map(t=>({name:t,count:randInt(2,14)})).sort((a,b)=>b.count-a.count).slice(0,6);
+  const max=counts[0].count;
+  el.innerHTML=counts.map((t,i)=>`
+    <div class="mini-bar-row">
+      <div class="mini-bar-label">${t.name}</div>
+      <div class="mini-bar-track"><div class="mini-bar-fill" style="width:${(t.count/max)*100}%;background:linear-gradient(to right,#f59e0b88,#f59e0b);animation-delay:${i*.06}s;"></div></div>
+      <div class="mini-bar-val">${t.count}</div>
+    </div>`).join('');
+}
+
+// ═══════════════════════════════════════════════════
+// ALERT LIST (sidebar)
+// ═══════════════════════════════════════════════════
+function buildAlertList(){
+  const el=document.getElementById('alertList');
+  if(!el)return;
+  const active=ALERTS.filter(a=>!a.ack).slice(0,5);
+  el.innerHTML=active.map(a=>{
+    const p=getPatient(a.patientId);
+    return `<div class="alert-item" onclick="openPatientDetail('${a.patientId}')">
+      <div class="alert-item-icon ${a.severity}">${a.icon}</div>
+      <div class="alert-item-content">
+        <div class="alert-item-patient">${p?.firstName} ${p?.lastName}</div>
+        <div class="alert-item-title">${a.title}</div>
+        <div class="alert-item-time">${a.time}</div>
+      </div>
+      <div class="alert-item-tag ${a.severity}">${a.severity.toUpperCase()}</div>
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════
+// CHECK-IN LIST
+// ═══════════════════════════════════════════════════
+function buildCheckinList(){
+  const el=document.getElementById('checkinList');
+  if(!el)return;
+  const logged=PATIENTS.filter(p=>p.moodToday!==null).slice(0,6);
+  const notLogged=PATIENTS.filter(p=>p.moodToday===null).slice(0,3);
+  let html='<div style="padding:8px 18px 4px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--ink-soft);">Logged today</div>';
+  logged.forEach(p=>{
+    const col=MOOD_COLORS[Math.round(p.moodToday)-1];
+    html+=`<div style="display:flex;align-items:center;gap:10px;padding:7px 18px;cursor:pointer;transition:background .1s;" 
+      onclick="openPatientDetail('${p.id}')" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='transparent'">
+      <div style="width:28px;height:28px;border-radius:8px;background:${p.color}22;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:${p.color};">${p.firstName[0]}${p.lastName[0]}</div>
+      <div style="flex:1;font-size:12px;color:var(--ink-mid);">${p.firstName} ${p.lastName}</div>
+      <div style="width:22px;height:22px;border-radius:50%;background:${col};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:white;">${Math.round(p.moodToday)}</div>
+    </div>`;
+  });
+  html+=`<div style="padding:8px 18px 4px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--ink-soft);margin-top:4px;">Not yet logged</div>`;
+  notLogged.forEach(p=>{
+    html+=`<div style="display:flex;align-items:center;gap:10px;padding:7px 18px;opacity:.5;cursor:pointer;" onclick="openPatientDetail('${p.id}')">
+      <div style="width:28px;height:28px;border-radius:8px;background:var(--surface3);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--ink-soft);">${p.firstName[0]}${p.lastName[0]}</div>
+      <div style="flex:1;font-size:12px;color:var(--ink-soft);">${p.firstName} ${p.lastName}</div>
+      <div style="font-size:10px;color:var(--ink-soft);">—</div>
+    </div>`;
+  });
+  el.innerHTML=html;
+}
+
+// ═══════════════════════════════════════════════════
+// PATIENT TABLE
+// ═══════════════════════════════════════════════════
+let currentFilter='all';
+function buildPatientTable(patients){
+  const tbody=document.getElementById('patientTableBody');
+  if(!tbody)return;
+  tbody.innerHTML=patients.map(p=>{
+    const sparkData=p.history.filter(d=>d.logged&&d.mood).slice(-10);
+    const sparkMax=10;
+    const sparkBars=sparkData.map(d=>`<div class="sparkline-bar" style="height:${(d.mood/sparkMax)*20}px;background:${MOOD_COLORS[Math.round(d.mood)-1]};"></div>`).join('');
+    const riskCls=p.riskLevel==='critical'?'critical':p.riskLevel;
+    const riskLabel=p.riskLevel.charAt(0).toUpperCase()+p.riskLevel.slice(1);
+    const moodColor=p.moodToday?MOOD_COLORS[Math.round(p.moodToday)-1]:'#2e3848';
+    return `<tr onclick="openPatientDetail('${p.id}')">
+      <td>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="width:32px;height:32px;border-radius:9px;background:${p.color}22;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:${p.color};flex-shrink:0;">${p.firstName[0]}${p.lastName[0]}</div>
+          <div><div class="patient-name">${p.firstName} ${p.lastName}</div><div class="patient-mrn">${p.mrn}</div></div>
+        </div>
+      </td>
+      <td style="font-size:12px;">${p.diagnosis}</td>
+      <td><span class="risk-badge ${riskCls}">${p.status==='crisis'?'⚠ Crisis':riskLabel}</span></td>
+      <td><div class="mood-sparkline">${sparkBars}</div></td>
+      <td>${p.moodToday?`<div class="mood-dot" style="background:${moodColor};">${Math.round(p.moodToday)}</div>`:'<span style="color:var(--ink-soft);font-size:11px;">—</span>'}</td>
+      <td><div class="streak-count"><span class="streak-fire">${p.trackingStreak>=7?'🔥':'📅'}</span> ${p.trackingStreak}d</div></td>
+      <td class="last-checkin">${p.lastCheckin}</td>
+      <td style="font-size:11px;color:var(--ink-soft);">${p.nextAppt}</td>
+    </tr>`;
+  }).join('');
+}
+
+function filterPatients(el,filter){
+  document.querySelectorAll('#v-patients .filter-chip').forEach(c=>c.classList.remove('active'));
+  el.classList.add('active');
+  currentFilter=filter;
+  applyPatientFilter();
+}
+function applyPatientFilter(){
+  let filtered=PATIENTS;
+  if(currentFilter==='critical')filtered=PATIENTS.filter(p=>p.riskLevel==='critical'||p.status==='crisis');
+  else if(currentFilter==='high')filtered=PATIENTS.filter(p=>p.riskLevel==='high');
+  else if(currentFilter==='not-logged')filtered=PATIENTS.filter(p=>!p.moodToday);
+  else if(currentFilter==='streak')filtered=PATIENTS.filter(p=>p.trackingStreak>=7);
+  buildPatientTable(filtered);
+}
+function sortPatients(key){
+  const sorted=[...PATIENTS].sort((a,b)=>{
+    if(key==='name')return (a.firstName+a.lastName).localeCompare(b.firstName+b.lastName);
+    if(key==='risk'){const o={critical:0,high:1,moderate:2,low:3};return o[a.riskLevel]-o[b.riskLevel];}
+    if(key==='mood')return (a.moodToday||99)-(b.moodToday||99);
+    if(key==='mood-today')return (b.moodToday||0)-(a.moodToday||0);
+    if(key==='streak')return b.trackingStreak-a.trackingStreak;
+    return 0;
+  });
+  buildPatientTable(sorted);
+}
+
+// ═══════════════════════════════════════════════════
+// PATIENT DETAIL
+// ═══════════════════════════════════════════════════
+let activeDetailTab='overview';
+function openPatientDetail(patientId){
+  const p=getPatient(patientId);
+  if(!p)return;
+  switchView('patient-detail');
+  renderDetailHeader(p);
+  renderDetailTabs(p);
+  showDetailTab(p,'overview');
+}
+function renderDetailHeader(p){
+  const el=document.getElementById('detailHeader');
+  const riskCls=p.riskLevel==='critical'?'critical':p.riskLevel;
+  const age=2026-parseInt(p.dob.split('-')[0]);
+  const alerts=ALERTS.filter(a=>a.patientId===p.id&&!a.ack);
+  el.innerHTML=`
+    <div class="patient-avatar-large" style="background:linear-gradient(135deg,${p.color},${p.color}aa);">${p.firstName[0]}${p.lastName[0]}</div>
+    <div style="flex:1;">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <div class="patient-detail-name">${p.firstName} ${p.lastName}</div>
+        <span class="risk-badge ${riskCls}">${p.status==='crisis'?'⚠ Crisis':p.riskLevel.charAt(0).toUpperCase()+p.riskLevel.slice(1)} risk</span>
+        ${alerts.length?`<span style="background:var(--critical-bg);border:1px solid var(--critical-border);color:var(--critical);font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;">${alerts.length} alert${alerts.length>1?'s':''}</span>`:''}
+      </div>
+      <div class="patient-detail-meta">
+        <span class="meta-chip">${p.mrn}</span>
+        <span class="meta-chip">${p.gender==='F'?'Female':'Male'} · ${age}y</span>
+        <span class="meta-chip">${p.diagnosis}</span>
+        ${p.medications.map(m=>`<span class="meta-chip">💊 ${m}</span>`).join('')}
+        <span class="meta-chip">🔥 ${p.trackingStreak}d streak</span>
+        <span class="meta-chip">Next: ${p.nextAppt}</span>
+      </div>
+    </div>
+    <div class="detail-header-right">
+      <div class="detail-action-btn" onclick="alert('Message sent')">💬 Message</div>
+      <div class="detail-action-btn" onclick="alert('Report generated')">📄 Report</div>
+      <div class="detail-action-btn primary" onclick="alert('Appointment booked')">📅 Book Appt</div>
+    </div>`;
+}
+function renderDetailTabs(p){
+  const tabs=[
+    {key:'overview',label:'Overview'},
+    {key:'entries',label:'Daily Entries'},
+    {key:'charts',label:'Charts & Trends'},
+    {key:'triggers',label:'Triggers & Symptoms'},
+    {key:'notes',label:'Clinical Notes'},
+  ];
+  const el=document.getElementById('detailTabs');
+  el.innerHTML=tabs.map(t=>`<div class="detail-tab${activeDetailTab===t.key?' active':''}" onclick="showDetailTab(getPatient('${p.id}'),'${t.key}')">${t.label}</div>`).join('');
+}
+function showDetailTab(p,tab){
+  activeDetailTab=tab;
+  renderDetailTabs(p);
+  const body=document.getElementById('detailBody');
+  if(tab==='overview')body.innerHTML=buildDetailOverview(p);
+  else if(tab==='entries')body.innerHTML=buildDetailEntries(p);
+  else if(tab==='charts'){body.innerHTML=buildDetailCharts(p);setTimeout(()=>drawDetailCharts(p),80);}
+  else if(tab==='triggers')body.innerHTML=buildDetailTriggers(p);
+  else if(tab==='notes')body.innerHTML=buildDetailNotes(p);
+}
+
+function buildDetailOverview(p){
+  const latestEntry=p.history.find(d=>d.logged);
+  const avgMood=(p.history.filter(d=>d.logged&&d.mood).reduce((s,d)=>s+d.mood,0)/p.history.filter(d=>d.logged&&d.mood).length).toFixed(1);
+  const adherence=Math.round(p.history.filter(d=>d.logged&&d.medTaken).length/Math.max(1,p.history.filter(d=>d.logged).length)*100);
+  const alerts=ALERTS.filter(a=>a.patientId===p.id&&!a.ack);
+  return `<div style="padding:16px 24px;">
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;">
+      ${[
+        {label:'Avg Mood (30d)',val:avgMood,color:MOOD_COLORS[Math.round(avgMood)-1]},
+        {label:'Check-in rate',val:Math.round(p.history.filter(d=>d.logged).length/30*100)+'%',color:'var(--safe)'},
+        {label:'Med adherence',val:adherence+'%',color:adherence>80?'var(--safe)':'var(--warning)'},
+        {label:'Active streak',val:p.trackingStreak+'d',color:'#f59e0b'},
+      ].map(m=>`<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:12px 14px;">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--ink-soft);margin-bottom:8px;">${m.label}</div>
+        <div style="font-family:var(--font-display);font-size:28px;font-weight:400;color:${m.color};line-height:1;">${m.val}</div>
+      </div>`).join('')}
+    </div>
+    ${alerts.length?`<div style="background:var(--critical-bg);border:1px solid var(--critical-border);border-radius:var(--r-lg);padding:14px 16px;margin-bottom:16px;">
+      <div style="font-size:12px;font-weight:700;color:var(--critical);margin-bottom:8px;">Active Alerts</div>
+      ${alerts.map(a=>`<div style="font-size:12px;color:rgba(255,77,109,.8);margin-bottom:4px;">⚠ ${a.title}</div>`).join('')}
+    </div>`:''}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);overflow:hidden;">
+        <div style="padding:12px 16px;border-bottom:1px solid var(--border);font-size:12px;font-weight:700;color:var(--ink);">Mood Last 30 Days</div>
+        <div style="padding:12px 16px;"><canvas id="overviewMoodCanvas" width="280" height="80" style="width:100%;"></canvas></div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);overflow:hidden;">
+        <div style="padding:12px 16px;border-bottom:1px solid var(--border);font-size:12px;font-weight:700;color:var(--ink);">Sleep Last 30 Days</div>
+        <div style="padding:12px 16px;"><canvas id="overviewSleepCanvas" width="280" height="80" style="width:100%;"></canvas></div>
+      </div>
+    </div>
+  </div>`;
+  // charts drawn after render
+  setTimeout(()=>drawOverviewCharts(p),60);
+}
+
+function buildDetailEntries(p){
+  let html=`<div class="entry-row header">
+    <div>Date</div><div>Mood</div><div>Coping</div><div>Sleep</div><div>Exercise</div><div>Meds</div><div>Flags</div>
+  </div>`;
+  p.history.forEach(d=>{
+    if(!d.logged){
+      html+=`<div class="entry-row" style="opacity:.35;">
+        <div style="font-size:11px;">${d.dayOffset===0?'Today':d.dayOffset===1?'Yesterday':formatDayOffset(d.dayOffset)}</div>
+        <div colspan="6" style="color:var(--ink-soft);font-size:11px;">Not logged</div>
+      </div>`;return;
+    }
+    const moodCol=d.mood?MOOD_COLORS[Math.round(d.mood)-1]:'#666';
+    html+=`<div class="entry-row">
+      <div style="font-size:11px;color:var(--ink-mid);">${d.dayOffset===0?'Today':d.dayOffset===1?'Yesterday':formatDayOffset(d.dayOffset)}</div>
+      <div>${d.mood?`<div class="mood-dot" style="background:${moodCol};">${Math.round(d.mood)}</div>`:'—'}</div>
+      <div>${d.mood?`<div class="mood-dot" style="background:${MOOD_COLORS[Math.max(0,Math.round(d.mood)-1+randInt(-1,1))]};">${Math.max(1,Math.min(10,Math.round(d.mood)+randInt(-1,1)))}</div>`:'—'}</div>
+      <div style="font-size:11px;">${d.sleep?d.sleep.toFixed(1)+'h':'—'}</div>
+      <div style="font-size:11px;">${d.exercise?d.exercise+'m':'—'}</div>
+      <div style="font-size:11px;">${d.medTaken?'✓':'✗'}</div>
+      <div class="flags">
+        ${d.safetyFlag?'<div class="flag safety" title="Safety flag">⚠</div>':''}
+        ${d.hasTrigger?'<div class="flag trigger" title="Triggers active">⚡</div>':''}
+        ${d.hasSymptom?'<div class="flag symptom" title="Symptoms present">💭</div>':''}
+        ${!d.medTaken?'<div class="flag missed-med" title="Missed medication">💊</div>':''}
+      </div>
+    </div>`;
+  });
+  return html;
+}
+
+function buildDetailCharts(p){
+  return `<div style="padding:16px 24px;">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);overflow:hidden;">
+        <div style="padding:12px 16px;border-bottom:1px solid var(--border);font-size:12px;font-weight:700;color:var(--ink);">Mood & Coping — 30d</div>
+        <div style="padding:12px 16px;"><canvas id="detailMoodCanvas" width="350" height="110" style="width:100%;"></canvas></div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);overflow:hidden;">
+        <div style="padding:12px 16px;border-bottom:1px solid var(--border);font-size:12px;font-weight:700;color:var(--ink);">Sleep Hours — 30d</div>
+        <div style="padding:12px 16px;"><canvas id="detailSleepCanvas" width="350" height="110" style="width:100%;"></canvas></div>
+      </div>
+    </div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);overflow:hidden;">
+      <div style="padding:12px 16px;border-bottom:1px solid var(--border);font-size:12px;font-weight:700;color:var(--ink);">Medication Adherence — 30d</div>
+      <div style="padding:12px 16px;"><canvas id="detailMedCanvas" width="700" height="40" style="width:100%;"></canvas></div>
+    </div>
+  </div>`;
+}
+
+function buildDetailTriggers(p){
+  const trigCount=TRIGGER_NAMES.map(t=>({name:t,count:randInt(0,10)})).sort((a,b)=>b.count-a.count);
+  const symptomCount=SYMPTOM_NAMES.map(s=>({name:s,count:randInt(0,8)})).sort((a,b)=>b.count-a.count);
+  const max=trigCount[0].count||1;
+  const smax=symptomCount[0].count||1;
+  return `<div style="padding:16px 24px;display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);overflow:hidden;">
+      <div style="padding:12px 16px;border-bottom:1px solid var(--border);font-size:12px;font-weight:700;color:var(--ink);">Trigger Frequency — 30d</div>
+      <div class="mini-bar-chart">
+        ${trigCount.map(t=>`<div class="mini-bar-row">
+          <div class="mini-bar-label">${t.name.split(' ')[0]}</div>
+          <div class="mini-bar-track"><div class="mini-bar-fill" style="width:${(t.count/max)*100}%;background:linear-gradient(to right,#f59e0b55,#f59e0b);"></div></div>
+          <div class="mini-bar-val">${t.count}</div>
+        </div>`).join('')}
+      </div>
+    </div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);overflow:hidden;">
+      <div style="padding:12px 16px;border-bottom:1px solid var(--border);font-size:12px;font-weight:700;color:var(--ink);">Symptom Frequency — 30d</div>
+      <div class="mini-bar-chart">
+        ${symptomCount.map(s=>`<div class="mini-bar-row">
+          <div class="mini-bar-label">${s.name.split(' ')[0]}</div>
+          <div class="mini-bar-track"><div class="mini-bar-fill" style="width:${(s.count/smax)*100}%;background:linear-gradient(to right,#6ea8fe55,#6ea8fe);"></div></div>
+          <div class="mini-bar-val">${s.count}</div>
+        </div>`).join('')}
+      </div>
+    </div>
+  </div>`;
+}
+
+function buildDetailNotes(p){
+  return `<div>
+    ${p.notes.map(n=>`<div class="note-item">
+      <div class="note-meta">
+        <span class="note-type ${n.type}">${n.type.replace('_',' ')}</span>
+        <span class="note-date">${n.date}</span>
+      </div>
+      <div class="note-body">${n.body}</div>
+    </div>`).join('')}
+    <div class="add-note-area">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--ink-soft);margin-bottom:8px;">Add Note</div>
+      <textarea class="note-textarea" placeholder="Clinical observation, intervention, or appointment summary…" id="noteInput"></textarea>
+      <div class="note-actions">
+        <select class="note-type-select">
+          <option value="observation">Observation</option>
+          <option value="intervention">Intervention</option>
+          <option value="appointment">Appointment summary</option>
+        </select>
+        <div class="save-note-btn" onclick="saveNote('${p.id}')">Save Note</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function saveNote(pid){
+  const input=document.getElementById('noteInput');
+  if(!input||!input.value.trim())return;
+  const p=getPatient(pid);
+  p.notes.unshift({type:'observation',body:input.value.trim(),date:'Today'});
+  showDetailTab(p,'notes');
+}
+
+// ═══════════════════════════════════════════════════
+// ALERTS VIEW
+// ═══════════════════════════════════════════════════
+function buildAlertsView(filter='all'){
+  const el=document.getElementById('alertsBody');
+  if(!el)return;
+  let alerts=ALERTS;
+  if(filter==='critical')alerts=ALERTS.filter(a=>a.severity==='critical');
+  else if(filter==='warning')alerts=ALERTS.filter(a=>a.severity==='warning');
+  else if(filter==='info')alerts=ALERTS.filter(a=>a.severity==='info');
+  else if(filter==='unack')alerts=ALERTS.filter(a=>!a.ack);
+  el.innerHTML=alerts.map(a=>{
+    const p=getPatient(a.patientId);
+    return `<div class="alert-full-item${a.ack?' acknowledged':''}" id="alert-${a.id}">
+      <div class="alert-full-left">
+        <div class="alert-full-icon ${a.severity}" style="background:var(--${a.severity}-bg);">${a.icon}</div>
+        <div style="width:2px;flex:1;background:var(--${a.severity}-border);border-radius:1px;min-height:20px;"></div>
+      </div>
+      <div class="alert-full-content">
+        <div class="alert-full-header">
+          <span class="alert-full-patient" style="cursor:pointer;" onclick="openPatientDetail('${a.patientId}')">${p?.firstName} ${p?.lastName}</span>
+          <span class="alert-full-title">${a.title}</span>
+          <span class="alert-item-tag ${a.severity}" style="margin-top:0;">${a.severity.toUpperCase()}</span>
+        </div>
+        <div class="alert-full-body">${a.body}</div>
+        <div class="alert-full-body" style="margin-bottom:8px;color:var(--ink-soft);font-size:11px;">${a.time}</div>
+        <div class="alert-full-actions">
+          ${!a.ack?`<div class="ack-btn primary" onclick="acknowledgeAlert('${a.id}')">✓ Acknowledge</div>`:'<div style="font-size:11px;color:var(--ink-soft);">✓ Acknowledged</div>'}
+          <div class="ack-btn${a.severity==='critical'?' critical':''}" onclick="openPatientDetail('${a.patientId}')">View patient →</div>
+          ${a.severity==='critical'?`<div class="ack-btn critical" onclick="alert('Crisis protocol launched for ${p?.firstName}')">🚨 Crisis protocol</div>`:''}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+function filterAlerts(el,filter){
+  document.querySelectorAll('#v-alerts .filter-chip').forEach(c=>c.classList.remove('active'));
+  el.classList.add('active');
+  buildAlertsView(filter);
+}
+function acknowledgeAlert(id){
+  const a=ALERTS.find(al=>al.id===id);
+  if(a)a.ack=true;
+  buildAlertsView();
+  buildAlertList();
+  const unack=ALERTS.filter(a=>!a.ack&&a.severity==='critical').length;
+  document.getElementById('navAlertBadge').textContent=ALERTS.filter(a=>!a.ack).length;
+}
+
+// ═══════════════════════════════════════════════════
+// CANVAS CHARTS
+// ═══════════════════════════════════════════════════
+function drawLineChart(canvas, datasets, opts={}){
+  if(!canvas)return;
+  const ctx=canvas.getContext('2d');
+  const W=canvas.width,H=canvas.height;
+  const pad=opts.pad||{l:24,r:10,t:10,b:18};
+  const iW=W-pad.l-pad.r,iH=H-pad.t-pad.b;
+  const n=datasets[0].data.length;
+  const min=opts.min||0,max=opts.max||10;
+  ctx.clearRect(0,0,W,H);
+  // Grid
+  const gridLines=opts.gridLines||[2,4,6,8,10];
+  gridLines.forEach(v=>{
+    ctx.strokeStyle='rgba(255,255,255,.04)';ctx.lineWidth=.5;
+    const y=pad.t+iH-(v-min)/(max-min)*iH;
+    ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(W-pad.r,y);ctx.stroke();
+    ctx.fillStyle='rgba(255,255,255,.2)';ctx.font='8px DM Sans,sans-serif';ctx.textAlign='right';
+    ctx.fillText(v,pad.l-2,y+3);
+  });
+  // Target line
+  if(opts.target){
+    const ty=pad.t+iH-(opts.target-min)/(max-min)*iH;
+    ctx.setLineDash([3,3]);ctx.strokeStyle='rgba(255,255,255,.15)';ctx.lineWidth=.8;
+    ctx.beginPath();ctx.moveTo(pad.l,ty);ctx.lineTo(W-pad.r,ty);ctx.stroke();
+    ctx.setLineDash([]);
+  }
+  // X labels
+  ctx.fillStyle='rgba(255,255,255,.2)';ctx.font='8px DM Sans,sans-serif';ctx.textAlign='center';
+  [0,6,13,20,29].forEach(i=>{
+    if(i<n)ctx.fillText(n-i,pad.l+i/(n-1)*iW,H-2);
+  });
+  datasets.forEach(ds=>{
+    const {data,color,fill}=ds;
+    const pts=data.map((v,i)=>({x:pad.l+i/(n-1)*iW,y:v!==null?pad.t+iH-(v-min)/(max-min)*iH:null}));
+    // Fill
+    if(fill){
+      const grad=ctx.createLinearGradient(0,pad.t,0,H-pad.b);
+      grad.addColorStop(0,color+'40');grad.addColorStop(1,color+'00');
+      ctx.beginPath();let started=false;
+      pts.forEach(p=>{if(p.y===null)return;if(!started){ctx.moveTo(p.x,p.y);started=true;}else ctx.lineTo(p.x,p.y);});
+      if(started){ctx.lineTo(pts[pts.length-1].x,H-pad.b);ctx.lineTo(pts[0].x,H-pad.b);ctx.closePath();ctx.fillStyle=grad;ctx.fill();}
+    }
+    // Line (skip null segments)
+    ctx.beginPath();ctx.strokeStyle=color;ctx.lineWidth=1.5;ctx.lineJoin='round';
+    let moved=false;
+    pts.forEach(p=>{
+      if(p.y===null){moved=false;return;}
+      if(!moved){ctx.moveTo(p.x,p.y);moved=true;}
+      else ctx.lineTo(p.x,p.y);
+    });
+    ctx.stroke();
+    // Last point
+    const last=pts.filter(p=>p.y!==null).pop();
+    if(last){ctx.beginPath();ctx.arc(last.x,last.y,3,0,Math.PI*2);ctx.fillStyle=color;ctx.fill();}
+  });
+}
+
+function drawOverviewCharts(p){
+  const moodData=p.history.map(d=>d.mood||null);
+  drawLineChart(document.getElementById('overviewMoodCanvas'),[{data:moodData,color:'#2a9d7e',fill:true}],{min:1,max:10,gridLines:[2,5,8,10]});
+  const sleepData=p.history.map(d=>d.sleep||null);
+  drawLineChart(document.getElementById('overviewSleepCanvas'),[{data:sleepData,color:'#7c6fa0',fill:true}],{min:3,max:10,gridLines:[4,6,8,10],target:7});
+}
+
+function drawDetailCharts(p){
+  const moodData=p.history.map(d=>d.mood||null);
+  const copedData=p.history.map(d=>d.mood?Math.max(1,Math.min(10,Math.round(d.mood)+randInt(-2,2))):null);
+  drawLineChart(document.getElementById('detailMoodCanvas'),[
+    {data:moodData,color:'#2a9d7e',fill:true},
+    {data:copedData,color:'rgba(139,149,168,.7)',fill:false}
+  ],{min:1,max:10,gridLines:[2,5,8,10]});
+  const sleepData=p.history.map(d=>d.sleep||null);
+  drawLineChart(document.getElementById('detailSleepCanvas'),[{data:sleepData,color:'#7c6fa0',fill:true}],{min:3,max:10,gridLines:[4,6,8,10],target:7});
+  // Med adherence bar
+  const medCanvas=document.getElementById('detailMedCanvas');
+  if(medCanvas){
+    const ctx=medCanvas.getContext('2d');
+    const W=medCanvas.width,H=medCanvas.height;
+    ctx.clearRect(0,0,W,H);
+    const n=p.history.length,bw=(W-32)/n*0.7;
+    p.history.forEach((d,i)=>{
+      const x=16+i*((W-32)/n);
+      const col=!d.logged?'rgba(255,255,255,.04)':d.medTaken?'#10b981':'#ff4d6d';
+      ctx.fillStyle=col;
+      ctx.fillRect(x,4,bw,H-8);
+    });
+  }
+}
+
+function drawTrendCharts(){
+  seed=12345;
+  const genPop=()=>Array.from({length:30},()=>randFloat(5,7.5));
+  drawLineChart(document.getElementById('trendMoodChart'),[{data:genPop(),color:'#2a9d7e',fill:true}],{min:1,max:10,gridLines:[3,5,7,9]});
+  drawLineChart(document.getElementById('trendSleepChart'),[{data:Array.from({length:30},()=>randFloat(5.5,8)),color:'#7c6fa0',fill:true}],{min:3,max:10,gridLines:[4,6,8],target:7});
+  drawLineChart(document.getElementById('trendMedChart'),[{data:Array.from({length:30},()=>randFloat(70,95)),color:'#10b981',fill:true}],{min:50,max:100,gridLines:[60,70,80,90,100]});
+  // Stacked risk
+  const riskCanvas=document.getElementById('riskStackChart');
+  if(riskCanvas){
+    const ctx=riskCanvas.getContext('2d');
+    const W=riskCanvas.width,H=riskCanvas.height;ctx.clearRect(0,0,W,H);
+    const weeks=12,bw=(W-40)/weeks*0.7;
+    const riskColors={critical:'#ff4d6d',high:'#f59e0b',moderate:'#6ea8fe',low:'#10b981'};
+    for(let w=0;w<weeks;w++){
+      seed=1000+w*37;
+      const counts={critical:randInt(1,4),high:randInt(3,8),moderate:randInt(6,12),low:randInt(4,10)};
+      const total=Object.values(counts).reduce((a,b)=>a+b,0);
+      let y=H-8;
+      const x=20+w*((W-40)/weeks);
+      Object.entries(counts).forEach(([risk,count])=>{
+        const h=(count/total)*(H-16);
+        ctx.fillStyle=riskColors[risk]+'99';
+        ctx.fillRect(x,y-h,bw,h);
+        y-=h;
+      });
+      ctx.fillStyle='rgba(255,255,255,.2)';ctx.font='8px DM Sans,sans-serif';ctx.textAlign='center';
+      ctx.fillText(`W${w+1}`,x+bw/2,H);
+    }
+    // Legend
+    let lx=W-200;
+    Object.entries(riskColors).forEach(([risk,col])=>{
+      ctx.fillStyle=col;ctx.fillRect(lx,4,8,8);
+      ctx.fillStyle='rgba(255,255,255,.4)';ctx.font='9px DM Sans,sans-serif';ctx.textAlign='left';
+      ctx.fillText(risk,lx+12,12);
+      lx+=55;
+    });
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// SEARCH
+// ═══════════════════════════════════════════════════
+function handleSearch(query){
+  if(!query)return;
+  const q=query.toLowerCase();
+  const matches=PATIENTS.filter(p=>(p.firstName+' '+p.lastName).toLowerCase().includes(q)||p.mrn.toLowerCase().includes(q)||p.diagnosis.toLowerCase().includes(q));
+  if(matches.length){buildPatientTable(matches);switchView('patients');}
+}
+
+// ═══════════════════════════════════════════════════
+// VIEW SWITCHING
+// ═══════════════════════════════════════════════════
+const VIEW_TITLES={population:'Population Overview',patients:'All Patients',alerts:'Alerts',trends:'Population Trends',reports:'Reports','patient-detail':'Patient Detail'};
+const VIEW_SUBS={population:'Friday, 20 February 2026 · 24 active patients',patients:'24 patients · sorted by risk level',alerts:'11 alerts · 3 critical, unacknowledged',trends:'30-day population analysis',reports:'Generate and export clinical reports','patient-detail':''};
+
+function switchView(view){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  const el=document.getElementById('v-'+view);
+  if(el)el.classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('topbarTitle').textContent=VIEW_TITLES[view]||view;
+  document.getElementById('topbarSub').textContent=VIEW_SUBS[view]||'';
+  // Activate correct nav
+  if(view==='population')document.querySelectorAll('.nav-item')[0].classList.add('active');
+  else if(view==='patients')document.querySelectorAll('.nav-item')[1].classList.add('active');
+  else if(view==='alerts')document.querySelectorAll('.nav-item')[2].classList.add('active');
+  else if(view==='trends')document.querySelectorAll('.nav-item')[3].classList.add('active');
+  else if(view==='reports')document.querySelectorAll('.nav-item')[4].classList.add('active');
+  // View-specific init
+  if(view==='patients')applyPatientFilter();
+  if(view==='alerts')buildAlertsView();
+  if(view==='trends')setTimeout(drawTrendCharts,80);
+}
+
+// Helpers
+function formatDayOffset(d){
+  const date=new Date(2026,1,20-d);
+  return date.toLocaleDateString('en-GB',{day:'numeric',month:'short'});
+}
+
+// ═══════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded',()=>{
+  buildHeatmap();
+  buildDistribution();
+  buildTriggerBars('triggerBars');
+  buildTriggerBars('trendTriggerBars');
+  buildAlertList();
+  buildCheckinList();
+  applyPatientFilter();
+  buildAlertsView();
+  // Draw overview mini-charts after first patient is viewed
+});
+</script>
+</body>
+</html>
