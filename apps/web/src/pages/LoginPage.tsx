@@ -39,7 +39,7 @@ export function LoginPage() {
       }
 
       if (data.access_token && data.clinician_id && data.org_id) {
-        authActions.login(data.access_token, data.clinician_id, data.org_id);
+        authActions.login(data.access_token, data.clinician_id, data.org_id, data.refresh_token);
         navigate('/dashboard');
       } else {
         setError('Unexpected response from server. Please try again.');

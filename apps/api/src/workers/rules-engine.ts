@@ -63,6 +63,18 @@ interface AlertCandidate {
 // Returns the new alertId, or null if suppressed as duplicate
 // ---------------------------------------------------------------------------
 
+// Maps rule keys to clinical_alerts.alert_type constraint values
+const RULE_KEY_TO_ALERT_TYPE: Record<string, string> = {
+  'RULE-001': 'mood_decline',
+  'RULE-002': 'missed_checkin',
+  'RULE-003': 'trigger_escalation',
+  'RULE-004': 'safety_flag',
+  'RULE-005': 'med_nonadherence',
+  'RULE-006': 'custom',
+  'RULE-007': 'custom',
+  'RULE-008': 'custom',
+};
+
 async function upsertAlert(
   patientId: string,
   orgId: string,
@@ -70,21 +82,27 @@ async function upsertAlert(
 ): Promise<string | null> {
   const [existing] = await sql<{ id: string }[]>`
     SELECT id FROM clinical_alerts
-    WHERE patient_id = ${patientId}
-      AND rule_key   = ${candidate.ruleKey}
-      AND status NOT IN ('resolved', 'auto_resolved')
+    WHERE patient_id    = ${patientId}
+      AND rule_key      = ${candidate.ruleKey}
+      AND auto_resolved = FALSE
+      AND acknowledged_at IS NULL
     ORDER BY created_at DESC
     LIMIT 1
   `;
 
   if (existing) return null; // already open — suppress
 
+  const alertType = RULE_KEY_TO_ALERT_TYPE[candidate.ruleKey] ?? 'custom';
+
   const [alert] = await sql<{ id: string }[]>`
-    INSERT INTO clinical_alerts (patient_id, org_id, rule_key, severity, title, detail)
+    INSERT INTO clinical_alerts
+      (patient_id, organisation_id, alert_type, rule_key, severity, title, body, rule_context)
     VALUES (
-      ${patientId}, ${orgId},
-      ${candidate.ruleKey}, ${candidate.severity},
-      ${candidate.title}, ${JSON.stringify(candidate.detail)}
+      ${patientId}, ${orgId}::UUID,
+      ${alertType}, ${candidate.ruleKey},
+      ${candidate.severity}, ${candidate.title},
+      ${candidate.title},
+      ${JSON.stringify(candidate.detail)}::JSONB
     )
     RETURNING id
   `;
@@ -105,16 +123,16 @@ async function evaluateMoodDecline(
 ): Promise<AlertCandidate | null> {
   const [row] = await sql<{ avg_7d: string | null; avg_28d: string | null }[]>`
     SELECT
-      AVG(mood_score) FILTER (
+      AVG(mood) FILTER (
         WHERE entry_date > (${entryDate}::date - INTERVAL '7 days')
       )::numeric(4,2) AS avg_7d,
-      AVG(mood_score) FILTER (
+      AVG(mood) FILTER (
         WHERE entry_date > (${entryDate}::date - INTERVAL '28 days')
       )::numeric(4,2) AS avg_28d
     FROM daily_entries
     WHERE patient_id  = ${patientId}
       AND entry_date <= ${entryDate}::date
-      AND mood_score IS NOT NULL
+      AND mood IS NOT NULL
   `;
 
   if (!row || row.avg_7d === null || row.avg_28d === null) return null;
@@ -215,7 +233,7 @@ async function evaluateTriggerEscalation(
       MAX(tc.name)  AS trigger_name,
       COUNT(DISTINCT tl.entry_date)::int AS high_days
     FROM trigger_logs tl
-    JOIN triggers tc ON tc.id = tl.trigger_id
+    JOIN trigger_catalogue tc ON tc.id = tl.trigger_id
     WHERE tl.patient_id  = ${patientId}
       AND tl.entry_date  > ${entryDate}::date - INTERVAL '${sql.unsafe(String(TRIGGER_ESCALATION_DAYS))} days'
       AND tl.entry_date <= ${entryDate}::date

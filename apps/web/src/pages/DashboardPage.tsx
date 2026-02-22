@@ -200,7 +200,7 @@ function ActiveAlertsPanel({ token, onViewAll }: { token: string | null; onViewA
 
   useEffect(() => {
     if (!token) return;
-    void api.get<{ items: AlertItem[] }>('/alerts?limit=5&status=open', token)
+    void api.get<{ items: AlertItem[] }>('/alerts?limit=5&status=new', token)
       .then((res) => setAlerts(res.items ?? []))
       .catch(() => {});
   }, [token]);
@@ -328,7 +328,7 @@ export function DashboardPage() {
   const fetchTopCritical = useCallback(async () => {
     if (!token) return;
     try {
-      const res = await api.get<{ items: AlertItem[] }>('/alerts?limit=1&severity=critical&status=open', token);
+      const res = await api.get<{ items: AlertItem[] }>('/alerts?limit=1&severity=critical&status=new', token);
       setTopCritical(res.items?.[0] ?? null);
     } catch { /* silent */ }
   }, [token]);

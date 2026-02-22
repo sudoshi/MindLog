@@ -50,6 +50,11 @@ export async function buildApp() {
     global: true,
     max: 200,
     timeWindow: '1 minute',
+    // Skip rate-limiting for WebSocket upgrade requests — the WS client may
+    // retry rapidly on reconnect and the upgrade itself is auth-gated anyway.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    allowList: (request: any) =>
+      (request.headers as Record<string, string>)['upgrade'] === 'websocket',
     errorResponseBuilder: (_request, context) => ({
       success: false,
       error: {

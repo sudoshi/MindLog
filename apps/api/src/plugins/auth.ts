@@ -9,6 +9,19 @@ import fastifyJwt from '@fastify/jwt';
 import { config } from '../config.js';
 import type { UserRole } from '@mindlog/shared';
 
+// Extract JWT from Authorization: Bearer header OR ?token= query param.
+// The query-param fallback is required for WebSocket upgrade requests because
+// browsers cannot set custom headers on the WS handshake.
+function extractToken(request: FastifyRequest): string | null {
+  const auth = request.headers.authorization;
+  if (auth && /^Bearer\s/i.test(auth)) {
+    const parts = auth.split(' ');
+    return parts.length === 2 ? parts[1] : null;
+  }
+  const q = request.query as Record<string, string | undefined>;
+  return q['token'] ?? null;
+}
+
 export interface JwtPayload {
   sub: string; // user UUID
   email: string;
@@ -32,6 +45,9 @@ async function authPlugin(fastify: FastifyInstance): Promise<void> {
     sign: {
       expiresIn: config.jwtAccessExpiry,
     },
+    // extractToken must live inside `verify` — that is the object @fastify/jwt
+    // merges into lookupToken's options. A top-level extractToken is ignored.
+    verify: { extractToken },
   });
 
   fastify.decorate(

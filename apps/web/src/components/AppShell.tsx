@@ -4,11 +4,12 @@
 // Matches prototype: COPEApp-Prototype/mindlog-clinician.html
 // =============================================================================
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { api } from '../services/api.js';
 import { useAlertSocket } from '../hooks/useAlertSocket.js';
 import { useAuthStore, authActions } from '../stores/auth.js';
+import { API_PREFIX } from '@mindlog/shared';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -93,6 +94,8 @@ function NavItem({
 
 export function AppShell() {
   const token = useAuthStore((s) => s.accessToken);
+  const refreshToken = useAuthStore((s) => s.refreshToken);
+  const tokenExpiresAt = useAuthStore((s) => s.tokenExpiresAt);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -120,6 +123,39 @@ export function AppShell() {
   }, [token]);
 
   useEffect(() => { void fetchSnapshot(); }, [fetchSnapshot]);
+
+  // Proactive token refresh — schedules a refresh 2 min before the JWT expires.
+  // When the access token changes, useAlertSocket reconnects automatically.
+  const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!refreshToken || !tokenExpiresAt) return;
+    const REFRESH_BEFORE_MS = 2 * 60 * 1000; // 2 min
+    const delay = Math.max(0, (tokenExpiresAt * 1000) - Date.now() - REFRESH_BEFORE_MS);
+    refreshTimerRef.current = setTimeout(() => {
+      void (async () => {
+        try {
+          const res = await fetch(`${API_PREFIX}/auth/refresh`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ refresh_token: refreshToken }),
+          });
+          if (res.ok) {
+            const json = (await res.json()) as { data: { access_token: string; refresh_token: string } };
+            authActions.setTokens(json.data.access_token, json.data.refresh_token);
+          } else {
+            // Refresh failed — session is over
+            authActions.logout();
+            navigate('/login');
+          }
+        } catch {
+          /* network error — leave current token in place, will fail on next use */
+        }
+      })();
+    }, delay);
+    return () => {
+      if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+    };
+  }, [refreshToken, tokenExpiresAt, navigate]);
 
   // WebSocket for live alert counts
   const { status: ws, liveAlerts } = useAlertSocket({

@@ -13,7 +13,7 @@
 // =============================================================================
 
 import fp from 'fastify-plugin';
-import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import type { FastifyInstance } from 'fastify';
 import fastifyWebSocket from '@fastify/websocket';
 import { Redis } from 'ioredis';
 import { config } from '../config.js';
@@ -147,19 +147,12 @@ async function websocketPlugin(fastify: FastifyInstance): Promise<void> {
   // -----------------------------------------------------------------------
   // GET /ws — WebSocket upgrade endpoint (clinicians only)
   // -----------------------------------------------------------------------
-  // WS-aware auth: browsers cannot send custom headers on WS upgrade requests,
-  // so the client passes the JWT as ?token= query param instead.
-  const authenticateWs = async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
-    const query = request.query as { token?: string };
-    if (query.token && !request.headers.authorization) {
-      request.headers.authorization = `Bearer ${query.token}`;
-    }
-    await fastify.authenticate(request, reply);
-  };
-
+  // Auth reads the JWT via extractToken (in auth.ts) which checks both the
+  // Authorization: Bearer header and the ?token= query param — the latter is
+  // required because browsers cannot set custom headers on WS upgrade requests.
   fastify.get(
     '/ws',
-    { websocket: true, preHandler: [authenticateWs] },
+    { websocket: true, preHandler: [fastify.authenticate] },
     (socket, request) => {
       const user = request.user;
 

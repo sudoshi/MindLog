@@ -9,6 +9,8 @@ import { useState, useEffect } from 'react';
 interface AuthState {
   isAuthenticated: boolean;
   accessToken: string | null;
+  refreshToken: string | null;
+  tokenExpiresAt: number | null; // unix seconds
   clinicianId: string | null;
   orgId: string | null;
 }
@@ -20,6 +22,8 @@ type Listener = () => void;
 let state: AuthState = {
   isAuthenticated: false,
   accessToken: null,
+  refreshToken: null,
+  tokenExpiresAt: null,
   clinicianId: null,
   orgId: null,
 };
@@ -48,10 +52,42 @@ export function useAuthStore<T>(selector: (s: AuthState) => T): T {
 }
 
 export const authActions = {
-  login(token: string, clinicianId: string, orgId: string): void {
-    setState({ isAuthenticated: true, accessToken: token, clinicianId, orgId });
+  login(
+    token: string,
+    clinicianId: string,
+    orgId: string,
+    refreshToken?: string,
+    expiresIn = 900, // seconds, default 15 min
+  ): void {
+    setState({
+      isAuthenticated: true,
+      accessToken: token,
+      refreshToken: refreshToken ?? null,
+      tokenExpiresAt: Math.floor(Date.now() / 1000) + expiresIn,
+      clinicianId,
+      orgId,
+    });
   },
+
+  setTokens(accessToken: string, refreshToken: string, expiresIn = 900): void {
+    setState({
+      accessToken,
+      refreshToken,
+      tokenExpiresAt: Math.floor(Date.now() / 1000) + expiresIn,
+    });
+  },
+
   logout(): void {
-    setState({ isAuthenticated: false, accessToken: null, clinicianId: null, orgId: null });
+    setState({
+      isAuthenticated: false,
+      accessToken: null,
+      refreshToken: null,
+      tokenExpiresAt: null,
+      clinicianId: null,
+      orgId: null,
+    });
   },
 };
+
+// Read-only accessor for use outside React (e.g. api.ts)
+export { getState as getAuthState };

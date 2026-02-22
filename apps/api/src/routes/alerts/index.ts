@@ -37,8 +37,16 @@ export default async function alertRoutes(fastify: FastifyInstance): Promise<voi
       patient_first_name: string; patient_last_name: string;
     }[]>`
       SELECT ca.id, ca.patient_id, ca.alert_type, ca.severity, ca.title, ca.body,
-             ca.rule_key, ca.created_at, ca.acknowledged_at, ca.auto_resolved_at AS resolved_at,
-             p.first_name AS patient_first_name, p.last_name AS patient_last_name
+             ca.rule_key, ca.rule_context AS detail, ca.created_at, ca.acknowledged_at,
+             ca.auto_resolved_at AS resolved_at,
+             p.first_name || ' ' || p.last_name AS patient_name,
+             p.first_name AS patient_first_name, p.last_name AS patient_last_name,
+             CASE
+               WHEN ca.auto_resolved = TRUE THEN 'resolved'
+               WHEN ca.escalated_at IS NOT NULL THEN 'escalated'
+               WHEN ca.acknowledged_at IS NOT NULL THEN 'acknowledged'
+               ELSE 'new'
+             END AS status
       FROM clinical_alerts ca
       JOIN patients p ON p.id = ca.patient_id
       JOIN care_team_members ctm ON ctm.patient_id = ca.patient_id AND ctm.unassigned_at IS NULL

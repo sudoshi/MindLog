@@ -19,7 +19,7 @@ interface Alert {
   patient_name?: string;
   rule_key: string;
   severity: 'info' | 'warning' | 'critical';
-  status: 'open' | 'acknowledged' | 'resolved' | 'auto_resolved' | 'escalated';
+  status: 'new' | 'acknowledged' | 'resolved' | 'auto_resolved' | 'escalated';
   title: string;
   detail: Record<string, unknown>;
   created_at: string;
@@ -27,7 +27,7 @@ interface Alert {
 }
 
 const STATUS_LABEL: Record<string, string> = {
-  open: 'Open',
+  new: 'Open',
   acknowledged: 'Acknowledged',
   resolved: 'Resolved',
   auto_resolved: 'Auto-resolved',
@@ -55,7 +55,7 @@ function fmtRelative(iso: string): string {
 function AlertCard({ alert, token, onRefresh }: { alert: Alert; token: string | null; onRefresh: () => void }) {
   const [busy, setBusy] = useState(false);
   const navigate = useNavigate();
-  const isOpen = alert.status === 'open' || alert.status === 'acknowledged';
+  const isOpen = alert.status === 'new' || alert.status === 'acknowledged';
 
   const act = async (ep: string, body?: object) => {
     setBusy(true);
@@ -136,7 +136,7 @@ function AlertCard({ alert, token, onRefresh }: { alert: Alert; token: string | 
         {/* Action buttons */}
         {isOpen ? (
           <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-            {alert.status === 'open' && (
+            {alert.status === 'new' && (
               <button
                 className="action-btn acknowledge"
                 disabled={busy}
@@ -246,13 +246,14 @@ export function AlertsPage() {
   const critCount = alerts.filter((a) => a.severity === 'critical').length;
   const warnCount = alerts.filter((a) => a.severity === 'warning').length;
   const infoCount = alerts.filter((a) => a.severity === 'info').length;
-  const unackCount = alerts.filter((a) => a.status === 'open').length;
+  const unackCount = alerts.filter((a) => a.status === 'new').length;
 
   const fetchAlerts = useCallback(async () => {
     setLoading(true);
     try {
       const p = new URLSearchParams({ page: String(page), limit: '20' });
-      if (fStatus !== 'all') p.set('status', fStatus);
+      // API uses 'new'; UI uses 'open' as the label for unacknowledged alerts
+      if (fStatus !== 'all') p.set('status', fStatus === 'open' ? 'new' : fStatus);
       if (fSev !== 'all') p.set('severity', fSev);
       const d = await api.get<{ items: Alert[]; total: number }>(
         `/alerts?${p.toString()}`,
