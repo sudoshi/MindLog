@@ -179,11 +179,13 @@ export default async function clinicianRoutes(fastify: FastifyInstance): Promise
   });
 
   // ---------------------------------------------------------------------------
-  // GET /clinicians/me — alias (same as /auth/me but under this prefix)
+  // GET /clinicians/me — current clinician's profile (AppShell badge + auth/me alias)
   // ---------------------------------------------------------------------------
   fastify.get('/me', auth, async (request, reply) => {
     const [clinician] = await sql`
-      SELECT id, first_name, last_name, title, role, npi, email, mfa_enabled, last_login_at
+      SELECT id, first_name, last_name, title,
+             role, role AS clinician_role,
+             npi, email, mfa_enabled, last_login_at
       FROM clinicians
       WHERE email = ${request.user.email} AND is_active = TRUE
       LIMIT 1

@@ -36,7 +36,10 @@ export default async function patientRoutes(fastify: FastifyInstance): Promise<v
       last_checkin_at: string | null; primary_clinician_id: string | null;
     }[]>`
       SELECT p.id, p.first_name, p.last_name, p.mrn, p.status,
-             p.risk_level, p.tracking_streak, p.last_checkin_at, p.primary_clinician_id
+             p.risk_level, p.tracking_streak, p.last_checkin_at,
+             (SELECT ctm2.clinician_id FROM care_team_members ctm2
+              WHERE ctm2.patient_id = p.id AND ctm2.role = 'primary' AND ctm2.unassigned_at IS NULL
+              LIMIT 1) AS primary_clinician_id
       FROM patients p
       JOIN care_team_members ctm ON ctm.patient_id = p.id AND ctm.unassigned_at IS NULL
       WHERE p.organisation_id = ${org_id}

@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { DESIGN_TOKENS } from '@mindlog/shared';
 import { api, ApiError } from '../services/api.js';
 import { authActions } from '../stores/auth.js';
 
@@ -59,31 +58,42 @@ export function LoginPage() {
   return (
     <main
       style={{
+        width: '100%',
         minHeight: '100vh',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: '#0c0f18',
-        fontFamily: 'Figtree, system-ui, sans-serif',
+        fontFamily: 'var(--font-body)',
       }}
     >
-      <div style={{ width: 400, padding: 40, background: '#161a27', borderRadius: 12 }}>
+      <div style={{
+        width: 400,
+        padding: '40px 36px',
+        background: 'var(--glass-02)',
+        backdropFilter: 'blur(32px) saturate(1.5)',
+        WebkitBackdropFilter: 'blur(32px) saturate(1.5)',
+        borderRadius: 'var(--r-xl)',
+        border: '1px solid var(--border2)',
+        boxShadow: 'var(--shadow-lg), inset 0 1px 0 var(--glass-hi)',
+      }}>
         <h1
           style={{
-            fontFamily: 'Fraunces, serif',
-            color: DESIGN_TOKENS.COLOR_PRIMARY,
-            fontSize: 28,
-            margin: '0 0 8px',
+            fontFamily: 'var(--font-display)',
+            color: 'var(--safe)',
+            fontSize: 30,
+            fontWeight: 400,
+            margin: '0 0 6px',
+            letterSpacing: '-0.5px',
           }}
         >
           MindLog
         </h1>
-        <p style={{ color: '#8b9cb0', margin: '0 0 32px', fontSize: 14 }}>
+        <p style={{ color: 'var(--ink-mid)', margin: '0 0 32px', fontSize: 13 }}>
           Clinician Dashboard
         </p>
 
         <form onSubmit={(e) => void handleSubmit(e)}>
-          <label style={{ display: 'block', color: '#c5ccd6', fontSize: 13, marginBottom: 4 }}>
+          <label style={{ display: 'block', color: 'var(--ink-mid)', fontSize: 12, fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: 6 }}>
             Email
           </label>
           <input
@@ -96,7 +106,7 @@ export function LoginPage() {
             disabled={loading}
           />
 
-          <label style={{ display: 'block', color: '#c5ccd6', fontSize: 13, marginBottom: 4, marginTop: 16 }}>
+          <label style={{ display: 'block', color: 'var(--ink-mid)', fontSize: 12, fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: 6, marginTop: 18 }}>
             Password
           </label>
           <input
@@ -110,7 +120,7 @@ export function LoginPage() {
           />
 
           {error && (
-            <p style={{ color: DESIGN_TOKENS.COLOR_DANGER, fontSize: 13, marginTop: 12 }}>
+            <p style={{ color: 'var(--critical)', fontSize: 13, marginTop: 12 }}>
               {error}
             </p>
           )}
@@ -123,7 +133,7 @@ export function LoginPage() {
               width: '100%',
               padding: '12px 0',
               marginTop: 24,
-              background: loading ? '#1d7a6f' : DESIGN_TOKENS.COLOR_PRIMARY,
+              background: loading ? 'rgba(16,185,129,0.6)' : 'var(--safe)',
               color: '#fff',
               border: 'none',
               borderRadius: 8,
@@ -147,11 +157,13 @@ export function LoginPage() {
 const inputStyle: React.CSSProperties = {
   display: 'block',
   width: '100%',
-  padding: '10px 12px',
-  background: '#0c0f18',
-  border: '1px solid #2d3748',
-  borderRadius: 6,
-  color: '#e2e8f0',
+  padding: '10px 14px',
+  background: 'rgba(255,255,255,0.04)',
+  border: '1px solid var(--border2)',
+  borderRadius: 'var(--r-sm)',
+  color: 'var(--ink)',
   fontSize: 14,
   boxSizing: 'border-box',
+  outline: 'none',
+  transition: 'border-color 0.15s',
 };

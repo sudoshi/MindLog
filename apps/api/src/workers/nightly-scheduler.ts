@@ -9,7 +9,7 @@ import { Worker, Queue } from 'bullmq';
 import { sql } from '@mindlog/db';
 import { connection, rulesQueue, type RulesJobData } from './rules-engine.js';
 
-const SCHEDULER_QUEUE_NAME = 'mindlog:nightly';
+const SCHEDULER_QUEUE_NAME = 'mindlog-nightly';
 
 // ---------------------------------------------------------------------------
 // Snapshot generation

@@ -142,34 +142,65 @@ export type UpdateJournalEntryInput = z.infer<typeof UpdateJournalEntrySchema>;
 // Medications
 // ---------------------------------------------------------------------------
 
-const MedicationFrequencySchema = z.enum([
-  'once_daily',
+/** Frequency values matching the patient_medications.frequency CHECK constraint */
+export const MedicationFrequencySchema = z.enum([
+  'once_daily_morning',
+  'once_daily_evening',
+  'once_daily_bedtime',
   'twice_daily',
   'three_times_daily',
-  'four_times_daily',
   'as_needed',
   'weekly',
   'other',
 ]);
+export type MedicationFrequency = z.infer<typeof MedicationFrequencySchema>;
 
-export const CreateMedicationSchema = z.object({
-  name: z.string().min(1).max(200),
-  dosage: z.string().max(100).nullable().optional(),
+/** Human-readable labels for each frequency */
+export const MEDICATION_FREQUENCY_LABELS: Record<MedicationFrequency, string> = {
+  once_daily_morning: 'Once daily (morning)',
+  once_daily_evening: 'Once daily (evening)',
+  once_daily_bedtime: 'Once daily (bedtime)',
+  twice_daily: 'Twice daily',
+  three_times_daily: 'Three times daily',
+  as_needed: 'As needed',
+  weekly: 'Weekly',
+  other: 'Other',
+};
+
+/** Create / add a new patient medication */
+export const CreatePatientMedicationSchema = z.object({
+  medication_name: z.string().min(1).max(200),
+  dose: z.number().positive().nullable().optional(),
+  dose_unit: z.string().max(20).default('mg'),
   frequency: MedicationFrequencySchema,
-  prescribing_clinician: z.string().max(200).nullable().optional(),
-  start_date: IsoDateSchema.nullable().optional(),
-  end_date: IsoDateSchema.nullable().optional(),
+  frequency_other: z.string().max(200).nullable().optional(),
+  instructions: z.string().max(500).nullable().optional(),
+  prescribed_at: IsoDateSchema.nullable().optional(),
+  show_in_app: z.boolean().default(true),
 });
-export type CreateMedicationInput = z.infer<typeof CreateMedicationSchema>;
+export type CreatePatientMedicationInput = z.infer<typeof CreatePatientMedicationSchema>;
 
-export const LogMedicationSchema = z.object({
-  medication_id: UuidSchema,
-  log_date: IsoDateSchema,
+/** Log daily medication adherence (patient-facing) */
+export const LogAdherenceSchema = z.object({
+  entry_date: IsoDateSchema.optional(),   // defaults to today server-side
   taken: z.boolean(),
   taken_at: z.string().datetime({ offset: true }).nullable().optional(),
   notes: z.string().max(500).nullable().optional(),
 });
-export type LogMedicationInput = z.infer<typeof LogMedicationSchema>;
+export type LogAdherenceInput = z.infer<typeof LogAdherenceSchema>;
+
+/** Discontinue a patient medication */
+export const DiscontinueMedicationSchema = z.object({
+  discontinued_at: IsoDateSchema.optional(),   // defaults to today
+  discontinuation_reason: z.string().max(500).nullable().optional(),
+});
+export type DiscontinueMedicationInput = z.infer<typeof DiscontinueMedicationSchema>;
+
+// Legacy aliases kept for backward compatibility
+export const CreateMedicationSchema = CreatePatientMedicationSchema;
+export type CreateMedicationInput = CreatePatientMedicationInput;
+export const LogMedicationSchema = LogAdherenceSchema;
+export type LogMedicationInput = LogAdherenceInput;
 
 // ---------------------------------------------------------------------------
 // Clinician

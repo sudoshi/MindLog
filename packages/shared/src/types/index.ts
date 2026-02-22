@@ -3,6 +3,11 @@
 // Derived from mindlog-schema.sql. Keep in sync with DB migrations.
 // =============================================================================
 
+// MedicationFrequency is defined in schemas/index.ts (Zod-derived).
+// Import it here so the Medication interface below can reference it.
+import type { MedicationFrequency } from '../schemas/index.js';
+export type { MedicationFrequency };
+
 // ---------------------------------------------------------------------------
 // Enums (mirror PostgreSQL enum types)
 // ---------------------------------------------------------------------------
@@ -25,14 +30,7 @@ export type ReportType = 'weekly_summary' | 'monthly_summary' | 'clinical_export
 
 export type NotificationChannel = 'push' | 'email' | 'sms' | 'in_app';
 
-export type MedicationFrequency =
-  | 'once_daily'
-  | 'twice_daily'
-  | 'three_times_daily'
-  | 'four_times_daily'
-  | 'as_needed'
-  | 'weekly'
-  | 'other';
+// MedicationFrequency is exported from schemas/index.ts (Zod-derived, matches DB CHECK constraint)
 
 // ---------------------------------------------------------------------------
 // Core domain entities

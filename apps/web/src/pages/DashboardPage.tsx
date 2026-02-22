@@ -1,11 +1,10 @@
 // =============================================================================
-// MindLog Web — Population Dashboard
-// Real-time caseload overview: KPI cards + patient table + live WS alert badge.
+// MindLog Web — Population Dashboard (redesigned to match prototype)
+// Layout: 5-metric row + alert strip + two-column (heatmap/dist LEFT, alerts/checkin RIGHT)
 // =============================================================================
 
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { DESIGN_TOKENS } from '@mindlog/shared';
 import { api } from '../services/api.js';
 import { useAlertSocket } from '../hooks/useAlertSocket.js';
 import { useAuthStore } from '../stores/auth.js';
@@ -43,53 +42,257 @@ interface CaseloadRow {
   highest_alert_severity: 'critical' | 'warning' | 'info' | null;
 }
 
+interface AlertItem {
+  id: string;
+  patient_id: string;
+  patient_name?: string;
+  severity: 'info' | 'warning' | 'critical';
+  title: string;
+  rule_key: string;
+  created_at: string;
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-const RISK_COLOR: Record<string, string> = {
-  critical: '#d62828',
-  high: '#faa307',
-  moderate: '#e9c46a',
-  low: '#6a994e',
-};
-
-const STATUS_COLOR: Record<string, string> = {
-  crisis: '#d62828',
-  active: '#2a9d8f',
-  inactive: '#4a5568',
-  discharged: '#4a5568',
-};
-
-function moodColor(v: number): string {
-  // 1 (red) → 10 (green) through yellow
-  const pct = (v - 1) / 9;
-  const hue = Math.round(pct * 120);
-  return `hsl(${hue}, 75%, 55%)`;
+function moodVar(v: number | null): string {
+  if (!v) return 'rgba(255,255,255,0.08)';
+  const idx = Math.max(1, Math.min(10, Math.round(v)));
+  return `var(--m${idx})`;
 }
 
-function fmtSleep(minutes: number | null): string {
-  if (minutes == null) return '—';
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  return m > 0 ? `${h}h ${m}m` : `${h}h`;
+function fmtRelative(iso: string): string {
+  const d = (Date.now() - new Date(iso).getTime()) / 1000;
+  if (d < 60) return 'just now';
+  if (d < 3600) return `${Math.floor(d / 60)}m ago`;
+  if (d < 86400) return `${Math.floor(d / 3600)}h ago`;
+  return `${Math.floor(d / 86400)}d ago`;
 }
+
+function initials(first: string, last: string): string {
+  return `${first.charAt(0)}${last.charAt(0)}`.toUpperCase();
+}
+
+const AVATAR_COLORS = [
+  '#2a7ab5','#5a8a6a','#c9972a','#7c6fa0','#2a9d8f',
+  '#e05a2a','#2a6db5','#9a5a8a','#4a8a3a','#c04060',
+];
 
 // ---------------------------------------------------------------------------
 // Sub-components
 // ---------------------------------------------------------------------------
 
-function KpiCard({ label, value, color }: { label: string; value: string; color: string }) {
+function MetricCard({
+  label, value, valueClass, delta, deltaDir, variant, onClick,
+}: {
+  label: string;
+  value: string;
+  valueClass?: string;
+  delta?: string;
+  deltaDir?: 'up' | 'down' | 'flat';
+  variant?: 'critical' | 'warning';
+  onClick?: () => void;
+}) {
   return (
-    <div style={{ background: '#161a27', border: '1px solid #1e2535', borderRadius: 12, padding: 20 }}>
-      <div style={{ color: '#8b9cb0', fontSize: 12, marginBottom: 8 }}>{label}</div>
-      <div style={{ color, fontSize: 28, fontWeight: 700 }}>{value}</div>
+    <div
+      className={`metric-card${variant ? ` ${variant}` : ''}${onClick ? ' clickable' : ''}`}
+      onClick={onClick}
+    >
+      <div className="metric-label">{label}</div>
+      <div className={`metric-value${valueClass ? ` ${valueClass}` : ''}`}>{value}</div>
+      {delta && <div className={`metric-delta${deltaDir ? ` ${deltaDir}` : ''}`}>{delta}</div>}
+    </div>
+  );
+}
+
+function CaseloadMoodPanel({ caseload }: { caseload: CaseloadRow[] }) {
+  const navigate = useNavigate();
+  const sorted = [...caseload].sort((a, b) => {
+    const ord: Record<string, number> = { crisis: 0, active: 1, inactive: 2, discharged: 3 };
+    return (ord[a.status] ?? 4) - (ord[b.status] ?? 4);
+  });
+
+  return (
+    <div className="panel anim anim-d2" style={{ marginBottom: 14 }}>
+      <div className="panel-header">
+        <div>
+          <div className="panel-title">Today's Mood — Caseload</div>
+          <div className="panel-sub">One cell per patient · Border = crisis</div>
+        </div>
+        <div className="panel-action" onClick={() => navigate('/patients')}>All patients →</div>
+      </div>
+      <div style={{ padding: '12px 16px' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+          {sorted.map((row) => (
+            <div
+              key={row.patient_id}
+              title={`${row.last_name}, ${row.first_name} — Mood: ${row.todays_mood ?? 'not logged'}`}
+              onClick={() => navigate(`/patients/${row.patient_id}`)}
+              style={{
+                width: 18, height: 18, borderRadius: 3,
+                background: moodVar(row.todays_mood),
+                border: row.status === 'crisis' ? '1px solid var(--critical)' : '1px solid transparent',
+                cursor: 'pointer', flexShrink: 0,
+              }}
+            />
+          ))}
+        </div>
+        <div style={{ display: 'flex', gap: 12, marginTop: 10, flexWrap: 'wrap' }}>
+          {[1,3,5,7,9].map((m) => (
+            <div key={m} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <div style={{ width: 10, height: 10, borderRadius: 2, background: moodVar(m) }} />
+              <span style={{ fontSize: 10, color: 'var(--ink-soft)' }}>{m}</span>
+            </div>
+          ))}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <div style={{ width: 10, height: 10, borderRadius: 2, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)' }} />
+            <span style={{ fontSize: 10, color: 'var(--ink-soft)' }}>Not logged</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MoodDistributionPanel({ caseload }: { caseload: CaseloadRow[] }) {
+  const logged = caseload.filter((r) => r.todays_mood !== null);
+  const buckets = [
+    { label: 'High (8–10)', min: 8, max: 10, color: 'var(--m9)' },
+    { label: 'Good (6–7)', min: 6, max: 7, color: 'var(--m7)' },
+    { label: 'Moderate (4–5)', min: 4, max: 5, color: 'var(--m4)' },
+    { label: 'Low (1–3)', min: 1, max: 3, color: 'var(--m2)' },
+  ];
+  const maxCount = Math.max(...buckets.map((b) =>
+    logged.filter((r) => (r.todays_mood ?? 0) >= b.min && (r.todays_mood ?? 0) <= b.max).length
+  ), 1);
+
+  return (
+    <div className="panel anim anim-d3" style={{ marginBottom: 14 }}>
+      <div className="panel-header">
+        <div className="panel-title">Mood Distribution — Today</div>
+        <div className="panel-sub">Reported by {logged.length} patients</div>
+      </div>
+      <div style={{ padding: '8px 0' }}>
+        {buckets.map((b) => {
+          const count = logged.filter((r) =>
+            (r.todays_mood ?? 0) >= b.min && (r.todays_mood ?? 0) <= b.max
+          ).length;
+          const pct = Math.round((count / maxCount) * 100);
+          return (
+            <div key={b.label} className="mini-bar-row">
+              <div className="mini-bar-label">{b.label}</div>
+              <div className="mini-bar-track">
+                <div className="mini-bar-fill" style={{ width: `${pct}%`, background: b.color }} />
+              </div>
+              <div className="mini-bar-val">{count}</div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function ActiveAlertsPanel({ token, onViewAll }: { token: string | null; onViewAll: () => void }) {
+  const [alerts, setAlerts] = useState<AlertItem[]>([]);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!token) return;
+    void api.get<{ items: AlertItem[] }>('/alerts?limit=5&status=open', token)
+      .then((res) => setAlerts(res.items ?? []))
+      .catch(() => {});
+  }, [token]);
+
+  const severityIcon: Record<string, string> = { critical: '🚨', warning: '⚠️', info: 'ℹ️' };
+
+  return (
+    <div className="panel anim anim-d2" style={{ marginBottom: 14 }}>
+      <div className="panel-header">
+        <div>
+          <div className="panel-title">Active Alerts</div>
+          <div className="panel-sub">Requires your attention</div>
+        </div>
+        <div className="panel-action" onClick={onViewAll}>All →</div>
+      </div>
+      {alerts.length === 0 ? (
+        <div className="empty-state">
+          <div className="empty-state-icon">✓</div>
+          <div className="empty-state-title">No open alerts</div>
+          All patients are stable
+        </div>
+      ) : (
+        alerts.map((a) => (
+          <div
+            key={a.id}
+            className="alert-item"
+            onClick={() => navigate(`/patients/${a.patient_id}`)}
+          >
+            <div className={`alert-item-icon ${a.severity}`}>
+              {severityIcon[a.severity] ?? '📋'}
+            </div>
+            <div className="alert-item-content">
+              <div className="alert-item-title">{a.title}</div>
+              {a.patient_name && <div className="alert-item-body">{a.patient_name}</div>}
+              <div className="alert-item-footer">{a.rule_key} · {fmtRelative(a.created_at)}</div>
+            </div>
+          </div>
+        ))
+      )}
+    </div>
+  );
+}
+
+function CheckInActivityPanel({ caseload }: { caseload: CaseloadRow[] }) {
+  const navigate = useNavigate();
+  const loggedIn = caseload.filter((r) => r.todays_submitted_at !== null).slice(0, 8);
+  const notLogged = caseload.filter((r) => r.todays_submitted_at === null).length;
+
+  return (
+    <div className="panel anim anim-d3">
+      <div className="panel-header">
+        <div className="panel-title">Check-In Activity</div>
+        <div className="panel-sub">{loggedIn.length} logged · {notLogged} pending</div>
+      </div>
+      {loggedIn.length === 0 ? (
+        <div className="empty-state">No check-ins yet today</div>
+      ) : (
+        <div style={{ paddingBottom: 8 }}>
+          {loggedIn.map((row, idx) => (
+            <div
+              key={row.patient_id}
+              className="checkin-item"
+              style={{ cursor: 'pointer' }}
+              onClick={() => navigate(`/patients/${row.patient_id}`)}
+            >
+              <div
+                className="checkin-avatar"
+                style={{ background: AVATAR_COLORS[idx % AVATAR_COLORS.length] }}
+              >
+                {initials(row.first_name, row.last_name)}
+              </div>
+              <div className="checkin-name">{row.last_name}, {row.first_name}</div>
+              {row.todays_mood != null && (
+                <div
+                  className="mood-dot"
+                  style={{ background: moodVar(row.todays_mood) }}
+                  title={`Mood: ${row.todays_mood}`}
+                />
+              )}
+              <div className="checkin-time">
+                {row.todays_submitted_at ? fmtRelative(row.todays_submitted_at) : '—'}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Main page
+// Main Page
 // ---------------------------------------------------------------------------
 
 export function DashboardPage() {
@@ -98,17 +301,21 @@ export function DashboardPage() {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [caseload, setCaseload] = useState<CaseloadRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [newAlerts, setNewAlerts] = useState(0);
+  const [topCritical, setTopCritical] = useState<AlertItem | null>(null);
 
   const fetchData = useCallback(async () => {
     if (!token) return;
     setLoading(true);
     try {
-      const [snap, rows] = await Promise.all([
+      const [snap, caseRes] = await Promise.all([
         api.get<Snapshot>('/clinicians/snapshot', token),
-        api.get<CaseloadRow[]>('/clinicians/caseload', token),
+        api.get<{ success: boolean; data: CaseloadRow[] } | CaseloadRow[]>('/clinicians/caseload', token),
       ]);
       setSnapshot(snap);
+      // Handle both { data: [...] } and plain array response shapes
+      const rows = Array.isArray(caseRes)
+        ? caseRes
+        : ((caseRes as { data?: CaseloadRow[] }).data ?? []);
       setCaseload(rows);
     } catch (e) {
       console.error('[dashboard] fetch error', e);
@@ -117,240 +324,126 @@ export function DashboardPage() {
     }
   }, [token]);
 
-  useEffect(() => { void fetchData(); }, [fetchData]);
+  // Fetch top critical alert for the alert strip
+  const fetchTopCritical = useCallback(async () => {
+    if (!token) return;
+    try {
+      const res = await api.get<{ items: AlertItem[] }>('/alerts?limit=1&severity=critical&status=open', token);
+      setTopCritical(res.items?.[0] ?? null);
+    } catch { /* silent */ }
+  }, [token]);
 
-  const handleAlert = useCallback(() => {
-    setNewAlerts((n) => n + 1);
-    void fetchData(); // refresh caseload to show updated alert counts
-  }, [fetchData]);
+  useEffect(() => { void fetchData(); void fetchTopCritical(); }, [fetchData, fetchTopCritical]);
 
-  const { status: ws } = useAlertSocket({ token, onAlert: handleAlert });
+  useAlertSocket({ token, onAlert: () => { void fetchData(); void fetchTopCritical(); } });
 
-  // Derived KPIs — prefer nightly snapshot, fall back to live caseload counts
-  const totalActive = snapshot?.active_patients ?? caseload.length;
+  // Derived KPIs
+  const criticalAlerts = snapshot?.critical_alerts_count ?? 0;
   const checkedInToday = caseload.filter((r) => r.todays_submitted_at !== null).length;
-  const crisisAlerts = snapshot?.critical_alerts_count
-    ?? caseload.filter((r) => r.status === 'crisis').length;
-  const avgMood: string = (() => {
+  const avgMood = (() => {
     if (snapshot?.avg_mood_x10 != null) return (snapshot.avg_mood_x10 / 10).toFixed(1);
     const moods = caseload.map((r) => r.todays_mood).filter((m): m is number => m !== null);
-    return moods.length > 0
-      ? (moods.reduce((a, b) => a + b, 0) / moods.length).toFixed(1)
-      : '—';
+    return moods.length > 0 ? (moods.reduce((a, b) => a + b, 0) / moods.length).toFixed(1) : '—';
   })();
 
-  const BG = '#0c0f18';
-  const CARD = '#161a27';
-  const BORDER = '#1e2535';
-  const TEXT = '#e2e8f0';
-  const SUB = '#8b9cb0';
-  const wsc = ws === 'connected' ? '#6a994e' : ws === 'connecting' ? '#faa307' : '#d62828';
-
-  const kpis: Array<{ label: string; value: string; color: string }> = [
-    { label: 'Active Patients', value: loading ? '…' : String(totalActive), color: TEXT },
-    { label: 'Checked In Today', value: loading ? '…' : `${checkedInToday} / ${caseload.length}`, color: '#6a994e' },
-    { label: 'Crisis Alerts', value: loading ? '…' : String(crisisAlerts), color: crisisAlerts > 0 ? '#d62828' : TEXT },
-    { label: 'Avg Mood (7d)', value: loading ? '…' : avgMood, color: TEXT },
-  ];
-
   return (
-    <div style={{ minHeight: '100vh', background: BG, color: TEXT, fontFamily: 'Figtree, system-ui, sans-serif' }}>
-      {/* Header */}
-      <header style={{ background: CARD, padding: '16px 32px', display: 'flex', alignItems: 'center', gap: 16, borderBottom: `1px solid ${BORDER}` }}>
-        <h1
-          onClick={() => navigate('/dashboard')}
-          style={{ fontFamily: 'Fraunces, serif', color: DESIGN_TOKENS.COLOR_PRIMARY, fontSize: 22, margin: 0, cursor: 'pointer' }}
+    <div className="view-pad">
+      {/* ── 5 Metric cards ── */}
+      <div className="metric-row anim">
+        <MetricCard
+          label="Critical Alerts"
+          value={loading ? '…' : String(criticalAlerts)}
+          {...(criticalAlerts > 0 ? { valueClass: 'critical', variant: 'critical' as const } : {})}
+          delta={criticalAlerts > 0 ? 'Requires review' : 'All stable'}
+          deltaDir={criticalAlerts > 0 ? 'down' : 'up'}
+          onClick={() => navigate('/alerts')}
+        />
+        <MetricCard
+          label="Active Today"
+          value={loading ? '…' : `${checkedInToday} / ${caseload.length}`}
+          delta={`of ${caseload.length} patients logged`}
+          deltaDir={checkedInToday < caseload.length * 0.6 ? 'down' : 'flat'}
+          {...(!loading && checkedInToday < caseload.length * 0.6 ? { variant: 'warning' as const } : {})}
+        />
+        <MetricCard
+          label="Avg Mood"
+          value={loading ? '…' : avgMood}
+          {...(avgMood !== '—' && Number(avgMood) < 5
+            ? { valueClass: 'critical' }
+            : avgMood !== '—' && Number(avgMood) >= 7
+            ? { valueClass: 'safe' }
+            : {})}
+          delta="Today's caseload"
+          deltaDir="flat"
+        />
+        <MetricCard
+          label="Avg Sleep"
+          value="—"
+          delta="Extended snapshot required"
+          deltaDir="flat"
+        />
+        <MetricCard
+          label="Check-In Rate"
+          value={loading ? '…' : (snapshot?.checkin_rate_pct != null ? `${Math.round(snapshot.checkin_rate_pct)}%` : `${caseload.length > 0 ? Math.round((checkedInToday / caseload.length) * 100) : 0}%`)}
+          valueClass="safe"
+          delta="Today"
+          deltaDir="flat"
+        />
+      </div>
+
+      {/* ── Safety alert strip (top critical alert) ── */}
+      {topCritical && (
+        <div
+          className="alert-strip anim anim-d1"
+          onClick={() => navigate(`/patients/${topCritical.patient_id}`)}
         >
-          MindLog
-        </h1>
-        <nav style={{ marginLeft: 'auto', display: 'flex', gap: 24, alignItems: 'center' }}>
-          <a href="/dashboard" style={{ color: DESIGN_TOKENS.COLOR_PRIMARY, textDecoration: 'none', fontSize: 14, fontWeight: 600 }}>
-            Dashboard
-          </a>
-          <a
-            href="/alerts"
-            style={{ color: SUB, textDecoration: 'none', fontSize: 14, display: 'flex', alignItems: 'center', gap: 6 }}
-            onClick={() => setNewAlerts(0)}
-          >
-            Alerts
-            {newAlerts > 0 && (
-              <span style={{
-                background: '#d62828', color: '#fff', borderRadius: 10,
-                padding: '1px 6px', fontSize: 10, fontWeight: 700, lineHeight: '16px',
-              }}>
-                {newAlerts > 9 ? '9+' : newAlerts}
-              </span>
-            )}
-          </a>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: wsc }}>
-            <span style={{ width: 6, height: 6, borderRadius: '50%', background: wsc, display: 'inline-block' }} />
-            {ws === 'connected' ? 'Live' : ws}
-          </span>
-        </nav>
-      </header>
-
-      <main style={{ padding: '32px', maxWidth: 1200, margin: '0 auto' }}>
-        {/* Page title */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 24 }}>
-          <h2 style={{ fontSize: 20, fontWeight: 600, margin: 0 }}>My Caseload — Today</h2>
-          {snapshot?.is_live
-            ? <span style={{ fontSize: 12, color: '#6a994e' }}>⬤ Live counts</span>
-            : snapshot?.snapshot_date
-              ? <span style={{ fontSize: 12, color: SUB }}>Snapshot: {snapshot.snapshot_date}</span>
-              : null
-          }
-        </div>
-
-        {/* KPI cards */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 32 }}>
-          {kpis.map((k) => <KpiCard key={k.label} {...k} />)}
-        </div>
-
-        {/* Crisis resource banner */}
-        <div style={{
-          background: '#1a0a0a', border: '1px solid #4a1010', borderRadius: 10,
-          padding: '10px 16px', marginBottom: 20, fontSize: 13, color: '#fc8181',
-        }}>
-          🚨 Patient in crisis? Call 988 · Text HOME to 741741 · Veterans: 988 press 1
-        </div>
-
-        {/* Caseload table */}
-        {loading ? (
-          <div style={{ color: SUB, textAlign: 'center', padding: 48 }}>Loading caseload…</div>
-        ) : caseload.length === 0 ? (
-          <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 12, padding: 48, textAlign: 'center' }}>
-            <div style={{ fontSize: 32, marginBottom: 12 }}>🩺</div>
-            <div style={{ color: TEXT, fontSize: 16, fontWeight: 600 }}>No patients assigned</div>
-            <div style={{ color: SUB, fontSize: 13, marginTop: 4 }}>You have no patients on your caseload yet.</div>
+          <div className="alert-strip-icon">⚠️</div>
+          <div className="alert-strip-text">
+            <div className="alert-strip-title">{topCritical.title}</div>
+            <div className="alert-strip-body">
+              {topCritical.rule_key} · {fmtRelative(topCritical.created_at)}
+              {topCritical.patient_name ? ` · ${topCritical.patient_name}` : ''}
+            </div>
           </div>
-        ) : (
-          <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 12, overflow: 'hidden' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ borderBottom: `1px solid ${BORDER}` }}>
-                  {['Patient', 'Status', 'Mood', 'Coping', 'Sleep', 'Check-in', 'Alerts', 'Streak'].map((h) => (
-                    <th key={h} style={{
-                      padding: '12px 16px', textAlign: 'left',
-                      fontSize: 11, fontWeight: 600, color: SUB,
-                      textTransform: 'uppercase', letterSpacing: 0.5,
-                    }}>
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {caseload.map((row, i) => {
-                  const alertColor = row.highest_alert_severity === 'critical'
-                    ? '#d62828'
-                    : row.highest_alert_severity === 'warning'
-                      ? '#faa307'
-                      : '#2a9d8f';
-                  return (
-                    <tr
-                      key={row.patient_id}
-                      onClick={() => navigate(`/patients/${row.patient_id}`)}
-                      style={{
-                        borderBottom: i < caseload.length - 1 ? `1px solid ${BORDER}` : 'none',
-                        cursor: 'pointer',
-                        background: row.status === 'crisis' ? '#1a0a0a' : 'transparent',
-                        transition: 'background 0.15s',
-                      }}
-                      onMouseEnter={(e) => {
-                        (e.currentTarget as HTMLTableRowElement).style.background =
-                          row.status === 'crisis' ? '#220f0f' : '#1a1e2e';
-                      }}
-                      onMouseLeave={(e) => {
-                        (e.currentTarget as HTMLTableRowElement).style.background =
-                          row.status === 'crisis' ? '#1a0a0a' : 'transparent';
-                      }}
-                    >
-                      {/* Patient name + MRN + risk */}
-                      <td style={{ padding: '14px 16px' }}>
-                        <div style={{ fontWeight: 600, fontSize: 14, color: TEXT }}>
-                          {row.last_name}, {row.first_name}
-                        </div>
-                        <div style={{ fontSize: 11, color: SUB, marginTop: 2 }}>
-                          {row.mrn}
-                          {row.risk_level && (
-                            <span style={{ marginLeft: 8, color: RISK_COLOR[row.risk_level] ?? SUB }}>
-                              ● {row.risk_level}
-                            </span>
-                          )}
-                        </div>
-                      </td>
+          <div className="alert-strip-action">Review Now →</div>
+        </div>
+      )}
 
-                      {/* Status badge */}
-                      <td style={{ padding: '14px 16px' }}>
-                        <span style={{
-                          background: `${STATUS_COLOR[row.status] ?? '#4a5568'}22`,
-                          color: STATUS_COLOR[row.status] ?? SUB,
-                          borderRadius: 4, padding: '2px 8px',
-                          fontSize: 11, fontWeight: 600, textTransform: 'capitalize',
-                        }}>
-                          {row.status}
-                        </span>
-                      </td>
-
-                      {/* Today's mood */}
-                      <td style={{ padding: '14px 16px', fontSize: 16, fontWeight: 700, color: row.todays_mood ? moodColor(row.todays_mood) : SUB }}>
-                        {row.todays_mood ?? '—'}
-                      </td>
-
-                      {/* Today's coping */}
-                      <td style={{ padding: '14px 16px', fontSize: 15, color: row.todays_coping ? moodColor(row.todays_coping) : SUB }}>
-                        {row.todays_coping ?? '—'}
-                      </td>
-
-                      {/* Sleep */}
-                      <td style={{ padding: '14px 16px', fontSize: 13, color: SUB }}>
-                        {fmtSleep(row.todays_sleep_minutes)}
-                      </td>
-
-                      {/* Check-in completion */}
-                      <td style={{ padding: '14px 16px' }}>
-                        {row.todays_submitted_at ? (
-                          <span style={{ color: '#6a994e', fontSize: 13 }}>
-                            ✓{row.todays_completion_pct != null ? ` ${row.todays_completion_pct}%` : ''}
-                          </span>
-                        ) : (
-                          <span style={{ color: '#4a5568', fontSize: 13 }}>—</span>
-                        )}
-                      </td>
-
-                      {/* Unacknowledged alerts */}
-                      <td style={{ padding: '14px 16px' }}>
-                        {row.unacknowledged_alert_count > 0 ? (
-                          <span style={{
-                            background: `${alertColor}22`, color: alertColor,
-                            borderRadius: 4, padding: '2px 8px', fontSize: 12, fontWeight: 700,
-                          }}>
-                            {row.unacknowledged_alert_count}
-                          </span>
-                        ) : (
-                          <span style={{ color: '#4a5568' }}>—</span>
-                        )}
-                      </td>
-
-                      {/* Tracking streak */}
-                      <td style={{ padding: '14px 16px', fontSize: 13, color: SUB }}>
-                        {row.tracking_streak > 0 ? `🔥 ${row.tracking_streak}d` : '—'}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+      {/* ── Two-column layout ── */}
+      {loading ? (
+        <div style={{ color: 'var(--ink-soft)', textAlign: 'center', padding: 48 }}>
+          Loading caseload…
+        </div>
+      ) : (
+        <div className="two-col">
+          {/* LEFT: Mood cells + Distribution */}
+          <div>
+            <CaseloadMoodPanel caseload={caseload} />
+            <MoodDistributionPanel caseload={caseload} />
           </div>
-        )}
-
-        {/* Snapshot age note */}
-        {snapshot && !snapshot.is_live && snapshot.snapshot_date && (
-          <div style={{ marginTop: 10, fontSize: 11, color: '#4a5568', textAlign: 'right' }}>
-            KPI figures from nightly snapshot ({snapshot.snapshot_date}). Alert counts are live.
+          {/* RIGHT: Active alerts + Check-in activity */}
+          <div>
+            <ActiveAlertsPanel token={token} onViewAll={() => navigate('/alerts')} />
+            <CheckInActivityPanel caseload={caseload} />
           </div>
-        )}
-      </main>
+        </div>
+      )}
+
+      {/* Snapshot age footnote */}
+      {snapshot && !snapshot.is_live && snapshot.snapshot_date && (
+        <div style={{ marginTop: 10, fontSize: 11, color: 'var(--ink-ghost)', textAlign: 'right' }}>
+          KPI figures from nightly snapshot ({snapshot.snapshot_date}). Alert counts are live.
+        </div>
+      )}
+
+      {/* Crisis resource banner */}
+      <div style={{
+        background: 'rgba(255,77,109,.06)', border: '1px solid var(--critical-border)',
+        borderRadius: 'var(--r-sm)', padding: '8px 14px', marginTop: 16,
+        fontSize: 12, color: 'var(--critical)',
+      }}>
+        🚨 Patient in crisis? Call <strong>988</strong> · Text HOME to <strong>741741</strong> · Veterans: 988 press 1
+      </div>
     </div>
   );
 }

@@ -2,15 +2,49 @@
 // MindLog Mobile — Today screen (daily check-in hub)
 // =============================================================================
 
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
-import { router } from 'expo-router';
+import { useState, useCallback } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { router, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { DESIGN_TOKENS, MOOD_COLORS, MOOD_LABELS, MOOD_EMOJIS, CRISIS_CONTACTS } from '@mindlog/shared';
 import { useTodayEntry } from '../../hooks/useTodayEntry';
+import { apiFetch } from '../../services/auth';
+
+interface TodayMedSummary {
+  id: string;
+  medication_name: string;
+  dose: number | null;
+  dose_unit: string;
+  taken: boolean | null;
+  log_id: string | null;
+}
 
 export default function TodayScreen() {
   const { entry, loading } = useTodayEntry();
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+
+  // Medication reminders — fetch on every focus
+  const [meds, setMeds] = useState<TodayMedSummary[]>([]);
+  const [medsLoading, setMedsLoading] = useState(false);
+
+  const loadMeds = useCallback(async () => {
+    setMedsLoading(true);
+    try {
+      const res = await apiFetch('/medications/today');
+      if (!res.ok) return; // silently ignore — non-critical widget
+      const json = (await res.json()) as { success: boolean; data: TodayMedSummary[] };
+      setMeds(json.data);
+    } catch {
+      // silently ignore — non-critical widget
+    } finally {
+      setMedsLoading(false);
+    }
+  }, []);
+
+  useFocusEffect(loadMeds);
+
+  const unloggedMeds = meds.filter((m) => m.log_id === null);
+  const takenMeds = meds.filter((m) => m.taken === true);
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -109,6 +143,49 @@ export default function TodayScreen() {
           ))}
         </View>
 
+        {/* Medication reminders */}
+        {(medsLoading || meds.length > 0) && (
+          <TouchableOpacity
+            style={styles.medCard}
+            onPress={() => router.push('/medications')}
+            activeOpacity={0.8}
+          >
+            <View style={styles.medCardHeader}>
+              <Text style={styles.medCardTitle}>💊 Medications</Text>
+              <Text style={styles.medCardArrow}>›</Text>
+            </View>
+            {medsLoading ? (
+              <ActivityIndicator size="small" color={DESIGN_TOKENS.COLOR_PRIMARY} style={{ marginTop: 8 }} />
+            ) : (
+              <>
+                {unloggedMeds.length > 0 ? (
+                  <>
+                    <Text style={styles.medCardSub}>
+                      {unloggedMeds.length} medication{unloggedMeds.length > 1 ? 's' : ''} to log today
+                    </Text>
+                    {unloggedMeds.slice(0, 3).map((m) => (
+                      <View key={m.id} style={styles.medRow}>
+                        <View style={styles.medDot} />
+                        <Text style={styles.medRowText}>
+                          {m.medication_name}
+                          {m.dose != null ? ` · ${m.dose} ${m.dose_unit}` : ''}
+                        </Text>
+                      </View>
+                    ))}
+                    {unloggedMeds.length > 3 && (
+                      <Text style={styles.medMore}>+{unloggedMeds.length - 3} more…</Text>
+                    )}
+                  </>
+                ) : (
+                  <Text style={styles.medAllDone}>
+                    ✓ All {takenMeds.length} medication{takenMeds.length > 1 ? 's' : ''} taken today
+                  </Text>
+                )}
+              </>
+            )}
+          </TouchableOpacity>
+        )}
+
         {/* Safety card (always visible — SAF-002) */}
         <View style={styles.safetyCard}>
           <Text style={styles.safetyTitle}>Need immediate support?</Text>
@@ -201,4 +278,22 @@ const styles = StyleSheet.create({
   },
   streakNum: { fontSize: 32 },
   streakLabel: { color: SUB, fontSize: 13, marginTop: 4 },
+
+  // Medication reminder card
+  medCard: {
+    backgroundColor: CARD, borderRadius: 16, padding: 16,
+    borderWidth: 1, borderColor: '#1e3a2f', marginBottom: 16,
+  },
+  medCardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
+  medCardTitle: { color: TEXT, fontSize: 16, fontWeight: '700', flex: 1 },
+  medCardArrow: { color: DESIGN_TOKENS.COLOR_PRIMARY, fontSize: 20, fontWeight: '300' },
+  medCardSub: { color: SUB, fontSize: 12, marginBottom: 8 },
+  medRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
+  medDot: {
+    width: 6, height: 6, borderRadius: 3,
+    backgroundColor: DESIGN_TOKENS.COLOR_PRIMARY, marginRight: 8,
+  },
+  medRowText: { color: TEXT, fontSize: 13 },
+  medMore: { color: SUB, fontSize: 11, marginTop: 4, fontStyle: 'italic' },
+  medAllDone: { color: '#48bb78', fontSize: 13, fontWeight: '600' },
 });

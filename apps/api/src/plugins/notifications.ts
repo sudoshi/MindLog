@@ -124,7 +124,9 @@ async function sendResendEmail(
 export async function dispatchAlertNotifications(params: AlertNotificationParams): Promise<void> {
   const { patientId, orgId, alertId, severity, title, ruleKey } = params;
 
-  // Fetch clinicians on this patient's care team with notification prefs enabled
+  // Fetch clinicians on this patient's care team with notification prefs enabled.
+  // The demo DB has no auth.users table — email lives directly on clinicians.
+  // Prefs table is clinician_notification_preferences keyed on clinician_id.
   const clinicians = await sql<{
     id: string;
     email: string;
@@ -133,14 +135,14 @@ export async function dispatchAlertNotifications(params: AlertNotificationParams
     alert_email_enabled: boolean;
   }[]>`
     SELECT
-      u.id, u.email,
-      np.push_token,
-      COALESCE(np.alert_push_enabled, TRUE)  AS alert_push_enabled,
-      COALESCE(np.alert_email_enabled, TRUE) AS alert_email_enabled
+      c.id,
+      c.email,
+      cnp.push_token,
+      COALESCE(cnp.alert_push_enabled, TRUE)  AS alert_push_enabled,
+      COALESCE(cnp.alert_email_enabled, TRUE) AS alert_email_enabled
     FROM care_team_members ctm
     JOIN clinicians c ON c.id = ctm.clinician_id
-    JOIN users u ON u.id = c.user_id
-    LEFT JOIN notification_prefs np ON np.user_id = u.id
+    LEFT JOIN clinician_notification_preferences cnp ON cnp.clinician_id = c.id
     WHERE ctm.patient_id   = ${patientId}
       AND ctm.unassigned_at IS NULL
   `;
@@ -185,18 +187,18 @@ export async function dispatchAlertNotifications(params: AlertNotificationParams
     sendResendEmail(emailAddresses, `${severityEmoji} MindLog: ${title}`, emailHtml),
   ]);
 
-  // Log notification dispatch to audit trail
+  // Log notification dispatch to audit trail using actual schema columns.
   await sql`
-    INSERT INTO notification_logs (user_id, type, channel, reference_id, status)
+    INSERT INTO notification_logs (patient_id, clinician_id, notification_type, channel, title, status)
     SELECT
-      u.id,
+      ${patientId}::uuid,
+      c.id,
       'ALERT',
       'push',
-      ${alertId},
+      ${title},
       'sent'
     FROM care_team_members ctm
     JOIN clinicians c ON c.id = ctm.clinician_id
-    JOIN users u ON u.id = c.user_id
     WHERE ctm.patient_id = ${patientId}
       AND ctm.unassigned_at IS NULL
     ON CONFLICT DO NOTHING

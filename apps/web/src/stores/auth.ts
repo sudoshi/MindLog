@@ -41,7 +41,7 @@ export function useAuthStore<T>(selector: (s: AuthState) => T): T {
   useEffect(() => {
     const listener = () => forceUpdate((n) => n + 1);
     listeners.add(listener);
-    return () => listeners.delete(listener);
+    return () => { listeners.delete(listener); };
   }, []);
 
   return selector(getState());

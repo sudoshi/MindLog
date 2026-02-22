@@ -44,15 +44,15 @@ export default async function alertRoutes(fastify: FastifyInstance): Promise<voi
       JOIN care_team_members ctm ON ctm.patient_id = ca.patient_id AND ctm.unassigned_at IS NULL
       WHERE ca.organisation_id = ${org_id}
         AND ctm.clinician_id = ${request.user.sub}
-        AND ca.auto_resolved = FALSE
         AND (${statusFilter}::TEXT IS NULL OR (
           CASE ${statusFilter}
-            WHEN 'acknowledged' THEN ca.acknowledged_at IS NOT NULL
+            WHEN 'acknowledged' THEN ca.acknowledged_at IS NOT NULL AND ca.auto_resolved = FALSE
             WHEN 'resolved'     THEN ca.auto_resolved = TRUE
-            WHEN 'new'          THEN ca.acknowledged_at IS NULL
+            WHEN 'new'          THEN ca.acknowledged_at IS NULL AND ca.auto_resolved = FALSE
             ELSE TRUE
           END
         ))
+        AND (${statusFilter}::TEXT IS NOT NULL OR ca.auto_resolved = FALSE)
         AND (${severityFilter}::TEXT IS NULL OR ca.severity = ${severityFilter})
         AND (${patientIdFilter}::UUID IS NULL OR ca.patient_id = ${patientIdFilter}::UUID)
       ORDER BY
@@ -67,7 +67,15 @@ export default async function alertRoutes(fastify: FastifyInstance): Promise<voi
       JOIN care_team_members ctm ON ctm.patient_id = ca.patient_id AND ctm.unassigned_at IS NULL
       WHERE ca.organisation_id = ${org_id}
         AND ctm.clinician_id = ${request.user.sub}
-        AND ca.auto_resolved = FALSE
+        AND (${statusFilter}::TEXT IS NULL OR (
+          CASE ${statusFilter}
+            WHEN 'acknowledged' THEN ca.acknowledged_at IS NOT NULL AND ca.auto_resolved = FALSE
+            WHEN 'resolved'     THEN ca.auto_resolved = TRUE
+            WHEN 'new'          THEN ca.acknowledged_at IS NULL AND ca.auto_resolved = FALSE
+            ELSE TRUE
+          END
+        ))
+        AND (${statusFilter}::TEXT IS NOT NULL OR ca.auto_resolved = FALSE)
         AND (${severityFilter}::TEXT IS NULL OR ca.severity = ${severityFilter})
         AND (${patientIdFilter}::UUID IS NULL OR ca.patient_id = ${patientIdFilter}::UUID)
     `;

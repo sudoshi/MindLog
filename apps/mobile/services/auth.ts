@@ -6,6 +6,11 @@
 import * as SecureStore from 'expo-secure-store';
 import { API_PREFIX } from '@mindlog/shared';
 
+// Support EXPO_PUBLIC_API_BASE for local demo (e.g. http://192.168.x.x:3000)
+// Falls back to API_PREFIX alone (empty base = relative URL for production)
+const API_BASE = process.env['EXPO_PUBLIC_API_BASE'] ?? '';
+const API_URL = API_BASE ? `${API_BASE}${API_PREFIX}` : API_PREFIX;
+
 const KEYS = {
   ACCESS_TOKEN: 'ml_access_token',
   REFRESH_TOKEN: 'ml_refresh_token',
@@ -106,7 +111,7 @@ export async function refreshAccessToken(): Promise<string | null> {
     const refreshToken = await getRefreshToken();
     if (!refreshToken) return null;
 
-    const res = await fetch(`${API_PREFIX}/auth/refresh`, {
+    const res = await fetch(`${API_URL}/auth/refresh`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ refresh_token: refreshToken }),
@@ -155,14 +160,14 @@ export async function apiFetch(
   headers.set('Content-Type', 'application/json');
   if (token) headers.set('Authorization', `Bearer ${token}`);
 
-  const res = await fetch(`${API_PREFIX}${path}`, { ...init, headers });
+  const res = await fetch(`${API_URL}${path}`, { ...init, headers });
 
   // Token expired — attempt silent refresh then retry once
   if (res.status === 401) {
     const newToken = await refreshAccessToken();
     if (!newToken) return res; // caller must handle auth failure
     headers.set('Authorization', `Bearer ${newToken}`);
-    return fetch(`${API_PREFIX}${path}`, { ...init, headers });
+    return fetch(`${API_URL}${path}`, { ...init, headers });
   }
 
   return res;

@@ -21,7 +21,7 @@ import { publishAlert } from '../plugins/websocket.js';
 // Queue — exported so API routes can enqueue jobs
 // ---------------------------------------------------------------------------
 
-export const RULES_QUEUE_NAME = 'mindlog:rules';
+export const RULES_QUEUE_NAME = 'mindlog-rules';
 
 export const connection = {
   host: new URL(config.redisUrl).hostname,
@@ -277,7 +277,8 @@ async function evaluateSafetySymptom(
 
 // ===========================================================================
 // RULE-005 — Medication adherence
-// medication_logs.taken = FALSE for >= 3 consecutive days → WARNING
+// Any active medication logged as NOT taken for >= 3 days → WARNING
+// Uses patient_medications + medication_adherence_logs (corrected table names)
 // ===========================================================================
 
 async function evaluateMedicationAdherence(
@@ -289,15 +290,16 @@ async function evaluateMedicationAdherence(
 
   const [row] = await sql<{ missed_days: number; med_name: string | null }[]>`
     SELECT
-      COUNT(DISTINCT ml.logged_date)::int AS missed_days,
-      MAX(m.name)                          AS med_name
-    FROM medication_logs ml
-    JOIN medications m ON m.id = ml.medication_id
-    WHERE m.patient_id   = ${patientId}
-      AND ml.logged_date > ${entryDate}::date - INTERVAL '${sql.unsafe(String(MISSED_THRESHOLD + 1))} days'
-      AND ml.logged_date <= ${entryDate}::date
-      AND ml.taken        = FALSE
-      AND m.is_active     = TRUE
+      COUNT(DISTINCT mal.entry_date)::int AS missed_days,
+      MAX(pm.medication_name)             AS med_name
+    FROM medication_adherence_logs mal
+    JOIN patient_medications pm ON pm.id = mal.patient_medication_id
+    WHERE pm.patient_id       = ${patientId}
+      AND pm.discontinued_at IS NULL
+      AND pm.show_in_app      = TRUE
+      AND mal.entry_date      > ${entryDate}::date - INTERVAL '${sql.unsafe(String(MISSED_THRESHOLD + 1))} days'
+      AND mal.entry_date     <= ${entryDate}::date
+      AND mal.taken           = FALSE
   `;
 
   if ((row?.missed_days ?? 0) >= MISSED_THRESHOLD) {

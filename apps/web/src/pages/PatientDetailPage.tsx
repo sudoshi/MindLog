@@ -3,7 +3,7 @@
 // 5 tabs: Overview · Mood Trends · Journal · Notes · Alerts
 // =============================================================================
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, type CSSProperties } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ResponsiveContainer,
@@ -15,7 +15,7 @@ import {
   Tooltip as RechartsTooltip,
 } from 'recharts';
 import { format, parseISO, differenceInYears } from 'date-fns';
-import { DESIGN_TOKENS } from '@mindlog/shared';
+import { MEDICATION_FREQUENCY_LABELS, type MedicationFrequency } from '@mindlog/shared';
 import { api } from '../services/api.js';
 import { useAuthStore } from '../stores/auth.js';
 
@@ -94,27 +94,45 @@ interface PatientAlert {
   auto_resolved_at: string | null;
 }
 
-type Tab = 'overview' | 'trends' | 'journal' | 'notes' | 'alerts';
+interface PatientMedication {
+  id: string;
+  medication_name: string;
+  dose: number | null;
+  dose_unit: string;
+  frequency: string;
+  frequency_other: string | null;
+  instructions: string | null;
+  prescribed_at: string | null;
+  discontinued_at: string | null;
+  discontinuation_reason: string | null;
+  show_in_app: boolean;
+  created_at: string;
+  total_logged: number;
+  taken_count: number;
+  last_taken_at: string | null;
+}
+
+type Tab = 'overview' | 'trends' | 'journal' | 'notes' | 'alerts' | 'medications';
 
 // ---------------------------------------------------------------------------
 // Design constants
 // ---------------------------------------------------------------------------
 
-const BG = '#0c0f18';
-const CARD = '#161a27';
-const BORDER = '#1e2535';
-const TEXT = '#e2e8f0';
-const SUB = '#8b9cb0';
-const PRIMARY = DESIGN_TOKENS.COLOR_PRIMARY;
+const BG = 'var(--bg)';
+const CARD = 'var(--glass-01)';
+const BORDER = 'var(--border)';
+const TEXT = 'var(--ink)';
+const SUB = 'var(--ink-mid)';
+const PRIMARY = 'var(--safe)';
 
 const RISK_COLOR: Record<string, string> = {
-  critical: '#d62828', high: '#faa307', moderate: '#e9c46a', low: '#6a994e',
+  critical: 'var(--critical)', high: 'var(--warning)', moderate: '#c9972a', low: 'var(--safe)',
 };
 const STATUS_COLOR: Record<string, string> = {
-  crisis: '#d62828', active: '#2a9d8f', inactive: '#4a5568', discharged: '#4a5568',
+  crisis: 'var(--critical)', active: 'var(--safe)', inactive: 'var(--ink-soft)', discharged: 'var(--ink-soft)',
 };
 const SEVERITY_COLOR: Record<string, string> = {
-  critical: '#d62828', warning: '#faa307', info: '#2a9d8f',
+  critical: 'var(--critical)', warning: 'var(--warning)', info: 'var(--info)',
 };
 const NOTE_TYPE_LABELS: Record<string, string> = {
   observation: 'Observation',
@@ -400,20 +418,20 @@ function MoodTrendsTab({ heatmap, loading }: { heatmap: HeatmapEntry[]; loading:
       </div>
 
       {/* 30-day heatmap grid */}
-      <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 12, padding: 24 }}>
+      <div style={{ background: 'var(--glass-01)', backdropFilter: 'blur(20px)', border: '1px solid var(--border)', borderRadius: 'var(--r-lg)', padding: 24 }}>
         <h3 style={{ fontSize: 13, color: SUB, fontWeight: 600, margin: '0 0 16px', textTransform: 'uppercase', letterSpacing: 0.5 }}>
           30-Day Activity Grid
         </h3>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(10, 1fr)', gap: 6 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(10, 40px)', gap: 6 }}>
           {days.map((d) => (
             <div
               key={d.date}
               title={`${d.date}${d.mood !== null ? `: Mood ${d.mood}` : ': No entry'}${d.has_safety_flag ? ' ⚠️' : ''}`}
               style={{
-                aspectRatio: '1',
-                borderRadius: 4,
-                background: d.mood !== null ? moodColor(d.mood) : '#1e2535',
-                border: d.has_safety_flag ? '2px solid #d62828' : '1px solid transparent',
+                width: 40, height: 40,
+                borderRadius: 6,
+                background: d.mood !== null ? moodColor(d.mood) : 'rgba(255,255,255,0.07)',
+                border: d.has_safety_flag ? '2px solid var(--critical)' : '1px solid rgba(255,255,255,0.10)',
               }}
             />
           ))}
@@ -427,11 +445,11 @@ function MoodTrendsTab({ heatmap, loading }: { heatmap: HeatmapEntry[]; loading:
           </div>
           <span>High</span>
           <span style={{ marginLeft: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
-            <div style={{ width: 14, height: 14, borderRadius: 2, background: '#1e2535', border: '1px solid #4a5568', display: 'inline-block' }} />
+            <div style={{ width: 14, height: 14, borderRadius: 2, background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.15)', display: 'inline-block' }} />
             No entry
           </span>
           <span style={{ marginLeft: 8, display: 'flex', alignItems: 'center', gap: 4 }}>
-            <div style={{ width: 14, height: 14, borderRadius: 2, background: '#1e2535', border: '2px solid #d62828', display: 'inline-block' }} />
+            <div style={{ width: 14, height: 14, borderRadius: 2, background: 'rgba(255,255,255,0.07)', border: '2px solid var(--critical)', display: 'inline-block' }} />
             Safety flag
           </span>
         </div>
@@ -733,6 +751,251 @@ function AlertsTab({
 }
 
 // ---------------------------------------------------------------------------
+// Tab: Medications
+// ---------------------------------------------------------------------------
+
+function MedicationsTab({
+  medications, loading, showDiscontinued, onToggleDiscontinued,
+  medName, setMedName, medDose, setMedDose, medDoseUnit, setMedDoseUnit,
+  medFreq, setMedFreq, medInstructions, setMedInstructions,
+  medPrescribedAt, setMedPrescribedAt,
+  medSubmitting, onSubmitMed, onDiscontinue,
+}: {
+  medications: PatientMedication[];
+  loading: boolean;
+  showDiscontinued: boolean;
+  onToggleDiscontinued: () => void;
+  medName: string; setMedName: (v: string) => void;
+  medDose: string; setMedDose: (v: string) => void;
+  medDoseUnit: string; setMedDoseUnit: (v: string) => void;
+  medFreq: MedicationFrequency; setMedFreq: (v: MedicationFrequency) => void;
+  medInstructions: string; setMedInstructions: (v: string) => void;
+  medPrescribedAt: string; setMedPrescribedAt: (v: string) => void;
+  medSubmitting: boolean;
+  onSubmitMed: () => void;
+  onDiscontinue: (id: string) => void;
+}) {
+  const inputStyle: CSSProperties = {
+    background: BG, border: `1px solid ${BORDER}`, borderRadius: 6,
+    color: TEXT, padding: '7px 10px', fontSize: 13, width: '100%', boxSizing: 'border-box',
+    fontFamily: 'Figtree, system-ui, sans-serif',
+  };
+  const labelStyle: CSSProperties = {
+    fontSize: 11, color: SUB, marginBottom: 4, display: 'block',
+  };
+
+  const adherenceRate = (med: PatientMedication) =>
+    med.total_logged === 0
+      ? null
+      : Math.round((med.taken_count / med.total_logged) * 100);
+
+  return (
+    <div>
+      {/* Add medication form */}
+      <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 12, padding: 24, marginBottom: 20 }}>
+        <h3 style={{ fontSize: 13, color: SUB, fontWeight: 600, margin: '0 0 16px', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+          Prescribe Medication
+        </h3>
+        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 12, marginBottom: 12 }}>
+          <div>
+            <label style={labelStyle}>Medication name *</label>
+            <input
+              type="text"
+              value={medName}
+              onChange={(e) => setMedName(e.target.value)}
+              placeholder="e.g. Sertraline"
+              style={inputStyle}
+            />
+          </div>
+          <div>
+            <label style={labelStyle}>Dose</label>
+            <input
+              type="number"
+              value={medDose}
+              onChange={(e) => setMedDose(e.target.value)}
+              placeholder="50"
+              step="any"
+              min="0"
+              style={inputStyle}
+            />
+          </div>
+          <div>
+            <label style={labelStyle}>Unit</label>
+            <input
+              type="text"
+              value={medDoseUnit}
+              onChange={(e) => setMedDoseUnit(e.target.value)}
+              placeholder="mg"
+              style={inputStyle}
+            />
+          </div>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 12, marginBottom: 12 }}>
+          <div>
+            <label style={labelStyle}>Frequency</label>
+            <select
+              value={medFreq}
+              onChange={(e) => setMedFreq(e.target.value as MedicationFrequency)}
+              style={{ ...inputStyle, cursor: 'pointer' }}
+            >
+              {(Object.entries(MEDICATION_FREQUENCY_LABELS) as [MedicationFrequency, string][]).map(([k, v]) => (
+                <option key={k} value={k}>{v}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label style={labelStyle}>Prescribed date</label>
+            <input
+              type="date"
+              value={medPrescribedAt}
+              onChange={(e) => setMedPrescribedAt(e.target.value)}
+              style={inputStyle}
+            />
+          </div>
+        </div>
+        <div style={{ marginBottom: 14 }}>
+          <label style={labelStyle}>Instructions (optional)</label>
+          <input
+            type="text"
+            value={medInstructions}
+            onChange={(e) => setMedInstructions(e.target.value)}
+            placeholder="e.g. Take with food in the morning"
+            style={inputStyle}
+          />
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+          <button
+            onClick={onSubmitMed}
+            disabled={medSubmitting || !medName.trim()}
+            style={{
+              background: PRIMARY, border: 'none', borderRadius: 8,
+              color: '#fff', padding: '8px 20px', fontSize: 13, fontWeight: 600,
+              cursor: medSubmitting || !medName.trim() ? 'not-allowed' : 'pointer',
+              opacity: medSubmitting || !medName.trim() ? 0.6 : 1,
+            }}
+          >
+            {medSubmitting ? 'Saving…' : 'Add Medication'}
+          </button>
+        </div>
+      </div>
+
+      {/* Medication list header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+        <h3 style={{ fontSize: 13, color: SUB, fontWeight: 600, margin: 0, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+          Medications ({medications.length})
+        </h3>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: SUB, cursor: 'pointer' }}>
+          <input
+            type="checkbox"
+            checked={showDiscontinued}
+            onChange={onToggleDiscontinued}
+            style={{ accentColor: PRIMARY }}
+          />
+          Show discontinued
+        </label>
+      </div>
+
+      {/* Loading */}
+      {loading && (
+        <div style={{ color: SUB, textAlign: 'center', padding: 40 }}>Loading medications…</div>
+      )}
+
+      {/* Empty state */}
+      {!loading && medications.length === 0 && (
+        <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 12, padding: 48, textAlign: 'center' }}>
+          <div style={{ fontSize: 32, marginBottom: 12 }}>💊</div>
+          <div style={{ color: TEXT, fontWeight: 600 }}>No medications on file</div>
+          <div style={{ color: SUB, fontSize: 13, marginTop: 4 }}>
+            Add the patient's first medication above.
+          </div>
+        </div>
+      )}
+
+      {/* Medication rows */}
+      {!loading && medications.map((med) => {
+        const isDiscontinued = med.discontinued_at !== null;
+        const rate = adherenceRate(med);
+
+        return (
+          <div
+            key={med.id}
+            style={{
+              background: CARD,
+              border: `1px solid ${isDiscontinued ? '#2d3748' : BORDER}`,
+              borderRadius: 12, padding: '16px 20px', marginBottom: 12,
+              opacity: isDiscontinued ? 0.65 : 1,
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+              {/* Left: med info */}
+              <div style={{ flex: 1 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 4 }}>
+                  <span style={{ fontSize: 15, fontWeight: 700, color: TEXT }}>
+                    {med.medication_name}
+                  </span>
+                  {med.dose != null && (
+                    <span style={{ fontSize: 12, color: SUB }}>
+                      {med.dose} {med.dose_unit}
+                    </span>
+                  )}
+                  <Badge
+                    label={(MEDICATION_FREQUENCY_LABELS as Record<string, string>)[med.frequency] ?? med.frequency}
+                    color={isDiscontinued ? '#4a5568' : PRIMARY}
+                  />
+                  {isDiscontinued && <Badge label="Discontinued" color="#d62828" />}
+                </div>
+                {med.instructions && (
+                  <div style={{ fontSize: 12, color: SUB, fontStyle: 'italic', marginBottom: 6 }}>
+                    {med.instructions}
+                  </div>
+                )}
+                <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', fontSize: 12, color: SUB }}>
+                  <span>
+                    Adherence: {rate !== null ? (
+                      <span style={{ color: rate >= 80 ? '#6a994e' : rate >= 50 ? '#faa307' : '#d62828', fontWeight: 600 }}>
+                        {rate}%
+                      </span>
+                    ) : 'No logs'}
+                    {med.total_logged > 0 && ` (${med.taken_count}/${med.total_logged} days)`}
+                  </span>
+                  {med.last_taken_at && (
+                    <span>Last taken: {formatRelative(med.last_taken_at)}</span>
+                  )}
+                  {med.prescribed_at && (
+                    <span>Prescribed: {format(parseISO(med.prescribed_at), 'MMM d, yyyy')}</span>
+                  )}
+                  {med.discontinued_at && (
+                    <span>Discontinued: {format(parseISO(med.discontinued_at), 'MMM d, yyyy')}</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Right: action */}
+              {!isDiscontinued && (
+                <button
+                  onClick={() => {
+                    if (window.confirm(`Discontinue ${med.medication_name}?`)) {
+                      onDiscontinue(med.id);
+                    }
+                  }}
+                  style={{
+                    background: `${'#d62828'}22`, border: `1px solid ${'#d62828'}55`,
+                    color: '#d62828', borderRadius: 6, padding: '5px 10px',
+                    fontSize: 11, fontWeight: 600, cursor: 'pointer', flexShrink: 0,
+                  }}
+                >
+                  Discontinue
+                </button>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Main page
 // ---------------------------------------------------------------------------
 
@@ -773,22 +1036,37 @@ export function PatientDetailPage() {
   const [alertsTotal, setAlertsTotal] = useState(0);
   const [alertsPage, setAlertsPage] = useState(1);
 
+  // Tab: Medications
+  const [medications, setMedications] = useState<PatientMedication[]>([]);
+  const [medsLoading, setMedsLoading] = useState(false);
+  const [showDiscontinued, setShowDiscontinued] = useState(false);
+  // Add medication form state
+  const [medName, setMedName] = useState('');
+  const [medDose, setMedDose] = useState('');
+  const [medDoseUnit, setMedDoseUnit] = useState('mg');
+  const [medFreq, setMedFreq] = useState<MedicationFrequency>('once_daily_morning');
+  const [medInstructions, setMedInstructions] = useState('');
+  const [medPrescribedAt, setMedPrescribedAt] = useState('');
+  const [medSubmitting, setMedSubmitting] = useState(false);
+
   // -- Load patient + care team
+  // Care team loaded separately so its failure doesn't block patient rendering
   const fetchPatient = useCallback(async () => {
     if (!token || !patientId) return;
     setPatientLoading(true);
     try {
-      const [p, ct] = await Promise.all([
-        api.get<Patient>(`/patients/${patientId}`, token),
-        api.get<CareTeamMember[]>(`/patients/${patientId}/care-team`, token),
-      ]);
+      const p = await api.get<Patient>(`/patients/${patientId}`, token);
       setPatient(p);
-      setCareTeam(ct);
     } catch (e) {
       console.error('[patient-detail] load error', e);
     } finally {
       setPatientLoading(false);
     }
+    // Care team is non-critical — load independently
+    try {
+      const ct = await api.get<CareTeamMember[]>(`/patients/${patientId}/care-team`, token);
+      setCareTeam(ct);
+    } catch { /* care-team endpoint may not be available */ }
   }, [token, patientId]);
 
   useEffect(() => { void fetchPatient(); }, [fetchPatient]);
@@ -839,11 +1117,23 @@ export function PatientDetailPage() {
     } catch { /* silent */ } finally { setAlertsLoading(false); }
   }, [token, patientId, alertsPage]);
 
+  const fetchMedications = useCallback(async () => {
+    if (!token || !patientId) return;
+    setMedsLoading(true);
+    try {
+      const rows = await api.get<PatientMedication[]>(
+        `/medications?patient_id=${patientId}&include_discontinued=${showDiscontinued}`, token,
+      );
+      setMedications(rows);
+    } catch { /* silent */ } finally { setMedsLoading(false); }
+  }, [token, patientId, showDiscontinued]);
+
   // Load tab data when tab is active (also re-fires when page deps change)
   useEffect(() => { if (tab === 'trends') void fetchHeatmap(); }, [tab, fetchHeatmap]);
   useEffect(() => { if (tab === 'journal') void fetchJournal(); }, [tab, fetchJournal]);
   useEffect(() => { if (tab === 'notes') void fetchNotes(); }, [tab, fetchNotes]);
   useEffect(() => { if (tab === 'alerts') void fetchAlerts(); }, [tab, fetchAlerts]);
+  useEffect(() => { if (tab === 'medications') void fetchMedications(); }, [tab, fetchMedications]);
 
   // -- Add note
   const submitNote = useCallback(async () => {
@@ -866,6 +1156,45 @@ export function PatientDetailPage() {
     }
   }, [token, patientId, noteBody, noteType, notePrivate, fetchNotes]);
 
+  const submitMedication = useCallback(async () => {
+    if (!token || !patientId || !medName.trim()) return;
+    setMedSubmitting(true);
+    try {
+      await api.post(`/medications?patient_id=${patientId}`, {
+        medication_name: medName.trim(),
+        dose: medDose ? parseFloat(medDose) : undefined,
+        dose_unit: medDoseUnit || 'mg',
+        frequency: medFreq,
+        instructions: medInstructions.trim() || undefined,
+        prescribed_at: medPrescribedAt || undefined,
+        show_in_app: true,
+      }, token);
+      setMedName('');
+      setMedDose('');
+      setMedDoseUnit('mg');
+      setMedFreq('once_daily_morning');
+      setMedInstructions('');
+      setMedPrescribedAt('');
+      void fetchMedications();
+    } catch (e) {
+      console.error('[medications] submit error', e);
+    } finally {
+      setMedSubmitting(false);
+    }
+  }, [token, patientId, medName, medDose, medDoseUnit, medFreq, medInstructions, medPrescribedAt, fetchMedications]);
+
+  const discontinueMedication = useCallback(async (medId: string) => {
+    if (!token) return;
+    try {
+      await api.patch(`/medications/${medId}?patient_id=${patientId}`, {
+        discontinued_at: new Date().toISOString().split('T')[0],
+      }, token);
+      void fetchMedications();
+    } catch (e) {
+      console.error('[medications] discontinue error', e);
+    }
+  }, [token, patientId, fetchMedications]);
+
   const name = patient ? `${patient.first_name} ${patient.last_name}` : '…';
   const statusColor = patient ? (STATUS_COLOR[patient.status] ?? '#4a5568') : SUB;
 
@@ -875,90 +1204,107 @@ export function PatientDetailPage() {
     { key: 'journal', label: 'Journal' },
     { key: 'notes', label: 'Notes' },
     { key: 'alerts', label: alertsTotal > 0 ? `Alerts (${alertsTotal})` : 'Alerts' },
+    { key: 'medications', label: `Medications${medications.length > 0 ? ` (${medications.length})` : ''}` },
   ];
 
-  return (
-    <div style={{ minHeight: '100vh', background: BG, color: TEXT, fontFamily: 'Figtree, system-ui, sans-serif' }}>
-      {/* Global header */}
-      <header style={{ background: CARD, padding: '16px 32px', display: 'flex', alignItems: 'center', gap: 16, borderBottom: `1px solid ${BORDER}` }}>
-        <h1
-          onClick={() => navigate('/dashboard')}
-          style={{ fontFamily: 'Fraunces, serif', color: PRIMARY, fontSize: 22, margin: 0, cursor: 'pointer' }}
-        >
-          MindLog
-        </h1>
-        <nav style={{ marginLeft: 'auto', display: 'flex', gap: 24 }}>
-          <a href="/dashboard" style={{ color: SUB, textDecoration: 'none', fontSize: 14 }}>Dashboard</a>
-          <a href="/alerts" style={{ color: SUB, textDecoration: 'none', fontSize: 14 }}>Alerts</a>
-        </nav>
-      </header>
+  // Avatar color based on name hash
+  const avatarColor = (() => {
+    const COLORS = ['#2a7ab5','#5a8a6a','#c9972a','#7c6fa0','#2a9d8f','#e05a2a','#2a6db5','#9a5a8a','#4a8a3a','#c04060'];
+    const hash = (patient?.first_name ?? 'P').charCodeAt(0) + (patient?.last_name ?? 'P').charCodeAt(0);
+    return COLORS[hash % COLORS.length]!;
+  })();
 
-      {/* Patient sub-header */}
-      <div style={{ background: CARD, padding: '16px 32px', borderBottom: `1px solid ${BORDER}` }}>
-        <div style={{ maxWidth: 1200, margin: '0 auto', display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
-          <button
-            onClick={() => navigate('/dashboard')}
-            style={{ background: 'none', border: 'none', color: SUB, cursor: 'pointer', fontSize: 13, padding: 0 }}
-          >
-            ← Back
-          </button>
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+      {/* ── Patient detail header (prototype style) ── */}
+      <div className="patient-detail-header">
+        <div className="detail-avatar" style={{ background: avatarColor }}>
+          {patient ? `${patient.first_name.charAt(0)}${patient.last_name.charAt(0)}`.toUpperCase() : '??'}
+        </div>
+
+        <div className="detail-meta">
           {patientLoading ? (
-            <span style={{ color: SUB }}>Loading…</span>
+            <div style={{ color: 'var(--ink-soft)' }}>Loading patient…</div>
           ) : patient ? (
             <>
-              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: TEXT }}>
+              <div className="detail-name">
                 {name}
                 {patient.preferred_name && patient.preferred_name !== patient.first_name && (
-                  <span style={{ color: SUB, fontSize: 13, fontWeight: 400, marginLeft: 8 }}>
+                  <span style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--ink-soft)', fontWeight: 400, marginLeft: 8 }}>
                     "{patient.preferred_name}"
                   </span>
                 )}
-              </h2>
-              <span style={{ fontSize: 12, color: SUB }}>MRN {patient.mrn}</span>
-              <Badge label={patient.status} color={statusColor} />
-              {patient.risk_level && (
-                <Badge label={`${patient.risk_level} risk`} color={RISK_COLOR[patient.risk_level] ?? SUB} />
-              )}
+              </div>
+
+              <div className="detail-badges">
+                <span className={`badge badge-${patient.status}`}>{patient.status}</span>
+                {patient.risk_level && (
+                  <span className={`badge badge-risk-${patient.risk_level}`}>{patient.risk_level} risk</span>
+                )}
+                {alertsTotal > 0 && (
+                  <span className="badge badge-risk-critical">{alertsTotal} alerts</span>
+                )}
+              </div>
+
+              <div className="detail-chips">
+                <span className="detail-chip">MRN {patient.mrn}</span>
+                {patient.gender && (
+                  <span className="detail-chip">{patient.gender}</span>
+                )}
+                {patient.tracking_streak > 0 && (
+                  <span className="detail-chip">🔥 {patient.tracking_streak}d streak</span>
+                )}
+                {patient.last_checkin_at && (
+                  <span className="detail-chip">Last seen {formatRelative(patient.last_checkin_at)}</span>
+                )}
+              </div>
+
+              <div className="detail-actions">
+                <button
+                  className="detail-actions-btn primary"
+                  onClick={() => navigate(`/reports?patientId=${patientId}`)}
+                >
+                  📋 Generate Report
+                </button>
+                <button
+                  className="detail-actions-btn"
+                  onClick={() => navigate('/patients')}
+                >
+                  ← All Patients
+                </button>
+              </div>
             </>
           ) : (
-            <span style={{ color: '#d62828' }}>Patient not found</span>
+            <div style={{ color: 'var(--critical)' }}>Patient not found or access denied.</div>
           )}
         </div>
       </div>
 
-      {/* Crisis banner */}
+      {/* ── Tab bar (prototype .detail-tab-bar style) ── */}
+      <div className="detail-tab-bar">
+        {TABS.map(({ key, label }) => (
+          <div
+            key={key}
+            className={`detail-tab${tab === key ? ' active' : ''}`}
+            onClick={() => setTab(key)}
+          >
+            {label}
+          </div>
+        ))}
+      </div>
+
+      {/* ── Crisis banner ── */}
       <div style={{
-        background: '#1a0a0a', borderBottom: '1px solid #4a1010',
-        padding: '7px 32px', fontSize: 12, color: '#fc8181',
+        background: 'rgba(255,77,109,.06)', borderBottom: '1px solid var(--critical-border)',
+        padding: '6px 24px', fontSize: 11, color: 'var(--critical)', flexShrink: 0,
       }}>
-        🚨 Patient in crisis? Call 988 · Text HOME to 741741 · Veterans: 988 press 1
+        🚨 Crisis? Call <strong>988</strong> · Text HOME to <strong>741741</strong> · Veterans: 988 press 1
       </div>
 
-      {/* Tab bar */}
-      <div style={{ background: CARD, borderBottom: `1px solid ${BORDER}`, padding: '0 32px' }}>
-        <div style={{ maxWidth: 1200, margin: '0 auto', display: 'flex', overflowX: 'auto' }}>
-          {TABS.map(({ key, label }) => (
-            <button
-              key={key}
-              onClick={() => setTab(key)}
-              style={{
-                background: 'none', border: 'none', padding: '13px 20px',
-                fontSize: 14, fontWeight: tab === key ? 600 : 400,
-                color: tab === key ? PRIMARY : SUB,
-                borderBottom: `2px solid ${tab === key ? PRIMARY : 'transparent'}`,
-                cursor: 'pointer', whiteSpace: 'nowrap', transition: 'color 0.15s',
-              }}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Tab content */}
-      <main style={{ padding: 32, maxWidth: 1200, margin: '0 auto' }}>
+      {/* ── Tab content ── */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '24px' }}>
         {!patient && !patientLoading ? (
-          <div style={{ textAlign: 'center', color: SUB, padding: 60 }}>
+          <div style={{ textAlign: 'center', color: 'var(--ink-soft)', padding: 60 }}>
             Patient not found or you don't have access.
           </div>
         ) : tab === 'overview' && patient ? (
@@ -990,8 +1336,24 @@ export function PatientDetailPage() {
             page={alertsPage} onPage={setAlertsPage}
             token={token} onRefresh={() => void fetchAlerts()}
           />
+        ) : tab === 'medications' ? (
+          <MedicationsTab
+            medications={medications}
+            loading={medsLoading}
+            showDiscontinued={showDiscontinued}
+            onToggleDiscontinued={() => setShowDiscontinued((v) => !v)}
+            medName={medName} setMedName={setMedName}
+            medDose={medDose} setMedDose={setMedDose}
+            medDoseUnit={medDoseUnit} setMedDoseUnit={setMedDoseUnit}
+            medFreq={medFreq} setMedFreq={setMedFreq}
+            medInstructions={medInstructions} setMedInstructions={setMedInstructions}
+            medPrescribedAt={medPrescribedAt} setMedPrescribedAt={setMedPrescribedAt}
+            medSubmitting={medSubmitting}
+            onSubmitMed={() => void submitMedication()}
+            onDiscontinue={(id) => void discontinueMedication(id)}
+          />
         ) : null}
-      </main>
+      </div>
     </div>
   );
 }

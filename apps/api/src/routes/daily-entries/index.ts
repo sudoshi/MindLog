@@ -11,7 +11,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { sql } from '@mindlog/db';
 import { CreateDailyEntrySchema, PaginationSchema, UuidSchema, IsoDateSchema } from '@mindlog/shared';
-import { rulesQueue } from '../workers/rules-engine.js';
+import { rulesQueue } from '../../workers/rules-engine.js';
 
 export default async function dailyEntryRoutes(fastify: FastifyInstance): Promise<void> {
   const auth = { preHandler: [fastify.authenticate] };

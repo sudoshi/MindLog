@@ -34,7 +34,7 @@ async function request<T>(
     method,
     headers,
     credentials: 'include',
-    body: body !== undefined ? JSON.stringify(body) : undefined,
+    ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
   });
 
   const json = (await response.json()) as unknown;

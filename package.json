@@ -14,7 +14,15 @@
     "typecheck": "turbo run typecheck",
     "db:migrate": "turbo run db:migrate --filter=@mindlog/db",
     "db:seed": "turbo run db:seed --filter=@mindlog/db",
-    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,sql}\""
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,sql}\"",
+    "demo:infra": "docker compose -f docker-compose.demo.yml up -d",
+    "demo:infra:stop": "docker compose -f docker-compose.demo.yml down",
+    "demo:infra:reset": "docker compose -f docker-compose.demo.yml down -v",
+    "demo:migrate": "turbo run db:migrate --filter=@mindlog/db",
+    "demo:seed": "turbo run db:seed-demo --filter=@mindlog/db",
+    "demo:setup": "npm run demo:migrate && npm run demo:seed",
+    "demo:api": "npm run dev --workspace=apps/api",
+    "demo:web": "npm run dev --workspace=apps/web"
   },
   "devDependencies": {
     "turbo": "^2.3.3",

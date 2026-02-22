@@ -20,7 +20,7 @@ import { connection } from './rules-engine.js';
 // Queue
 // ---------------------------------------------------------------------------
 
-export const REPORT_QUEUE_NAME = 'mindlog:reports';
+export const REPORT_QUEUE_NAME = 'mindlog-reports';
 export const reportQueue = new Queue(REPORT_QUEUE_NAME, { connection });
 
 // ---------------------------------------------------------------------------
