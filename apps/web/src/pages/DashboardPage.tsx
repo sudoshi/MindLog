@@ -414,6 +414,16 @@ export function DashboardPage() {
         <div style={{ color: 'var(--ink-soft)', textAlign: 'center', padding: 48 }}>
           Loading caseload…
         </div>
+      ) : caseload.length === 0 ? (
+        <div className="panel anim" style={{ marginTop: 8 }}>
+          <div className="empty-state" style={{ padding: '56px 24px' }}>
+            <div className="empty-state-icon">👥</div>
+            <div className="empty-state-title">No patients in your caseload</div>
+            <div style={{ color: 'var(--ink-soft)', fontSize: 13, maxWidth: 340, margin: '0 auto' }}>
+              Patients will appear here once they are enrolled and assigned to your care team.
+            </div>
+          </div>
+        </div>
       ) : (
         <div className="two-col">
           {/* LEFT: Mood cells + Distribution */}

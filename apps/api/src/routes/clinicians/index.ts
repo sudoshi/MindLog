@@ -48,22 +48,96 @@ export default async function clinicianRoutes(fastify: FastifyInstance): Promise
     `;
 
     if (!snapshot) {
-      // Return live counts if no snapshot exists yet
-      const [live] = await sql`
-        SELECT
-          COUNT(*) FILTER (WHERE p.status = 'active')  AS active_patients,
-          COUNT(*) FILTER (WHERE p.status = 'crisis')  AS crisis_patients,
-          COUNT(*) AS total_patients
-        FROM patients p
-        JOIN care_team_members ctm ON ctm.patient_id = p.id AND ctm.unassigned_at IS NULL
-        WHERE p.organisation_id = ${request.user.org_id}
-          AND p.is_active = TRUE
-          AND ctm.clinician_id = ${request.user.sub}
-      `;
-      return reply.send({ success: true, data: { ...live, snapshot_date: null, is_live: true } });
+      // Return live counts if no snapshot exists yet (3 queries in parallel)
+      const [[live], [alertCounts], [moodStats]] = await Promise.all([
+        sql`
+          SELECT
+            COUNT(*) FILTER (WHERE p.status = 'active')  AS active_patients,
+            COUNT(*) FILTER (WHERE p.status = 'crisis')  AS crisis_patients,
+            COUNT(*)                                      AS total_patients
+          FROM patients p
+          JOIN care_team_members ctm ON ctm.patient_id = p.id AND ctm.unassigned_at IS NULL
+          WHERE p.organisation_id = ${request.user.org_id}
+            AND p.is_active = TRUE
+            AND ctm.clinician_id = ${request.user.sub}
+        `,
+        sql`
+          SELECT
+            COUNT(*) FILTER (WHERE ca.severity = 'critical'
+              AND ca.acknowledged_at IS NULL AND ca.auto_resolved = FALSE) AS critical_alerts_count,
+            COUNT(*) FILTER (WHERE ca.severity = 'warning'
+              AND ca.acknowledged_at IS NULL AND ca.auto_resolved = FALSE) AS warning_alerts_count
+          FROM clinical_alerts ca
+          JOIN care_team_members ctm ON ctm.patient_id = ca.patient_id AND ctm.unassigned_at IS NULL
+          WHERE ca.organisation_id = ${request.user.org_id}
+            AND ctm.clinician_id   = ${request.user.sub}
+        `,
+        sql`
+          SELECT
+            ROUND(AVG(de.mood_rating) * 10) AS avg_mood_x10,
+            ROUND(
+              100.0 * COUNT(de.id) FILTER (WHERE de.mood_rating IS NOT NULL)
+              / NULLIF(COUNT(DISTINCT p.id), 0)
+            ) AS checkin_rate_pct
+          FROM patients p
+          JOIN care_team_members ctm ON ctm.patient_id = p.id AND ctm.unassigned_at IS NULL
+          LEFT JOIN daily_entries de
+            ON  de.patient_id  = p.id
+            AND de.entry_date  = CURRENT_DATE
+            AND de.submitted_at IS NOT NULL
+          WHERE p.organisation_id = ${request.user.org_id}
+            AND p.is_active       = TRUE
+            AND ctm.clinician_id  = ${request.user.sub}
+        `,
+      ]);
+      return reply.send({
+        success: true,
+        data: {
+          ...live,
+          critical_alerts_count: Number(alertCounts?.critical_alerts_count ?? 0),
+          warning_alerts_count:  Number(alertCounts?.warning_alerts_count  ?? 0),
+          avg_mood_x10:          moodStats?.avg_mood_x10     != null ? Number(moodStats.avg_mood_x10)     : null,
+          checkin_rate_pct:      moodStats?.checkin_rate_pct  != null ? Number(moodStats.checkin_rate_pct)  : null,
+          snapshot_date: null,
+          is_live: true,
+        },
+      });
     }
 
     return reply.send({ success: true, data: { ...snapshot, is_live: false } });
+  });
+
+  // ---------------------------------------------------------------------------
+  // GET /clinicians/snapshot-history — last N daily snapshots for trend charts
+  // ---------------------------------------------------------------------------
+  fastify.get('/snapshot-history', clinicianOnly, async (request, reply) => {
+    const { days } = z.object({
+      days: z.coerce.number().int().min(7).max(90).default(30),
+    }).parse(request.query);
+
+    const history = await sql<{
+      snapshot_date: string;
+      avg_mood_x10: number | null;
+      checkin_rate_pct: number | null;
+      critical_alerts_count: number;
+      active_patients: number;
+      crisis_patients: number;
+    }[]>`
+      SELECT
+        snapshot_date,
+        avg_mood_x10,
+        checkin_rate_pct,
+        critical_alerts_count,
+        active_patients,
+        crisis_patients
+      FROM population_snapshots
+      WHERE clinician_id = ${request.user.sub}::UUID
+        AND snapshot_date >= CURRENT_DATE - ${days}::INT
+      ORDER BY snapshot_date ASC
+      LIMIT ${days}
+    `;
+
+    return reply.send({ success: true, data: history });
   });
 
   // ---------------------------------------------------------------------------

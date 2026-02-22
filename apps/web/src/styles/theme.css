@@ -974,6 +974,87 @@ body::before {
   font-size: 12px; font-weight: 700; color: var(--info);
 }
 
+/* ════════════════════════════════════════
+   TAB CONTENT — patient detail tab utilities
+   ════════════════════════════════════════ */
+
+/* Card wrapper used throughout tab content */
+.tab-card {
+  background: var(--glass-01);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+}
+.tab-card.sm    { padding: 20px; }
+.tab-card.xs    { padding: 14px; }
+.tab-card.mb    { margin-bottom: 20px; }
+.tab-card.span-full { grid-column: 1 / -1; }
+
+/* Uppercase section heading inside a tab card */
+.tab-section-title {
+  font-size: 13px;
+  color: var(--ink-mid);
+  font-weight: 600;
+  margin: 0 0 16px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Centered loading / spinner placeholder */
+.tab-loading {
+  color: var(--ink-soft);
+  text-align: center;
+  padding: 60px 20px;
+}
+
+/* Bordered card empty state (wraps .empty-state children) */
+.tab-empty {
+  background: var(--glass-01);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 48px 24px;
+  text-align: center;
+}
+
+/* List entry rows (journal, notes, etc.) */
+.tab-entry-row {
+  background: var(--glass-01);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 12px;
+}
+
+/* 2-col stat grid + cells */
+.tab-stat-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.tab-stat-cell {
+  background: var(--bg);
+  border-radius: 8px;
+  padding: 16px;
+  text-align: center;
+}
+.tab-stat-value {
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--safe);
+}
+.tab-stat-label {
+  font-size: 11px;
+  color: var(--ink-soft);
+  margin-top: 4px;
+}
+
+/* Inner sub-card (e.g. care team member tile) */
+.tab-inner-card {
+  background: var(--bg);
+  border-radius: 8px;
+  padding: 14px;
+}
+
 /* ── LIVE TOAST ── */
 .live-toast {
   position: fixed; bottom: 24px; right: 24px;

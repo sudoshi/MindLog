@@ -2,8 +2,8 @@ import { Model } from '@nozbe/watermelondb';
 import { field, date, readonly, text } from '@nozbe/watermelondb/decorators';
 
 export default class DailyEntryStrategy extends Model {
-  static table = 'daily_entry_strategies';
-  static associations = {
+  static override table = 'daily_entry_strategies';
+  static override associations = {
     daily_entries: { type: 'belongs_to' as const, key: 'daily_entry_id' },
   };
 

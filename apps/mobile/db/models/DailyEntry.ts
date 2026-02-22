@@ -6,8 +6,8 @@ import { Model } from '@nozbe/watermelondb';
 import { field, date, readonly, text, nochange } from '@nozbe/watermelondb/decorators';
 
 export default class DailyEntry extends Model {
-  static table = 'daily_entries';
-  static associations = {
+  static override table = 'daily_entries';
+  static override associations = {
     daily_entry_triggers: { type: 'has_many' as const, foreignKey: 'daily_entry_id' },
     daily_entry_symptoms: { type: 'has_many' as const, foreignKey: 'daily_entry_id' },
     daily_entry_strategies: { type: 'has_many' as const, foreignKey: 'daily_entry_id' },

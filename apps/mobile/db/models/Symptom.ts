@@ -2,7 +2,7 @@ import { Model } from '@nozbe/watermelondb';
 import { field, date, readonly, text } from '@nozbe/watermelondb/decorators';
 
 export default class Symptom extends Model {
-  static table = 'symptoms';
+  static override table = 'symptoms';
 
   @text('server_id') serverId!: string;
   @text('name') name!: string;

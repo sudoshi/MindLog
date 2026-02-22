@@ -7,6 +7,9 @@
 // GET    /api/v1/patients/:id/mood-heatmap — 30-day heatmap
 // POST   /api/v1/patients/:id/care-team    — add clinician to care team
 // DELETE /api/v1/patients/:id/care-team/:clinicianId — remove from care team
+//
+// Patient self-management routes (patient-role) registered at /patients/me:
+// GET/PATCH /patients/me, and /me/symptoms, /me/triggers, /me/strategies
 // =============================================================================
 
 import type { FastifyInstance } from 'fastify';
@@ -14,9 +17,14 @@ import { z } from 'zod';
 import { sql } from '@mindlog/db';
 import { PatientFilterSchema, UpdatePatientProfileSchema, UuidSchema } from '@mindlog/shared';
 import { auditLog } from '../../middleware/audit.js';
+import { publishPatientStatusChange } from '../../plugins/websocket.js';
+import patientMeRoutes from './me.js';
 
 export default async function patientRoutes(fastify: FastifyInstance): Promise<void> {
   const auth = { preHandler: [fastify.authenticate] };
+
+  // Register /me sub-routes first — static prefix takes priority over /:id
+  await fastify.register(patientMeRoutes, { prefix: '/me' });
 
   // ---------------------------------------------------------------------------
   // GET /patients — list clinician's caseload
@@ -143,14 +151,21 @@ export default async function patientRoutes(fastify: FastifyInstance): Promise<v
       return reply.status(404).send({ success: false, error: { code: 'NOT_FOUND', message: 'Patient not found' } });
     }
 
-    const [updated] = await sql<{ id: string; first_name: string; last_name: string; status: string }[]>`
+    const [updated] = await sql<{
+      id: string; first_name: string; last_name: string; status: string; risk_level: string;
+    }[]>`
       UPDATE patients SET
-        first_name = COALESCE(${updates.first_name ?? null}, first_name),
-        last_name  = COALESCE(${updates.last_name ?? null}, last_name),
-        mrn        = COALESCE(${updates.mrn ?? null}, mrn),
+        first_name       = COALESCE(${updates.first_name  ?? null}, first_name),
+        last_name        = COALESCE(${updates.last_name   ?? null}, last_name),
+        mrn              = COALESCE(${updates.mrn         ?? null}, mrn),
+        status           = COALESCE(${updates.status      ?? null}, status),
+        risk_level       = COALESCE(${updates.risk_level  ?? null}, risk_level),
+        -- stamp reviewed_at whenever risk_level is explicitly supplied
+        risk_reviewed_at = CASE WHEN ${updates.risk_level ?? null}::TEXT IS NOT NULL
+                             THEN NOW() ELSE risk_reviewed_at END,
         updated_at = NOW()
       WHERE id = ${id}
-      RETURNING id, first_name, last_name, status
+      RETURNING id, first_name, last_name, status, risk_level
     `;
 
     await auditLog({
@@ -162,6 +177,11 @@ export default async function patientRoutes(fastify: FastifyInstance): Promise<v
       newValues: updates as Record<string, unknown>,
       ipAddress: request.ip,
     });
+
+    // Broadcast status change so other clinician sessions update live
+    if (updates.status && updated) {
+      void publishPatientStatusChange(id, request.user.org_id, updated.status);
+    }
 
     return reply.send({ success: true, data: updated });
   });
@@ -246,11 +266,10 @@ export default async function patientRoutes(fastify: FastifyInstance): Promise<v
         c.first_name, c.last_name, c.title,
         c.role       AS clinician_role,
         ctm.role     AS care_team_role,
-        u.email,
+        c.email,
         ctm.assigned_at
       FROM care_team_members ctm
       JOIN clinicians c ON c.id = ctm.clinician_id
-      JOIN users u ON u.id = c.user_id
       WHERE ctm.patient_id = ${id}
         AND ctm.unassigned_at IS NULL
       ORDER BY

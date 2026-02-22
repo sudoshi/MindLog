@@ -58,7 +58,7 @@ export default function OnboardingScreen() {
       if (json.data?.access_token && json.data.user) {
         await storeSession({
           access_token: json.data.access_token,
-          refresh_token: json.data.refresh_token,
+          ...(json.data.refresh_token !== undefined && { refresh_token: json.data.refresh_token }),
           user: json.data.user,
         });
       }

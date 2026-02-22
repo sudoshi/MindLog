@@ -9,6 +9,7 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { api } from '../services/api.js';
 import { useAlertSocket } from '../hooks/useAlertSocket.js';
 import { useAuthStore, authActions } from '../stores/auth.js';
+import { useUiStore } from '../stores/ui.js';
 import { API_PREFIX } from '@mindlog/shared';
 
 // ---------------------------------------------------------------------------
@@ -174,6 +175,8 @@ export function AppShell() {
     }
   }, [liveAlerts]);
 
+  const patientName = useUiStore((s) => s.patientName);
+
   // Topbar dynamic title based on route
   const topbarConfig: Record<string, { title: string; subtitle: string }> = {
     '/dashboard': { title: 'Population Overview', subtitle: `${formatDate()} · ${snapshot?.total_patients ?? '…'} patients` },
@@ -185,7 +188,7 @@ export function AppShell() {
 
   const isPatientDetail = location.pathname.startsWith('/patients/') && location.pathname !== '/patients';
   const currentTopbar = isPatientDetail
-    ? { title: 'Patient Detail', subtitle: 'Clinical overview and entries' }
+    ? { title: patientName ?? 'Patient Detail', subtitle: patientName ? 'Clinical overview and entries' : 'Loading…' }
     : (topbarConfig[location.pathname] ?? { title: 'MindLog Clinical', subtitle: '' });
 
   // Search handler

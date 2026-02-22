@@ -27,7 +27,7 @@ export default function TodayScreen() {
   const [meds, setMeds] = useState<TodayMedSummary[]>([]);
   const [medsLoading, setMedsLoading] = useState(false);
 
-  const loadMeds = useCallback(async () => {
+  const loadMeds = useCallback(() => { void (async () => {
     setMedsLoading(true);
     try {
       const res = await apiFetch('/medications/today');
@@ -39,7 +39,7 @@ export default function TodayScreen() {
     } finally {
       setMedsLoading(false);
     }
-  }, []);
+  })(); }, []);
 
   useFocusEffect(loadMeds);
 

@@ -87,6 +87,8 @@ export const UpdatePatientProfileSchema = z.object({
   last_name: z.string().min(1).max(100).optional(),
   mrn: z.string().max(50).nullable().optional(),
   diagnosis: z.string().max(500).nullable().optional(),
+  status: z.enum(['active', 'crisis', 'inactive', 'discharged']).optional(),
+  risk_level: z.enum(['low', 'moderate', 'high', 'critical']).optional(),
 });
 export type UpdatePatientProfileInput = z.infer<typeof UpdatePatientProfileSchema>;
 
@@ -239,7 +241,8 @@ export type UpdateConsentInput = z.infer<typeof UpdateConsentSchema>;
 // ---------------------------------------------------------------------------
 
 export const CreateReportSchema = z.object({
-  patient_id: UuidSchema,
+  // patient_id required for 'weekly_summary' (individual); optional/null for population & handover
+  patient_id: UuidSchema.nullable().optional(),
   report_type: z.enum(['weekly_summary', 'monthly_summary', 'clinical_export']),
   period_start: IsoDateSchema,
   period_end: IsoDateSchema,

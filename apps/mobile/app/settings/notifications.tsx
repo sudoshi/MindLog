@@ -4,12 +4,16 @@
 
 import { useState, useEffect } from 'react';
 import {
-  View, Text, ScrollView, Switch, TouchableOpacity, StyleSheet, Alert,
+  View, Text, ScrollView, Switch, TouchableOpacity, TextInput, StyleSheet, Alert,
 } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { DESIGN_TOKENS, API_PREFIX } from '@mindlog/shared';
+import { DESIGN_TOKENS } from '@mindlog/shared';
 import { apiFetch } from '../../services/auth';
+import {
+  scheduleDailyCheckinReminder,
+  cancelDailyCheckinReminder,
+} from '../../services/notifications';
 
 interface NotifPrefs {
   daily_checkin_enabled: boolean;
@@ -52,6 +56,13 @@ export default function NotificationsScreen() {
   };
 
   const save = async () => {
+    // Validate time format before saving
+    const timeMatch = /^([01]?\d|2[0-3]):([0-5]\d)$/.exec(prefs.daily_checkin_time);
+    if (!timeMatch) {
+      Alert.alert('Invalid time', 'Please enter a time in HH:MM format (e.g. 20:00).');
+      return;
+    }
+
     setSaving(true);
     try {
       const res = await apiFetch('/notifications/prefs', {
@@ -59,6 +70,16 @@ export default function NotificationsScreen() {
         body: JSON.stringify(prefs),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+      // Schedule or cancel the local daily reminder
+      const hour = parseInt(timeMatch[1]!, 10);
+      const minute = parseInt(timeMatch[2]!, 10);
+      if (prefs.daily_checkin_enabled) {
+        await scheduleDailyCheckinReminder(hour, minute);
+      } else {
+        await cancelDailyCheckinReminder();
+      }
+
       Alert.alert('Saved', 'Notification preferences updated.');
     } catch (err) {
       Alert.alert('Error', err instanceof Error ? err.message : 'Could not save preferences');
@@ -95,7 +116,16 @@ export default function NotificationsScreen() {
               </View>
               <View style={[styles.row, styles.rowLast]}>
                 <Text style={styles.rowLabel}>Reminder time</Text>
-                <Text style={styles.rowValue}>{prefs.daily_checkin_time}</Text>
+                <TextInput
+                  style={styles.timeInput}
+                  value={prefs.daily_checkin_time}
+                  onChangeText={(v) => setPrefs((p) => ({ ...p, daily_checkin_time: v }))}
+                  placeholder="HH:MM"
+                  placeholderTextColor={SUB}
+                  keyboardType="numbers-and-punctuation"
+                  maxLength={5}
+                  editable={prefs.daily_checkin_enabled}
+                />
               </View>
             </View>
 
@@ -167,6 +197,10 @@ const styles = StyleSheet.create({
   rowLast: {},
   rowLabel: { color: TEXT, fontSize: 15, flex: 1 },
   rowValue: { color: SUB, fontSize: 15 },
+  timeInput: {
+    color: TEXT, fontSize: 15, textAlign: 'right',
+    minWidth: 60, padding: 0,
+  },
   saveBtn: {
     backgroundColor: DESIGN_TOKENS.COLOR_PRIMARY,
     borderRadius: 12, padding: 16, alignItems: 'center',

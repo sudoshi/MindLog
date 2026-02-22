@@ -18,6 +18,7 @@ import { format, parseISO, differenceInYears } from 'date-fns';
 import { MEDICATION_FREQUENCY_LABELS, type MedicationFrequency } from '@mindlog/shared';
 import { api } from '../services/api.js';
 import { useAuthStore } from '../stores/auth.js';
+import { uiActions } from '../stores/ui.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -255,10 +256,8 @@ function OverviewTab({
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
       {/* Demographics */}
-      <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 12, padding: 24 }}>
-        <h3 style={{ fontSize: 13, color: SUB, fontWeight: 600, margin: '0 0 16px', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-          Patient Information
-        </h3>
+      <div className="tab-card">
+        <h3 className="tab-section-title">Patient Information</h3>
         <dl style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 16px', margin: 0 }}>
           {([
             ['MRN', patient.mrn],
@@ -283,18 +282,16 @@ function OverviewTab({
       </div>
 
       {/* Stats */}
-      <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 12, padding: 24 }}>
-        <h3 style={{ fontSize: 13, color: SUB, fontWeight: 600, margin: '0 0 16px', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-          Tracking Stats
-        </h3>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <div style={{ background: BG, borderRadius: 8, padding: 16, textAlign: 'center' }}>
-            <div style={{ fontSize: 32, fontWeight: 700, color: PRIMARY }}>{patient.tracking_streak}</div>
-            <div style={{ fontSize: 11, color: SUB, marginTop: 4 }}>Current Streak (days)</div>
+      <div className="tab-card">
+        <h3 className="tab-section-title">Tracking Stats</h3>
+        <div className="tab-stat-grid">
+          <div className="tab-stat-cell">
+            <div className="tab-stat-value">{patient.tracking_streak}</div>
+            <div className="tab-stat-label">Current Streak (days)</div>
           </div>
-          <div style={{ background: BG, borderRadius: 8, padding: 16, textAlign: 'center' }}>
-            <div style={{ fontSize: 32, fontWeight: 700, color: '#e9c46a' }}>{patient.longest_streak}</div>
-            <div style={{ fontSize: 11, color: SUB, marginTop: 4 }}>Longest Streak (days)</div>
+          <div className="tab-stat-cell">
+            <div className="tab-stat-value" style={{ color: '#e9c46a' }}>{patient.longest_streak}</div>
+            <div className="tab-stat-label">Longest Streak (days)</div>
           </div>
         </div>
         <div style={{ marginTop: 14, fontSize: 13, color: SUB }}>
@@ -322,16 +319,14 @@ function OverviewTab({
       </div>
 
       {/* Care team — full width */}
-      <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 12, padding: 24, gridColumn: '1 / -1' }}>
-        <h3 style={{ fontSize: 13, color: SUB, fontWeight: 600, margin: '0 0 16px', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-          Care Team ({careTeam.length})
-        </h3>
+      <div className="tab-card span-full">
+        <h3 className="tab-section-title">Care Team ({careTeam.length})</h3>
         {careTeam.length === 0 ? (
           <p style={{ color: SUB, fontSize: 13, margin: 0 }}>No care team members assigned.</p>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 12 }}>
             {careTeam.map((m) => (
-              <div key={m.clinician_id} style={{ background: BG, borderRadius: 8, padding: 14 }}>
+              <div key={m.clinician_id} className="tab-inner-card">
                 <div style={{ fontWeight: 600, fontSize: 14, color: TEXT }}>
                   {m.title ? `${m.title} ` : ''}{m.first_name} {m.last_name}
                 </div>
@@ -358,7 +353,7 @@ function OverviewTab({
 
 function MoodTrendsTab({ heatmap, loading }: { heatmap: HeatmapEntry[]; loading: boolean }) {
   if (loading) {
-    return <div style={{ color: SUB, textAlign: 'center', padding: 60 }}>Loading mood data…</div>;
+    return <div className="tab-loading">Loading mood data…</div>;
   }
 
   const days = buildHeatmapDays(heatmap);
@@ -369,10 +364,8 @@ function MoodTrendsTab({ heatmap, loading }: { heatmap: HeatmapEntry[]; loading:
   return (
     <div>
       {/* Line chart */}
-      <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 12, padding: 24, marginBottom: 20 }}>
-        <h3 style={{ fontSize: 13, color: SUB, fontWeight: 600, margin: '0 0 20px', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-          Mood Score — Last 30 Days
-        </h3>
+      <div className="tab-card" style={{ marginBottom: 20 }}>
+        <h3 className="tab-section-title" style={{ marginBottom: 20 }}>Mood Score — Last 30 Days</h3>
         {chartData.length < 2 ? (
           <div style={{ color: SUB, textAlign: 'center', padding: 40 }}>
             Not enough data to display trend chart (need at least 2 check-ins).
@@ -418,10 +411,8 @@ function MoodTrendsTab({ heatmap, loading }: { heatmap: HeatmapEntry[]; loading:
       </div>
 
       {/* 30-day heatmap grid */}
-      <div style={{ background: 'var(--glass-01)', backdropFilter: 'blur(20px)', border: '1px solid var(--border)', borderRadius: 'var(--r-lg)', padding: 24 }}>
-        <h3 style={{ fontSize: 13, color: SUB, fontWeight: 600, margin: '0 0 16px', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-          30-Day Activity Grid
-        </h3>
+      <div className="tab-card">
+        <h3 className="tab-section-title">30-Day Activity Grid</h3>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(10, 40px)', gap: 6 }}>
           {days.map((d) => (
             <div
@@ -474,15 +465,15 @@ function JournalTab({
   const [expanded, setExpanded] = useState<string | null>(null);
 
   if (loading) {
-    return <div style={{ color: SUB, textAlign: 'center', padding: 60 }}>Loading journal entries…</div>;
+    return <div className="tab-loading">Loading journal entries…</div>;
   }
 
   if (entries.length === 0) {
     return (
-      <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 12, padding: 48, textAlign: 'center' }}>
-        <div style={{ fontSize: 32, marginBottom: 12 }}>📓</div>
-        <div style={{ color: TEXT, fontWeight: 600 }}>No shared journal entries</div>
-        <div style={{ color: SUB, fontSize: 13, marginTop: 4 }}>
+      <div className="tab-empty">
+        <div className="empty-state-icon">📓</div>
+        <div className="empty-state-title">No shared journal entries</div>
+        <div style={{ color: SUB, fontSize: 13 }}>
           The patient hasn't shared any journal entries with the care team.
         </div>
       </div>
@@ -495,10 +486,7 @@ function JournalTab({
         const isOpen = expanded === e.id;
         const preview = e.body.length > 220 ? `${e.body.slice(0, 220)}…` : e.body;
         return (
-          <div
-            key={e.id}
-            style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 12, padding: 20, marginBottom: 12 }}
-          >
+          <div key={e.id} className="tab-entry-row">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
               <div>
                 <span style={{ fontSize: 14, fontWeight: 600, color: TEXT }}>
@@ -562,10 +550,8 @@ function NotesTab({
   return (
     <div>
       {/* Add note form */}
-      <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 12, padding: 20, marginBottom: 20 }}>
-        <h3 style={{ fontSize: 13, color: SUB, fontWeight: 600, margin: '0 0 14px', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-          Add Clinical Note
-        </h3>
+      <div className="tab-card sm mb">
+        <h3 className="tab-section-title">Add Clinical Note</h3>
         <textarea
           value={noteBody}
           onChange={(e) => setNoteBody(e.target.value)}
@@ -617,17 +603,17 @@ function NotesTab({
 
       {/* Notes list */}
       {loading ? (
-        <div style={{ color: SUB, textAlign: 'center', padding: 40 }}>Loading notes…</div>
+        <div className="tab-loading" style={{ padding: 40 }}>Loading notes…</div>
       ) : notes.length === 0 ? (
-        <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 12, padding: 48, textAlign: 'center' }}>
-          <div style={{ fontSize: 32, marginBottom: 12 }}>📋</div>
-          <div style={{ color: TEXT, fontWeight: 600 }}>No clinical notes yet</div>
-          <div style={{ color: SUB, fontSize: 13, marginTop: 4 }}>Add the first note above.</div>
+        <div className="tab-empty">
+          <div className="empty-state-icon">📋</div>
+          <div className="empty-state-title">No clinical notes yet</div>
+          <div style={{ color: SUB, fontSize: 13 }}>Add the first note above.</div>
         </div>
       ) : (
         <>
           {notes.map((n) => (
-            <div key={n.id} style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 12, padding: 20, marginBottom: 12 }}>
+            <div key={n.id} className="tab-entry-row">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
                 <div>
                   <span style={{ fontSize: 13, fontWeight: 600, color: TEXT }}>
@@ -682,15 +668,15 @@ function AlertsTab({
   };
 
   if (loading) {
-    return <div style={{ color: SUB, textAlign: 'center', padding: 60 }}>Loading alerts…</div>;
+    return <div className="tab-loading">Loading alerts…</div>;
   }
 
   if (alerts.length === 0) {
     return (
-      <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 12, padding: 48, textAlign: 'center' }}>
-        <div style={{ fontSize: 32, marginBottom: 12 }}>✓</div>
-        <div style={{ color: TEXT, fontWeight: 600 }}>No alerts</div>
-        <div style={{ color: SUB, fontSize: 13, marginTop: 4 }}>This patient has no clinical alerts.</div>
+      <div className="tab-empty">
+        <div className="empty-state-icon">✓</div>
+        <div className="empty-state-title">No alerts</div>
+        <div style={{ color: SUB, fontSize: 13 }}>This patient has no clinical alerts.</div>
       </div>
     );
   }
@@ -1049,6 +1035,11 @@ export function PatientDetailPage() {
   const [medPrescribedAt, setMedPrescribedAt] = useState('');
   const [medSubmitting, setMedSubmitting] = useState(false);
 
+  // Header: inline status/risk edit
+  const [editStatus, setEditStatus] = useState('');
+  const [editRisk, setEditRisk] = useState('');
+  const [isSavingStatus, setIsSavingStatus] = useState(false);
+
   // -- Load patient + care team
   // Care team loaded separately so its failure doesn't block patient rendering
   const fetchPatient = useCallback(async () => {
@@ -1070,6 +1061,22 @@ export function PatientDetailPage() {
   }, [token, patientId]);
 
   useEffect(() => { void fetchPatient(); }, [fetchPatient]);
+
+  // Sync edit selects whenever the patient object updates
+  useEffect(() => {
+    if (patient) {
+      setEditStatus(patient.status);
+      setEditRisk(patient.risk_level);
+    }
+  }, [patient]);
+
+  // Push patient name to UI store so the topbar can display it; clear on unmount
+  useEffect(() => {
+    if (patient) {
+      uiActions.setPatientName(`${patient.first_name} ${patient.last_name}`);
+    }
+    return () => { uiActions.setPatientName(null); };
+  }, [patient]);
 
   // -- Tab data fetchers
   const fetchHeatmap = useCallback(async () => {
@@ -1195,6 +1202,23 @@ export function PatientDetailPage() {
     }
   }, [token, patientId, fetchMedications]);
 
+  const saveStatusRisk = useCallback(async () => {
+    if (!token || !patientId || !patient) return;
+    if (editStatus === patient.status && editRisk === patient.risk_level) return;
+    setIsSavingStatus(true);
+    try {
+      const updated = await api.patch<Patient>(`/patients/${patientId}`, {
+        ...(editStatus !== patient.status ? { status: editStatus } : {}),
+        ...(editRisk !== patient.risk_level ? { risk_level: editRisk } : {}),
+      }, token);
+      setPatient(updated);
+    } catch (e) {
+      console.error('[patient-detail] status/risk save error', e);
+    } finally {
+      setIsSavingStatus(false);
+    }
+  }, [token, patientId, patient, editStatus, editRisk]);
+
   const name = patient ? `${patient.first_name} ${patient.last_name}` : '…';
   const statusColor = patient ? (STATUS_COLOR[patient.status] ?? '#4a5568') : SUB;
 
@@ -1260,6 +1284,37 @@ export function PatientDetailPage() {
               </div>
 
               <div className="detail-actions">
+                <select
+                  className="sort-select"
+                  value={editStatus}
+                  onChange={(e) => setEditStatus(e.target.value)}
+                  disabled={isSavingStatus}
+                >
+                  <option value="active">Active</option>
+                  <option value="crisis">Crisis</option>
+                  <option value="inactive">Inactive</option>
+                  <option value="discharged">Discharged</option>
+                </select>
+                <select
+                  className="sort-select"
+                  value={editRisk}
+                  onChange={(e) => setEditRisk(e.target.value)}
+                  disabled={isSavingStatus}
+                >
+                  <option value="low">Low Risk</option>
+                  <option value="moderate">Moderate Risk</option>
+                  <option value="high">High Risk</option>
+                  <option value="critical">Critical Risk</option>
+                </select>
+                {(editStatus !== patient.status || editRisk !== patient.risk_level) && (
+                  <button
+                    className="detail-actions-btn primary"
+                    onClick={() => void saveStatusRisk()}
+                    disabled={isSavingStatus}
+                  >
+                    {isSavingStatus ? 'Saving…' : 'Save'}
+                  </button>
+                )}
                 <button
                   className="detail-actions-btn primary"
                   onClick={() => navigate(`/reports?patientId=${patientId}`)}

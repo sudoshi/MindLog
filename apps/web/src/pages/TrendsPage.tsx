@@ -4,6 +4,11 @@
 // =============================================================================
 
 import { useState, useEffect, useCallback } from 'react';
+import {
+  ResponsiveContainer, LineChart, Line,
+  XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
+} from 'recharts';
+import { format, parseISO } from 'date-fns';
 import { api } from '../services/api.js';
 import { useAuthStore } from '../stores/auth.js';
 
@@ -32,9 +37,137 @@ interface CaseloadRow {
   todays_sleep_minutes: number | null;
 }
 
+interface SnapshotHistory {
+  snapshot_date: string;
+  avg_mood_x10: number | null;
+  checkin_rate_pct: number | null;
+  critical_alerts_count: number;
+  active_patients: number;
+  crisis_patients: number;
+}
+
 // ---------------------------------------------------------------------------
 // Sub-components
 // ---------------------------------------------------------------------------
+
+function HistoricalMoodPanel({ token }: { token: string | null }) {
+  const [history, setHistory] = useState<SnapshotHistory[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!token) return;
+    void api.get<SnapshotHistory[]>('/clinicians/snapshot-history?days=30', token)
+      .then((data) => setHistory(data))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [token]);
+
+  if (loading) {
+    return (
+      <div className="panel anim" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 40 }}>
+        <span style={{ color: 'var(--ink-soft)', fontSize: 13 }}>Loading historical data…</span>
+      </div>
+    );
+  }
+
+  if (history.length < 2) {
+    return (
+      <div className="panel anim">
+        <div className="panel-header">
+          <div className="panel-title">30-Day Mood Trend</div>
+          <div className="panel-sub">Population avg from nightly snapshots</div>
+        </div>
+        <div className="empty-state">
+          <div className="empty-state-icon">📈</div>
+          <div className="empty-state-title">Trend data building…</div>
+          Snapshots accumulate nightly. Check back after the first scheduled run at 07:00 UTC.
+        </div>
+      </div>
+    );
+  }
+
+  // Normalize check-in rate to 0–10 scale so both series share one Y axis
+  const chartData = history.map((s) => ({
+    date: s.snapshot_date,
+    mood: s.avg_mood_x10 != null ? +(s.avg_mood_x10 / 10).toFixed(1) : null,
+    checkin: s.checkin_rate_pct != null ? +(s.checkin_rate_pct / 10).toFixed(1) : null,
+    alerts: s.critical_alerts_count,
+  }));
+
+  return (
+    <div className="panel anim" style={{ marginBottom: 14 }}>
+      <div className="panel-header">
+        <div>
+          <div className="panel-title">30-Day Mood Trend</div>
+          <div className="panel-sub">Population avg from nightly snapshots · {history.length} data points</div>
+        </div>
+      </div>
+      <div style={{ padding: '8px 0 0' }}>
+        <ResponsiveContainer width="100%" height={200}>
+          <LineChart data={chartData} margin={{ top: 8, right: 16, bottom: 4, left: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+            <XAxis
+              dataKey="date"
+              tick={{ fill: 'var(--ink-soft)', fontSize: 10 }}
+              tickLine={false}
+              axisLine={{ stroke: 'var(--border)' }}
+              tickFormatter={(v: string) => format(parseISO(v), 'MMM d')}
+              interval="preserveStartEnd"
+            />
+            <YAxis
+              domain={[0, 10]}
+              ticks={[2, 4, 6, 8, 10]}
+              tick={{ fill: 'var(--ink-soft)', fontSize: 10 }}
+              tickLine={false}
+              axisLine={{ stroke: 'var(--border)' }}
+              width={24}
+            />
+            <RechartsTooltip
+              contentStyle={{
+                background: 'var(--glass-02)',
+                border: '1px solid var(--border)',
+                borderRadius: 8, fontSize: 12,
+                backdropFilter: 'blur(20px)',
+              }}
+              labelStyle={{ color: 'var(--ink-soft)' }}
+              labelFormatter={(v: string) => format(parseISO(v), 'EEE, MMM d')}
+              formatter={(v: number, name: string) => [
+                name === 'mood'    ? `${v}/10`         :
+                name === 'checkin' ? `${Math.round(v * 10)}%` :
+                String(v),
+                name === 'mood'    ? 'Avg Mood'        :
+                name === 'checkin' ? 'Check-in Rate'   : 'Critical Alerts',
+              ]}
+            />
+            <Line
+              type="monotone" dataKey="mood"
+              stroke="var(--safe)" strokeWidth={2}
+              dot={false} activeDot={{ r: 4, fill: 'var(--safe)' }}
+              connectNulls
+            />
+            <Line
+              type="monotone" dataKey="checkin"
+              stroke="var(--info)" strokeWidth={1.5}
+              strokeDasharray="4 2"
+              dot={false} activeDot={{ r: 4, fill: 'var(--info)' }}
+              connectNulls
+            />
+          </LineChart>
+        </ResponsiveContainer>
+        <div style={{ display: 'flex', gap: 16, padding: '4px 16px 12px', fontSize: 11, color: 'var(--ink-soft)' }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            <span style={{ width: 18, height: 2, background: 'var(--safe)', display: 'inline-block', borderRadius: 1 }} />
+            Avg Mood /10
+          </span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            <span style={{ width: 18, height: 2, background: 'var(--info)', display: 'inline-block', borderRadius: 1, borderTop: '1px dashed var(--info)' }} />
+            Check-in Rate ÷10
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function StatPanel({
   title, value, unit, color, subtitle,
@@ -270,6 +403,9 @@ export function TrendsPage() {
         />
       </div>
 
+      {/* ── 30-day historical mood trend ── */}
+      <HistoricalMoodPanel token={token} />
+
       {/* ── Risk distribution ── */}
       <RiskDistributionPanel caseload={caseload} />
 
@@ -282,8 +418,7 @@ export function TrendsPage() {
       {/* Nightly snapshot note */}
       {snapshot?.snapshot_date && (
         <div style={{ marginTop: 12, fontSize: 11, color: 'var(--ink-ghost)', textAlign: 'right' }}>
-          Data from snapshot: {snapshot.snapshot_date}.
-          Full 30-day time-series requires nightly snapshot pipeline.
+          KPI figures from nightly snapshot ({snapshot.snapshot_date}) · Alert counts are live
         </div>
       )}
     </div>

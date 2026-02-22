@@ -84,7 +84,7 @@ export default function MedicationsScreen() {
   // Fetch today's medications on focus
   // ---------------------------------------------------------------------------
 
-  const loadMeds = useCallback(async () => {
+  const loadMeds = useCallback(() => { void (async () => {
     setLoading(true);
     setError(null);
     try {
@@ -97,7 +97,7 @@ export default function MedicationsScreen() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  })(); }, []);
 
   useFocusEffect(loadMeds);
 

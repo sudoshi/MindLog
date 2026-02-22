@@ -11,7 +11,9 @@ import {
 import { router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { DESIGN_TOKENS, MOOD_COLORS, MOOD_LABELS, MOOD_EMOJIS, CRISIS_CONTACTS } from '@mindlog/shared';
-import { apiFetch } from '../services/auth';
+import { apiFetch, getStoredUser } from '../services/auth';
+import { database } from '../db/index';
+import type DailyEntry from '../db/models/DailyEntry';
 
 type Step = 'mood' | 'wellness' | 'triggers' | 'symptoms' | 'journal' | 'submit';
 const STEPS: Step[] = ['mood', 'wellness', 'triggers', 'symptoms', 'journal', 'submit'];
@@ -182,7 +184,7 @@ export default function CheckinScreen() {
         }),
       });
       if (!res.ok) throw new Error(`Submit failed: ${res.status}`);
-      const data = (await res.json()) as { data: { id: string } };
+      const data = (await res.json()) as { data: { id: string; completion_pct: number } };
 
       if (state.journal_body.trim()) {
         await apiFetch('/journal', {
@@ -192,6 +194,65 @@ export default function CheckinScreen() {
       }
 
       await apiFetch(`/daily-entries/${data.data.id}/submit`, { method: 'PATCH' });
+
+      // Write to local WatermelonDB so Today screen reflects submission instantly
+      // without needing a network round-trip.
+      try {
+        const user = await getStoredUser();
+        if (user) {
+          const { Q } = await import('@nozbe/watermelondb');
+          const existing = await database
+            .get<DailyEntry>('daily_entries')
+            .query(Q.where('patient_id', user.id), Q.where('entry_date', today))
+            .fetch();
+
+          const now = new Date().toISOString();
+          const completionPct = data.data.completion_pct ?? 80;
+
+          await database.write(async () => {
+            if (existing.length > 0) {
+              await existing[0]!.update((rec) => {
+                rec.moodScore = state.mood_score!;
+                rec.sleepHours = state.sleep_hours;
+                rec.exerciseMinutes = state.exercise_minutes;
+                rec.notes = state.notes || null;
+                rec.submittedAt = now;
+                rec.completionPct = completionPct;
+                rec.isComplete = true;
+                rec.coreComplete = true;
+                rec.wellnessComplete = state.strategies.length > 0;
+                rec.triggersComplete = state.triggers.length > 0;
+                rec.symptomsComplete = state.symptoms.length > 0;
+                rec.journalComplete = state.journal_body.trim().length > 0;
+                rec.serverId = data.data.id;
+                rec.isDirty = false;
+              });
+            } else {
+              await database.get<DailyEntry>('daily_entries').create((rec) => {
+                rec.patientId = user.id;
+                rec.entryDate = today;
+                rec.moodScore = state.mood_score!;
+                rec.sleepHours = state.sleep_hours;
+                rec.exerciseMinutes = state.exercise_minutes;
+                rec.notes = state.notes || null;
+                rec.submittedAt = now;
+                rec.completionPct = completionPct;
+                rec.isComplete = true;
+                rec.coreComplete = true;
+                rec.wellnessComplete = state.strategies.length > 0;
+                rec.triggersComplete = state.triggers.length > 0;
+                rec.symptomsComplete = state.symptoms.length > 0;
+                rec.journalComplete = state.journal_body.trim().length > 0;
+                rec.serverId = data.data.id;
+                rec.isDirty = false;
+              });
+            }
+          });
+        }
+      } catch {
+        // Local DB write failure is non-fatal — server has the data
+      }
+
       router.replace('/');
     } catch (err) {
       Alert.alert('Submission failed', err instanceof Error ? err.message : 'Please try again.');

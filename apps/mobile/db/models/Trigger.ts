@@ -2,7 +2,7 @@ import { Model } from '@nozbe/watermelondb';
 import { date, readonly, text } from '@nozbe/watermelondb/decorators';
 
 export default class Trigger extends Model {
-  static table = 'triggers';
+  static override table = 'triggers';
 
   @text('server_id') serverId!: string;
   @text('name') name!: string;

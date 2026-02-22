@@ -12,17 +12,21 @@ import { CreateReportSchema, UuidSchema, PaginationSchema } from '@mindlog/share
 import { reportQueue, type ReportJobData } from '../../workers/report-generator.js';
 
 // Maps Zod schema report_type values → DB CHECK constraint values
+// DB allows: 'individual_patient' | 'population_summary' | 'handover' | 'custom'
 const REPORT_TYPE_DB_MAP: Record<string, string> = {
   weekly_summary: 'individual_patient',
-  monthly_summary: 'individual_patient',
-  clinical_export: 'individual_patient',
+  monthly_summary: 'population_summary', // aggregate caseload — no patient_id
+  clinical_export: 'handover',           // cover-clinician handover — no patient_id
 };
 
 const REPORT_TYPE_LABEL: Record<string, string> = {
-  weekly_summary: 'Weekly Summary',
-  monthly_summary: 'Monthly Summary',
-  clinical_export: 'Clinical Export',
+  weekly_summary: 'Individual Patient Report',
+  monthly_summary: 'Population Summary',
+  clinical_export: 'Handover Report',
 };
+
+// Only individual patient reports require a patient_id and care-team check
+const REQUIRES_PATIENT = new Set(['weekly_summary']);
 
 export default async function reportRoutes(fastify: FastifyInstance): Promise<void> {
   const clinicianOnly = { preHandler: [fastify.requireRole(['clinician', 'admin'])] };
@@ -33,31 +37,40 @@ export default async function reportRoutes(fastify: FastifyInstance): Promise<vo
   fastify.post('/', clinicianOnly, async (request, reply) => {
     const body = CreateReportSchema.parse(request.body);
 
-    // Verify care team access
-    const [access] = await sql<{ id: string }[]>`
-      SELECT ctm.id FROM care_team_members ctm
-      WHERE ctm.patient_id   = ${body.patient_id}
-        AND ctm.clinician_id = ${request.user.sub}
-        AND ctm.unassigned_at IS NULL
-    `;
-    if (!access) {
-      return reply.status(403).send({
-        success: false,
-        error: { code: 'FORBIDDEN', message: "Not on this patient's care team" },
-      });
+    // For individual patient reports, verify care team access
+    if (REQUIRES_PATIENT.has(body.report_type)) {
+      if (!body.patient_id) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'BAD_REQUEST', message: 'patient_id is required for individual patient reports' },
+        });
+      }
+      const [access] = await sql<{ id: string }[]>`
+        SELECT ctm.id FROM care_team_members ctm
+        WHERE ctm.patient_id   = ${body.patient_id}
+          AND ctm.clinician_id = ${request.user.sub}
+          AND ctm.unassigned_at IS NULL
+      `;
+      if (!access) {
+        return reply.status(403).send({
+          success: false,
+          error: { code: 'FORBIDDEN', message: "Not on this patient's care team" },
+        });
+      }
     }
 
     const reportTitle = `${REPORT_TYPE_LABEL[body.report_type] ?? body.report_type} ${body.period_start} – ${body.period_end}`;
     const dbReportType = REPORT_TYPE_DB_MAP[body.report_type] ?? 'individual_patient';
 
-    // Insert report record
+    // Insert report record (patient_id is NULL for population/handover reports)
+    const patientId = body.patient_id ?? null;
     const [report] = await sql<{ id: string }[]>`
       INSERT INTO clinical_reports (
         patient_id, clinician_id, organisation_id,
         report_type, title, date_range_start, date_range_end,
         status, parameters
       ) VALUES (
-        ${body.patient_id}, ${request.user.sub}, ${request.user.org_id},
+        ${patientId}, ${request.user.sub}, ${request.user.org_id},
         ${dbReportType}, ${reportTitle},
         ${body.period_start}, ${body.period_end},
         'pending',
@@ -76,7 +89,7 @@ export default async function reportRoutes(fastify: FastifyInstance): Promise<vo
     // Enqueue PDF generation
     const jobData: ReportJobData = {
       reportId: report.id,
-      patientId: body.patient_id,
+      patientId: patientId ?? undefined,
       clinicianId: request.user.sub,
       orgId: request.user.org_id,
       reportType: body.report_type,

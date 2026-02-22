@@ -40,6 +40,13 @@ yarn-error.log*
 # TypeScript
 *.tsbuildinfo
 
+# Compiled JS that lands in src/ by mistake (outDir should be dist/)
+packages/*/src/**/*.js
+packages/*/src/**/*.js.map
+
+# Expo/EAS root-level stub (created when eas/expo commands run from wrong dir)
+/app.json
+
 # Mobile
 android/
 ios/

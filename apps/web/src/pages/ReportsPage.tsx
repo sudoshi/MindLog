@@ -192,12 +192,13 @@ export function ReportsPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!token || !activeType) return;
-    const needsPatient = activeType !== 'clinical_export';
+    // Only individual patient reports need a selected patient
+    const needsPatient = activeType === 'weekly_summary';
     if (needsPatient && !formPatient) return;
     setSubmitting(true); setFormError(null);
     try {
       await api.post('/reports', {
-        patient_id: formPatient || null,
+        ...(needsPatient ? { patient_id: formPatient } : {}),
         report_type: activeType,
         period_start: formStart,
         period_end: formEnd,
@@ -257,8 +258,8 @@ export function ReportsPage() {
             <form onSubmit={(e) => void handleSubmit(e)}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14, marginBottom: 16 }}>
 
-                {/* Patient — only for individual report types */}
-                {activeType !== 'clinical_export' && (
+                {/* Patient — only for individual patient reports */}
+                {activeType === 'weekly_summary' && (
                   <div style={{ gridColumn: '1 / -1' }}>
                     <label style={{ display: 'block', fontSize: 11, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: 0.5, color: 'var(--ink-mid)', marginBottom: 4 }}>
                       Patient
@@ -309,15 +310,15 @@ export function ReportsPage() {
                 <div style={{ display: 'flex', alignItems: 'flex-end' }}>
                   <button
                     type="submit"
-                    disabled={submitting || (activeType !== 'clinical_export' && !formPatient)}
+                    disabled={submitting || (activeType === 'weekly_summary' && !formPatient)}
                     style={{
                       width: '100%', padding: '9px 16px',
                       background: 'rgba(110,168,254,0.13)',
                       border: '1px solid rgba(110,168,254,0.35)',
                       borderRadius: 'var(--r-sm)',
                       color: 'var(--info)', fontSize: 13, fontWeight: 700,
-                      cursor: submitting || (activeType !== 'clinical_export' && !formPatient) ? 'not-allowed' : 'pointer',
-                      opacity: submitting || (activeType !== 'clinical_export' && !formPatient) ? 0.5 : 1,
+                      cursor: submitting || (activeType === 'weekly_summary' && !formPatient) ? 'not-allowed' : 'pointer',
+                      opacity: submitting || (activeType === 'weekly_summary' && !formPatient) ? 0.5 : 1,
                       fontFamily: 'var(--font-body)',
                       transition: 'all 0.15s',
                     }}

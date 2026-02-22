@@ -16,11 +16,12 @@ export interface LiveAlert {
   ts: number; // client receipt timestamp
 }
 
+type OnAlertFn = (alert: LiveAlert) => void;
 type WsStatus = 'connecting' | 'connected' | 'disconnected' | 'error';
 
 interface UseAlertSocketOptions {
   token: string | null;
-  onAlert?: (alert: LiveAlert) => void;
+  onAlert?: OnAlertFn;
   enabled?: boolean;
 }
 
@@ -34,6 +35,13 @@ export function useAlertSocket({ token, onAlert, enabled = true }: UseAlertSocke
   const backoffRef = useRef(1000);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef(true);
+
+  // Store the callback in a ref so that updating onAlert never causes a
+  // reconnect. The connect() useCallback only depends on token + enabled.
+  const onAlertRef = useRef<OnAlertFn | undefined>(onAlert);
+  useEffect(() => {
+    onAlertRef.current = onAlert;
+  }, [onAlert]);
 
   const connect = useCallback(() => {
     if (!token || !enabled || !mountedRef.current) return;
@@ -57,15 +65,15 @@ export function useAlertSocket({ token, onAlert, enabled = true }: UseAlertSocke
 
         if (msg.type === WS_EVENTS.ALERT_CREATED) {
           const alert: LiveAlert = {
-            alertId: msg.data['alertId'] as string,
+            alertId:   msg.data['alertId']   as string,
             patientId: msg.data['patientId'] as string,
-            severity: msg.data['severity'] as LiveAlert['severity'],
-            title: msg.data['title'] as string,
-            ruleKey: msg.data['ruleKey'] as string,
+            severity:  msg.data['severity']  as LiveAlert['severity'],
+            title:     msg.data['title']     as string,
+            ruleKey:   msg.data['ruleKey']   as string,
             ts: Date.now(),
           };
           setLiveAlerts((prev) => [alert, ...prev].slice(0, 50)); // keep last 50
-          onAlert?.(alert);
+          onAlertRef.current?.(alert); // read from ref — never stale, never reconnects
         }
         // PONG handled silently
       } catch {
@@ -87,7 +95,7 @@ export function useAlertSocket({ token, onAlert, enabled = true }: UseAlertSocke
       setStatus('error');
       ws.close(); // triggers onclose → reconnect
     };
-  }, [token, enabled, onAlert]);
+  }, [token, enabled]); // onAlert intentionally omitted — accessed via ref
 
   useEffect(() => {
     mountedRef.current = true;
