@@ -121,6 +121,41 @@ export const CreateDailyEntrySchema = z.object({
   triggers: z.array(DailyEntryTriggerInputSchema).max(20).optional(),
   symptoms: z.array(DailyEntrySymptomInputSchema).max(20).optional(),
   strategies: z.array(DailyEntryStrategyInputSchema).max(20).optional(),
+
+  // Phase 8: expanded clinical domains (all optional)
+  // Mania pole (ASRM-informed)
+  mania_score: z.number().int().min(1).max(10).nullable().optional(),
+  racing_thoughts: z.boolean().nullable().optional(),
+  decreased_sleep_need: z.boolean().nullable().optional(),
+
+  // Anxiety / somatic (GAD-2-informed)
+  anxiety_score: z.number().int().min(1).max(10).nullable().optional(),
+  somatic_anxiety: z.boolean().nullable().optional(),
+
+  // Depression (PHQ-2-informed)
+  anhedonia_score: z.number().int().min(1).max(10).nullable().optional(),
+
+  // Safety screening (C-SSRS screener: 0=none, 1=passive, 2=frequent, 3=plan with intent)
+  suicidal_ideation: z.number().int().min(0).max(3).nullable().optional(),
+
+  // Substance use (AUDIT-C-informed)
+  substance_use: z.enum(['none', 'alcohol', 'cannabis', 'other']).nullable().optional(),
+  substance_quantity: z.number().int().min(0).max(99).nullable().optional(),
+
+  // Social functioning
+  social_score: z.number().int().min(1).max(5).nullable().optional(),
+  social_avoidance: z.boolean().nullable().optional(),
+
+  // Cognitive functioning
+  cognitive_score: z.number().int().min(1).max(10).nullable().optional(),
+  brain_fog: z.boolean().nullable().optional(),
+
+  // Appetite (PSS single item)
+  appetite_score: z.number().int().min(1).max(5).nullable().optional(),
+
+  // Stress / life events (PSS)
+  stress_score: z.number().int().min(1).max(10).nullable().optional(),
+  life_event_note: z.string().max(500).nullable().optional(),
 });
 export type CreateDailyEntryInput = z.infer<typeof CreateDailyEntrySchema>;
 

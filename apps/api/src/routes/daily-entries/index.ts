@@ -46,18 +46,47 @@ export default async function dailyEntryRoutes(fastify: FastifyInstance): Promis
     const body = CreateDailyEntrySchema.parse(request.body);
     const patientId = request.user.sub;
 
-    // Upsert the parent daily_entry row
+    // Upsert the parent daily_entry row (includes Phase 8c clinical domain columns)
     const [entry] = await sql<{ id: string; entry_date: string }[]>`
-      INSERT INTO daily_entries (patient_id, entry_date, mood, coping, started_at, core_complete)
+      INSERT INTO daily_entries (
+        patient_id, entry_date, mood, notes, coping, started_at, core_complete,
+        mania_score, racing_thoughts, decreased_sleep_need,
+        anxiety_score, somatic_anxiety, anhedonia_score, suicidal_ideation,
+        social_score, social_avoidance, cognitive_score, brain_fog, stress_score,
+        substance_use, substance_quantity, appetite_score, life_event_note
+      )
       VALUES (
-        ${patientId}, ${body.entry_date},
-        ${body.mood_score}, ${null},
-        NOW(), TRUE
+        ${patientId}, ${body.entry_date}, ${body.mood_score},
+        ${body.notes ?? null}, ${null}, NOW(), TRUE,
+        ${body.mania_score ?? null}, ${body.racing_thoughts ?? null}, ${body.decreased_sleep_need ?? null},
+        ${body.anxiety_score ?? null}, ${body.somatic_anxiety ?? null}, ${body.anhedonia_score ?? null},
+        ${body.suicidal_ideation ?? null},
+        ${body.social_score ?? null}, ${body.social_avoidance ?? null},
+        ${body.cognitive_score ?? null}, ${body.brain_fog ?? null}, ${body.stress_score ?? null},
+        ${body.substance_use ?? null}, ${body.substance_quantity ?? null},
+        ${body.appetite_score ?? null}, ${body.life_event_note ?? null}
       )
       ON CONFLICT (patient_id, entry_date) DO UPDATE
-        SET mood         = EXCLUDED.mood,
-            core_complete = TRUE,
-            last_saved_at = NOW()
+        SET mood                = EXCLUDED.mood,
+            notes               = COALESCE(EXCLUDED.notes, daily_entries.notes),
+            core_complete       = TRUE,
+            last_saved_at       = NOW(),
+            mania_score         = COALESCE(EXCLUDED.mania_score,         daily_entries.mania_score),
+            racing_thoughts     = COALESCE(EXCLUDED.racing_thoughts,     daily_entries.racing_thoughts),
+            decreased_sleep_need = COALESCE(EXCLUDED.decreased_sleep_need, daily_entries.decreased_sleep_need),
+            anxiety_score       = COALESCE(EXCLUDED.anxiety_score,       daily_entries.anxiety_score),
+            somatic_anxiety     = COALESCE(EXCLUDED.somatic_anxiety,     daily_entries.somatic_anxiety),
+            anhedonia_score     = COALESCE(EXCLUDED.anhedonia_score,     daily_entries.anhedonia_score),
+            suicidal_ideation   = COALESCE(EXCLUDED.suicidal_ideation,   daily_entries.suicidal_ideation),
+            social_score        = COALESCE(EXCLUDED.social_score,        daily_entries.social_score),
+            social_avoidance    = COALESCE(EXCLUDED.social_avoidance,    daily_entries.social_avoidance),
+            cognitive_score     = COALESCE(EXCLUDED.cognitive_score,     daily_entries.cognitive_score),
+            brain_fog           = COALESCE(EXCLUDED.brain_fog,           daily_entries.brain_fog),
+            stress_score        = COALESCE(EXCLUDED.stress_score,        daily_entries.stress_score),
+            substance_use       = COALESCE(EXCLUDED.substance_use,       daily_entries.substance_use),
+            substance_quantity  = COALESCE(EXCLUDED.substance_quantity,  daily_entries.substance_quantity),
+            appetite_score      = COALESCE(EXCLUDED.appetite_score,      daily_entries.appetite_score),
+            life_event_note     = COALESCE(EXCLUDED.life_event_note,     daily_entries.life_event_note)
       RETURNING id, entry_date
     `;
 

@@ -134,24 +134,32 @@ export default function RootLayout() {
     const bootstrap = async () => {
       const [token, user] = await Promise.all([getAccessToken(), getStoredUser()]);
 
-      if (!token || !user) {
-        router.replace('/onboarding');
-        setReady(true);
-        void SplashScreen.hideAsync();
-        return;
+      if (token && user) {
+        // Authenticated — set up notifications and sync
+        setIsAuthenticated(true);
+        void setupPushNotifications();
+        backgroundSync();
       }
 
-      // Authenticated — set up notifications and sync
-      setIsAuthenticated(true);
-      void setupPushNotifications();
-      backgroundSync();
-
+      // Always mark ready and hide splash — navigation handled in the effect below
       setReady(true);
       void SplashScreen.hideAsync();
     };
 
     void bootstrap();
   }, []);
+
+  // --------------------------------------------------------------------------
+  // Navigate to the correct initial screen once the Stack is mounted
+  // (router.replace must not be called before ready=true or the Stack
+  //  navigator will not yet be mounted and the call is silently dropped)
+  // --------------------------------------------------------------------------
+  useEffect(() => {
+    if (!ready) return;
+    if (!isAuthenticated) {
+      router.replace('/onboarding');
+    }
+  }, [ready, isAuthenticated]);
 
   if (!ready) return null;
 

@@ -184,6 +184,28 @@ export const DESIGN_TOKENS = {
   COLOR_DANGER: '#d62828',
   COLOR_WARNING: '#faa307',
   COLOR_SUCCESS: '#6a994e',
+  COLOR_SURFACE: '#161a27',
+  COLOR_SURFACE_ELEVATED: '#1e2535',
   FONT_SERIF: 'Fraunces',
   FONT_SANS: 'Figtree',
+  GRADIENT_PRIMARY: ['#2a9d8f', '#3b82f6'] as [string, string],
+  GRADIENT_MOOD_HIGH: ['#22C55E', '#16A34A'] as [string, string],
+  GRADIENT_MOOD_LOW: ['#EF4444', '#DC2626'] as [string, string],
+  RADIUS_CARD: 16,
+  RADIUS_PILL: 24,
+  SHADOW_SM: { shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 8, elevation: 4 },
 } as const;
+
+// ---------------------------------------------------------------------------
+// LOINC codes for validated assessment instruments
+// ---------------------------------------------------------------------------
+
+export const SCALE_LOINC_MAP: Record<string, string | null> = {
+  'PHQ-9':    '44249-1',
+  'GAD-7':    '69737-5',
+  'ISI':      '89794-0',
+  'C-SSRS':   '89213-1',
+  'ASRM':     null,    // No official LOINC code; store scale name as identifier
+  'WHODAS':   null,
+  'QIDS-SR':  null,
+};

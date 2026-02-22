@@ -16,6 +16,7 @@ import {
   ActivityIndicator, TextInput, Switch, Alert, Modal, KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import { DESIGN_TOKENS, MEDICATION_FREQUENCY_LABELS, type MedicationFrequency } from '@mindlog/shared';
@@ -106,6 +107,7 @@ export default function MedicationsScreen() {
   // ---------------------------------------------------------------------------
 
   const toggleTaken = async (med: TodayMed, taken: boolean) => {
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setTogglingId(med.id);
     try {
       const res = await apiFetch(`/medications/${med.id}/logs`, {

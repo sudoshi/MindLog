@@ -7,8 +7,9 @@ import { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { DESIGN_TOKENS, LoginSchema, API_PREFIX, CRISIS_CONTACTS } from '@mindlog/shared';
-import { storeSession, setMfaPartialToken } from '../services/auth';
+import { DESIGN_TOKENS, LoginSchema, CRISIS_CONTACTS } from '@mindlog/shared';
+import { storeSession, setMfaPartialToken, apiFetch } from '../services/auth';
+import { backgroundSync } from '../db/sync';
 
 export default function OnboardingScreen() {
   const [email, setEmail] = useState('');
@@ -24,9 +25,8 @@ export default function OnboardingScreen() {
 
     setLoading(true);
     try {
-      const res = await fetch(`${API_PREFIX}/auth/login`, {
+      const res = await apiFetch('/auth/login', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });
 
@@ -61,9 +61,11 @@ export default function OnboardingScreen() {
           ...(json.data.refresh_token !== undefined && { refresh_token: json.data.refresh_token }),
           user: json.data.user,
         });
+        // Immediately pull catalogues so check-in works offline
+        backgroundSync();
       }
 
-      router.replace('/');
+      router.replace('/(tabs)');
     } catch (err) {
       Alert.alert('Network error', err instanceof Error ? err.message : 'Please try again');
     } finally {

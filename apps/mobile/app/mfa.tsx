@@ -12,9 +12,9 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { DESIGN_TOKENS, API_PREFIX, CRISIS_CONTACTS } from '@mindlog/shared';
+import { DESIGN_TOKENS, CRISIS_CONTACTS } from '@mindlog/shared';
 import {
-  getMfaPartialToken, clearMfaPartialToken, storeSession, clearSession,
+  getMfaPartialToken, clearMfaPartialToken, storeSession, clearSession, apiFetch,
 } from '../services/auth';
 
 export default function MfaScreen() {
@@ -39,12 +39,9 @@ export default function MfaScreen() {
         return;
       }
 
-      const res = await fetch(`${API_PREFIX}/auth/mfa/verify`, {
+      const res = await apiFetch('/auth/mfa/verify', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${partialToken}`,
-        },
+        headers: { Authorization: `Bearer ${partialToken}` },
         body: JSON.stringify({ code: trimmed }),
       });
 

@@ -16,17 +16,19 @@ import {
 } from '../../services/notifications';
 
 interface NotifPrefs {
-  daily_checkin_enabled: boolean;
-  daily_checkin_time: string; // HH:MM
-  weekly_report_enabled: boolean;
-  alert_push_enabled: boolean;
+  daily_reminder_enabled: boolean;
+  daily_reminder_time: string; // HH:MM
+  medication_reminder_enabled: boolean;
+  streak_notifications: boolean;
+  appointment_reminders: boolean;
 }
 
 const DEFAULTS: NotifPrefs = {
-  daily_checkin_enabled: true,
-  daily_checkin_time: '20:00',
-  weekly_report_enabled: true,
-  alert_push_enabled: true,
+  daily_reminder_enabled: true,
+  daily_reminder_time: '20:00',
+  medication_reminder_enabled: true,
+  streak_notifications: true,
+  appointment_reminders: true,
 };
 
 export default function NotificationsScreen() {
@@ -51,13 +53,13 @@ export default function NotificationsScreen() {
     void load();
   }, []);
 
-  const toggle = (key: keyof Pick<NotifPrefs, 'daily_checkin_enabled' | 'weekly_report_enabled' | 'alert_push_enabled'>) => {
+  const toggle = (key: keyof Pick<NotifPrefs, 'daily_reminder_enabled' | 'medication_reminder_enabled' | 'streak_notifications' | 'appointment_reminders'>) => {
     setPrefs((p) => ({ ...p, [key]: !p[key] }));
   };
 
   const save = async () => {
     // Validate time format before saving
-    const timeMatch = /^([01]?\d|2[0-3]):([0-5]\d)$/.exec(prefs.daily_checkin_time);
+    const timeMatch = /^([01]?\d|2[0-3]):([0-5]\d)$/.exec(prefs.daily_reminder_time);
     if (!timeMatch) {
       Alert.alert('Invalid time', 'Please enter a time in HH:MM format (e.g. 20:00).');
       return;
@@ -74,7 +76,7 @@ export default function NotificationsScreen() {
       // Schedule or cancel the local daily reminder
       const hour = parseInt(timeMatch[1]!, 10);
       const minute = parseInt(timeMatch[2]!, 10);
-      if (prefs.daily_checkin_enabled) {
+      if (prefs.daily_reminder_enabled) {
         await scheduleDailyCheckinReminder(hour, minute);
       } else {
         await cancelDailyCheckinReminder();
@@ -108,8 +110,8 @@ export default function NotificationsScreen() {
               <View style={styles.row}>
                 <Text style={styles.rowLabel}>Enable reminder</Text>
                 <Switch
-                  value={prefs.daily_checkin_enabled}
-                  onValueChange={() => toggle('daily_checkin_enabled')}
+                  value={prefs.daily_reminder_enabled}
+                  onValueChange={() => toggle('daily_reminder_enabled')}
                   trackColor={{ true: DESIGN_TOKENS.COLOR_PRIMARY }}
                   thumbColor="#fff"
                 />
@@ -118,33 +120,46 @@ export default function NotificationsScreen() {
                 <Text style={styles.rowLabel}>Reminder time</Text>
                 <TextInput
                   style={styles.timeInput}
-                  value={prefs.daily_checkin_time}
-                  onChangeText={(v) => setPrefs((p) => ({ ...p, daily_checkin_time: v }))}
+                  value={prefs.daily_reminder_time}
+                  onChangeText={(v) => setPrefs((p) => ({ ...p, daily_reminder_time: v }))}
                   placeholder="HH:MM"
                   placeholderTextColor={SUB}
                   keyboardType="numbers-and-punctuation"
                   maxLength={5}
-                  editable={prefs.daily_checkin_enabled}
+                  editable={prefs.daily_reminder_enabled}
                 />
               </View>
             </View>
 
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Reports & alerts</Text>
+              <Text style={styles.sectionTitle}>Medications & reminders</Text>
               <View style={styles.row}>
-                <Text style={styles.rowLabel}>Weekly summary email</Text>
+                <Text style={styles.rowLabel}>Medication reminders</Text>
                 <Switch
-                  value={prefs.weekly_report_enabled}
-                  onValueChange={() => toggle('weekly_report_enabled')}
+                  value={prefs.medication_reminder_enabled}
+                  onValueChange={() => toggle('medication_reminder_enabled')}
                   trackColor={{ true: DESIGN_TOKENS.COLOR_PRIMARY }}
                   thumbColor="#fff"
                 />
               </View>
               <View style={[styles.row, styles.rowLast]}>
-                <Text style={styles.rowLabel}>Clinical alert push</Text>
+                <Text style={styles.rowLabel}>Appointment reminders</Text>
                 <Switch
-                  value={prefs.alert_push_enabled}
-                  onValueChange={() => toggle('alert_push_enabled')}
+                  value={prefs.appointment_reminders}
+                  onValueChange={() => toggle('appointment_reminders')}
+                  trackColor={{ true: DESIGN_TOKENS.COLOR_PRIMARY }}
+                  thumbColor="#fff"
+                />
+              </View>
+            </View>
+
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Engagement</Text>
+              <View style={[styles.row, styles.rowLast]}>
+                <Text style={styles.rowLabel}>Streak & milestone alerts</Text>
+                <Switch
+                  value={prefs.streak_notifications}
+                  onValueChange={() => toggle('streak_notifications')}
                   trackColor={{ true: DESIGN_TOKENS.COLOR_PRIMARY }}
                   thumbColor="#fff"
                 />

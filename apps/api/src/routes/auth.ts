@@ -162,7 +162,7 @@ export default async function authRoutes(fastify: FastifyInstance): Promise<void
     }
 
     const patientPayload: JwtPayload = {
-      sub: supabaseData.user.id,
+      sub: patient.id,  // Use the patients table UUID, not the Supabase auth UUID
       email: body.email,
       role: 'patient',
       org_id: patient.organisation_id,
@@ -369,7 +369,7 @@ export default async function authRoutes(fastify: FastifyInstance): Promise<void
     }
 
     const payload: JwtPayload = {
-      sub: data.user.id,
+      sub: patient.id,  // Use the patients table UUID, not the Supabase auth UUID
       email: data.user.email,
       role: 'patient',
       org_id: patient.organisation_id,

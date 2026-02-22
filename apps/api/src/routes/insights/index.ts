@@ -26,6 +26,12 @@ export default async function insightsRoutes(fastify: FastifyInstance): Promise<
     const { days } = InsightsQuerySchema.parse(request.query);
     const patientId = request.user.sub;
 
+    // Compute cutoff date in JS to avoid postgres.js type ambiguity
+    // with `CURRENT_DATE - integer` expressions
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .split('T')[0]!;
+
     // ── Core daily stats ──────────────────────────────────────────────────────
     const [stats] = await sql<{
       check_in_days: string;
@@ -48,7 +54,7 @@ export default async function insightsRoutes(fastify: FastifyInstance): Promise<
       LEFT JOIN sleep_logs    sl ON sl.daily_entry_id = de.id
       LEFT JOIN exercise_logs el ON el.daily_entry_id = de.id
       WHERE de.patient_id  = ${patientId}
-        AND de.entry_date >= CURRENT_DATE - ${days}
+        AND de.entry_date >= ${since}
         AND de.submitted_at IS NOT NULL
     `;
 
@@ -70,7 +76,7 @@ export default async function insightsRoutes(fastify: FastifyInstance): Promise<
       LEFT JOIN sleep_logs    sl ON sl.daily_entry_id = de.id
       LEFT JOIN exercise_logs el ON el.daily_entry_id = de.id
       WHERE de.patient_id  = ${patientId}
-        AND de.entry_date >= CURRENT_DATE - ${days}
+        AND de.entry_date >= ${since}
       ORDER BY de.entry_date ASC
     `;
 
@@ -86,7 +92,7 @@ export default async function insightsRoutes(fastify: FastifyInstance): Promise<
       FROM daily_entries de
       JOIN sleep_logs sl ON sl.daily_entry_id = de.id
       WHERE de.patient_id  = ${patientId}
-        AND de.entry_date >= CURRENT_DATE - ${days}
+        AND de.entry_date >= ${since}
         AND de.mood IS NOT NULL
         AND sl.total_minutes IS NOT NULL
     `;
@@ -102,7 +108,7 @@ export default async function insightsRoutes(fastify: FastifyInstance): Promise<
       FROM daily_entries de
       JOIN exercise_logs el ON el.daily_entry_id = de.id
       WHERE de.patient_id  = ${patientId}
-        AND de.entry_date >= CURRENT_DATE - ${days}
+        AND de.entry_date >= ${since}
         AND de.mood IS NOT NULL
         AND el.duration_minutes IS NOT NULL
     `;
@@ -123,7 +129,7 @@ export default async function insightsRoutes(fastify: FastifyInstance): Promise<
       JOIN trigger_catalogue tc ON tc.id = tl.trigger_id
       JOIN daily_entries de     ON de.id = tl.daily_entry_id
       WHERE tl.patient_id  = ${patientId}
-        AND de.entry_date >= CURRENT_DATE - ${days}
+        AND de.entry_date >= ${since}
         AND tl.is_active = TRUE
       GROUP BY tc.id, tc.name
       ORDER BY count DESC, avg_severity DESC
@@ -146,7 +152,7 @@ export default async function insightsRoutes(fastify: FastifyInstance): Promise<
       JOIN symptom_catalogue sc ON sc.id = sl2.symptom_id
       JOIN daily_entries de     ON de.id = sl2.daily_entry_id
       WHERE sl2.patient_id  = ${patientId}
-        AND de.entry_date  >= CURRENT_DATE - ${days}
+        AND de.entry_date  >= ${since}
         AND sl2.is_present = TRUE
       GROUP BY sc.id, sc.name
       ORDER BY count DESC, avg_intensity DESC
@@ -169,7 +175,7 @@ export default async function insightsRoutes(fastify: FastifyInstance): Promise<
       JOIN wellness_strategies ws ON ws.id = wl.strategy_id
       JOIN daily_entries de       ON de.id = wl.daily_entry_id
       WHERE wl.patient_id  = ${patientId}
-        AND de.entry_date >= CURRENT_DATE - ${days}
+        AND de.entry_date >= ${since}
         AND wl.state = 'yes'
         AND de.mood IS NOT NULL
       GROUP BY ws.id, ws.name

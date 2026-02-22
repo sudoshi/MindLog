@@ -6,8 +6,10 @@ import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-nati
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { DESIGN_TOKENS } from '@mindlog/shared';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useFocusEffect } from 'expo-router';
 import { apiFetch } from '../../services/auth';
+import { SkeletonCard } from '../../components/SkeletonCard';
 
 interface JournalEntry {
   id: string;
@@ -20,21 +22,25 @@ interface JournalEntry {
 export default function JournalScreen() {
   const [entries, setEntries] = useState<JournalEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const res = await apiFetch('/journal');
-        if (res.ok) {
-          const json = (await res.json()) as { data: { items: JournalEntry[] } };
-          setEntries(json.data.items);
-        }
-      } finally {
-        setLoading(false);
-      }
-    };
-    void load();
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await apiFetch('/journal');
+      if (!res.ok) throw new Error(`Failed to load journal (${res.status})`);
+      const json = (await res.json()) as { data: { items: JournalEntry[] } };
+      setEntries(json.data.items);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load journal');
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => { void load(); }, [load]);
+  useFocusEffect(useCallback(() => { void load(); }, [load]));
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -46,8 +52,22 @@ export default function JournalScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll}>
-        {loading && <Text style={styles.placeholder}>Loading…</Text>}
-        {!loading && entries.length === 0 && (
+        {loading && (
+          <>
+            <SkeletonCard lines={2} />
+            <SkeletonCard lines={2} />
+            <SkeletonCard lines={2} />
+          </>
+        )}
+        {!loading && error && (
+          <View style={styles.errorCard}>
+            <Text style={styles.errorText}>{error}</Text>
+            <TouchableOpacity onPress={() => void load()} style={styles.retryBtn}>
+              <Text style={styles.retryText}>Tap to retry</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+        {!loading && !error && entries.length === 0 && (
           <View style={styles.emptyCard}>
             <Text style={styles.emptyEmoji}>📓</Text>
             <Text style={styles.emptyText}>No journal entries yet.</Text>
@@ -57,7 +77,7 @@ export default function JournalScreen() {
             </TouchableOpacity>
           </View>
         )}
-        {entries.map((e) => (
+        {!loading && !error && entries.map((e) => (
           <TouchableOpacity
             key={e.id}
             style={styles.entryCard}
@@ -93,7 +113,10 @@ const styles = StyleSheet.create({
   newBtn: { backgroundColor: DESIGN_TOKENS.COLOR_PRIMARY, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 8 },
   newBtnText: { color: '#fff', fontWeight: '700', fontSize: 13 },
   scroll: { padding: 20, paddingTop: 8 },
-  placeholder: { color: SUB, textAlign: 'center', marginTop: 40 },
+  errorCard: { backgroundColor: '#1a0a0a', borderRadius: 12, borderWidth: 1, borderColor: '#4a1010', padding: 20, alignItems: 'center' },
+  errorText: { color: '#fc8181', fontSize: 14, textAlign: 'center', marginBottom: 12 },
+  retryBtn: { backgroundColor: DESIGN_TOKENS.COLOR_PRIMARY, borderRadius: 8, paddingHorizontal: 20, paddingVertical: 8 },
+  retryText: { color: '#fff', fontWeight: '600' },
   emptyCard: {
     backgroundColor: CARD, borderRadius: 16, borderWidth: 1, borderColor: BORDER,
     padding: 32, alignItems: 'center',

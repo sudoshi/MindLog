@@ -19,6 +19,7 @@ import catalogueRoutes from './catalogues/index.js';
 import medicationRoutes from './medications/index.js';
 import insightsRoutes from './insights/index.js';
 import safetyRoutes from './safety/index.js';
+import assessmentRoutes from './assessments/index.js';
 
 export async function registerRoutes(fastify: FastifyInstance): Promise<void> {
   // Health check — no prefix, no auth
@@ -41,6 +42,7 @@ export async function registerRoutes(fastify: FastifyInstance): Promise<void> {
       await api.register(medicationRoutes, { prefix: '/medications' });
       await api.register(insightsRoutes, { prefix: '/insights' });
       await api.register(safetyRoutes, { prefix: '/safety' });
+      await api.register(assessmentRoutes, { prefix: '/assessments' });
     },
     { prefix: API_PREFIX },
   );

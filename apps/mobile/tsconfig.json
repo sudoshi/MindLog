@@ -2,7 +2,9 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "target": "ES2022",
-    "lib": ["ES2022"],
+    "lib": [
+      "ES2022"
+    ],
     "moduleResolution": "Bundler",
     "jsx": "react-jsx",
     "allowSyntheticDefaultImports": true,
@@ -11,10 +13,22 @@
     "experimentalDecorators": true,
     "emitDecoratorMetadata": false,
     "paths": {
-      "@mindlog/shared": ["../../packages/shared/src/index.ts"],
-      "@/*": ["./*"]
+      "@mindlog/shared": [
+        "../../packages/shared/src/index.ts"
+      ],
+      "@/*": [
+        "./*"
+      ]
     }
   },
-  "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.d.ts", "expo-env.d.ts"],
-  "exclude": ["node_modules"]
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    ".expo/types/**/*.d.ts",
+    "expo-env.d.ts",
+    ".expo/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
 }

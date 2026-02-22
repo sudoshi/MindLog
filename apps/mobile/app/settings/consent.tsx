@@ -68,7 +68,7 @@ export default function ConsentScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              const res = await apiFetch(`/consent/${record.id}`, { method: 'DELETE' });
+              const res = await apiFetch(`/consent/${record.consent_type}`, { method: 'DELETE' });
               if (!res.ok) throw new Error(`HTTP ${res.status}`);
               await load();
             } catch (err) {
