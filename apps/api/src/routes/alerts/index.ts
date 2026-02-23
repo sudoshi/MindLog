@@ -17,78 +17,146 @@ import { auditLog } from '../../middleware/audit.js';
 export default async function alertRoutes(fastify: FastifyInstance): Promise<void> {
   const clinicianOnly = { preHandler: [fastify.requireRole(['clinician', 'admin'])] };
 
+  // Helper to check if current user is an admin
+  async function isAdminUser(userId: string): Promise<boolean> {
+    const [clinician] = await sql<{ role: string }[]>`
+      SELECT role FROM clinicians WHERE id = ${userId}::UUID LIMIT 1
+    `;
+    return clinician?.role === 'admin';
+  }
+
   // ---------------------------------------------------------------------------
-  // GET /alerts — list with filtering
+  // GET /alerts — list with filtering (admin sees all)
   // ---------------------------------------------------------------------------
   fastify.get('/', clinicianOnly, async (request, reply) => {
     const query = AlertFilterSchema.parse(request.query);
     const { org_id } = request.user;
     const limit = query.limit;
     const offset = (query.page - 1) * limit;
+    const isAdmin = await isAdminUser(request.user.sub);
 
     const statusFilter = query.status ?? null;
     const severityFilter = query.severity ?? null;
     const patientIdFilter = query.patient_id ?? null;
 
-    const alerts = await sql<{
-      id: string; patient_id: string; alert_type: string; severity: string;
-      title: string; body: string; rule_key: string | null;
-      created_at: string; acknowledged_at: string | null; resolved_at: string | null;
-      patient_first_name: string; patient_last_name: string;
-    }[]>`
-      SELECT ca.id, ca.patient_id, ca.alert_type, ca.severity, ca.title, ca.body,
-             ca.rule_key, ca.rule_context AS detail, ca.created_at, ca.acknowledged_at,
-             ca.auto_resolved_at AS resolved_at,
-             p.first_name || ' ' || p.last_name AS patient_name,
-             p.first_name AS patient_first_name, p.last_name AS patient_last_name,
-             CASE
-               WHEN ca.auto_resolved = TRUE THEN 'resolved'
-               WHEN ca.escalated_at IS NOT NULL THEN 'escalated'
-               WHEN ca.acknowledged_at IS NOT NULL THEN 'acknowledged'
-               ELSE 'new'
-             END AS status
-      FROM clinical_alerts ca
-      JOIN patients p ON p.id = ca.patient_id
-      JOIN care_team_members ctm ON ctm.patient_id = ca.patient_id AND ctm.unassigned_at IS NULL
-      WHERE ca.organisation_id = ${org_id}
-        AND ctm.clinician_id = ${request.user.sub}
-        AND (${statusFilter}::TEXT IS NULL OR (
-          CASE ${statusFilter}
-            WHEN 'acknowledged' THEN ca.acknowledged_at IS NOT NULL AND ca.auto_resolved = FALSE
-            WHEN 'resolved'     THEN ca.auto_resolved = TRUE
-            WHEN 'new'          THEN ca.acknowledged_at IS NULL AND ca.auto_resolved = FALSE
-            ELSE TRUE
-          END
-        ))
-        AND (${statusFilter}::TEXT IS NOT NULL OR ca.auto_resolved = FALSE)
-        AND (${severityFilter}::TEXT IS NULL OR ca.severity = ${severityFilter})
-        AND (${patientIdFilter}::UUID IS NULL OR ca.patient_id = ${patientIdFilter}::UUID)
-      ORDER BY
-        CASE ca.severity WHEN 'critical' THEN 0 WHEN 'warning' THEN 1 ELSE 2 END,
-        ca.created_at DESC
-      LIMIT ${limit} OFFSET ${offset}
-    `;
+    let alerts;
+    let countResult;
 
-    const [{ count }] = await sql<{ count: string }[]>`
-      SELECT COUNT(*) AS count
-      FROM clinical_alerts ca
-      JOIN care_team_members ctm ON ctm.patient_id = ca.patient_id AND ctm.unassigned_at IS NULL
-      WHERE ca.organisation_id = ${org_id}
-        AND ctm.clinician_id = ${request.user.sub}
-        AND (${statusFilter}::TEXT IS NULL OR (
-          CASE ${statusFilter}
-            WHEN 'acknowledged' THEN ca.acknowledged_at IS NOT NULL AND ca.auto_resolved = FALSE
-            WHEN 'resolved'     THEN ca.auto_resolved = TRUE
-            WHEN 'new'          THEN ca.acknowledged_at IS NULL AND ca.auto_resolved = FALSE
-            ELSE TRUE
-          END
-        ))
-        AND (${statusFilter}::TEXT IS NOT NULL OR ca.auto_resolved = FALSE)
-        AND (${severityFilter}::TEXT IS NULL OR ca.severity = ${severityFilter})
-        AND (${patientIdFilter}::UUID IS NULL OR ca.patient_id = ${patientIdFilter}::UUID)
-    `;
+    if (isAdmin) {
+      // Admin sees ALL alerts across all organizations
+      alerts = await sql<{
+        id: string; patient_id: string; alert_type: string; severity: string;
+        title: string; body: string; rule_key: string | null;
+        created_at: string; acknowledged_at: string | null; resolved_at: string | null;
+        patient_first_name: string; patient_last_name: string;
+      }[]>`
+        SELECT ca.id, ca.patient_id, ca.alert_type, ca.severity, ca.title, ca.body,
+               ca.rule_key, ca.rule_context AS detail, ca.created_at, ca.acknowledged_at,
+               ca.auto_resolved_at AS resolved_at,
+               p.first_name || ' ' || p.last_name AS patient_name,
+               p.first_name AS patient_first_name, p.last_name AS patient_last_name,
+               CASE
+                 WHEN ca.auto_resolved = TRUE THEN 'resolved'
+                 WHEN ca.escalated_at IS NOT NULL THEN 'escalated'
+                 WHEN ca.acknowledged_at IS NOT NULL THEN 'acknowledged'
+                 ELSE 'new'
+               END AS status
+        FROM clinical_alerts ca
+        JOIN patients p ON p.id = ca.patient_id
+        WHERE (${statusFilter}::TEXT IS NULL OR (
+            CASE ${statusFilter}
+              WHEN 'acknowledged' THEN ca.acknowledged_at IS NOT NULL AND ca.auto_resolved = FALSE
+              WHEN 'resolved'     THEN ca.auto_resolved = TRUE
+              WHEN 'new'          THEN ca.acknowledged_at IS NULL AND ca.auto_resolved = FALSE
+              ELSE TRUE
+            END
+          ))
+          AND (${statusFilter}::TEXT IS NOT NULL OR ca.auto_resolved = FALSE)
+          AND (${severityFilter}::TEXT IS NULL OR ca.severity = ${severityFilter})
+          AND (${patientIdFilter}::UUID IS NULL OR ca.patient_id = ${patientIdFilter}::UUID)
+        ORDER BY
+          CASE ca.severity WHEN 'critical' THEN 0 WHEN 'warning' THEN 1 ELSE 2 END,
+          ca.created_at DESC
+        LIMIT ${limit} OFFSET ${offset}
+      `;
 
-    const total = Number(count);
+      [countResult] = await sql<{ count: string }[]>`
+        SELECT COUNT(*) AS count
+        FROM clinical_alerts ca
+        WHERE (${statusFilter}::TEXT IS NULL OR (
+            CASE ${statusFilter}
+              WHEN 'acknowledged' THEN ca.acknowledged_at IS NOT NULL AND ca.auto_resolved = FALSE
+              WHEN 'resolved'     THEN ca.auto_resolved = TRUE
+              WHEN 'new'          THEN ca.acknowledged_at IS NULL AND ca.auto_resolved = FALSE
+              ELSE TRUE
+            END
+          ))
+          AND (${statusFilter}::TEXT IS NOT NULL OR ca.auto_resolved = FALSE)
+          AND (${severityFilter}::TEXT IS NULL OR ca.severity = ${severityFilter})
+          AND (${patientIdFilter}::UUID IS NULL OR ca.patient_id = ${patientIdFilter}::UUID)
+      `;
+    } else {
+      // Regular clinician - only see alerts for patients on their care team
+      alerts = await sql<{
+        id: string; patient_id: string; alert_type: string; severity: string;
+        title: string; body: string; rule_key: string | null;
+        created_at: string; acknowledged_at: string | null; resolved_at: string | null;
+        patient_first_name: string; patient_last_name: string;
+      }[]>`
+        SELECT ca.id, ca.patient_id, ca.alert_type, ca.severity, ca.title, ca.body,
+               ca.rule_key, ca.rule_context AS detail, ca.created_at, ca.acknowledged_at,
+               ca.auto_resolved_at AS resolved_at,
+               p.first_name || ' ' || p.last_name AS patient_name,
+               p.first_name AS patient_first_name, p.last_name AS patient_last_name,
+               CASE
+                 WHEN ca.auto_resolved = TRUE THEN 'resolved'
+                 WHEN ca.escalated_at IS NOT NULL THEN 'escalated'
+                 WHEN ca.acknowledged_at IS NOT NULL THEN 'acknowledged'
+                 ELSE 'new'
+               END AS status
+        FROM clinical_alerts ca
+        JOIN patients p ON p.id = ca.patient_id
+        JOIN care_team_members ctm ON ctm.patient_id = ca.patient_id AND ctm.unassigned_at IS NULL
+        WHERE ca.organisation_id = ${org_id}
+          AND ctm.clinician_id = ${request.user.sub}
+          AND (${statusFilter}::TEXT IS NULL OR (
+            CASE ${statusFilter}
+              WHEN 'acknowledged' THEN ca.acknowledged_at IS NOT NULL AND ca.auto_resolved = FALSE
+              WHEN 'resolved'     THEN ca.auto_resolved = TRUE
+              WHEN 'new'          THEN ca.acknowledged_at IS NULL AND ca.auto_resolved = FALSE
+              ELSE TRUE
+            END
+          ))
+          AND (${statusFilter}::TEXT IS NOT NULL OR ca.auto_resolved = FALSE)
+          AND (${severityFilter}::TEXT IS NULL OR ca.severity = ${severityFilter})
+          AND (${patientIdFilter}::UUID IS NULL OR ca.patient_id = ${patientIdFilter}::UUID)
+        ORDER BY
+          CASE ca.severity WHEN 'critical' THEN 0 WHEN 'warning' THEN 1 ELSE 2 END,
+          ca.created_at DESC
+        LIMIT ${limit} OFFSET ${offset}
+      `;
+
+      [countResult] = await sql<{ count: string }[]>`
+        SELECT COUNT(*) AS count
+        FROM clinical_alerts ca
+        JOIN care_team_members ctm ON ctm.patient_id = ca.patient_id AND ctm.unassigned_at IS NULL
+        WHERE ca.organisation_id = ${org_id}
+          AND ctm.clinician_id = ${request.user.sub}
+          AND (${statusFilter}::TEXT IS NULL OR (
+            CASE ${statusFilter}
+              WHEN 'acknowledged' THEN ca.acknowledged_at IS NOT NULL AND ca.auto_resolved = FALSE
+              WHEN 'resolved'     THEN ca.auto_resolved = TRUE
+              WHEN 'new'          THEN ca.acknowledged_at IS NULL AND ca.auto_resolved = FALSE
+              ELSE TRUE
+            END
+          ))
+          AND (${statusFilter}::TEXT IS NOT NULL OR ca.auto_resolved = FALSE)
+          AND (${severityFilter}::TEXT IS NULL OR ca.severity = ${severityFilter})
+          AND (${patientIdFilter}::UUID IS NULL OR ca.patient_id = ${patientIdFilter}::UUID)
+      `;
+    }
+
+    const total = Number(countResult?.count ?? 0);
     return reply.send({
       success: true,
       data: { items: alerts, total, page: query.page, limit, has_next: offset + alerts.length < total },
@@ -96,23 +164,26 @@ export default async function alertRoutes(fastify: FastifyInstance): Promise<voi
   });
 
   // ---------------------------------------------------------------------------
-  // GET /alerts/patients/:patientId — alerts for a specific patient
+  // GET /alerts/patients/:patientId — alerts for a specific patient (admin sees any)
   // ---------------------------------------------------------------------------
   fastify.get('/patients/:patientId', clinicianOnly, async (request, reply) => {
     const { patientId } = z.object({ patientId: UuidSchema }).parse(request.params);
     const query = AlertFilterSchema.parse(request.query);
     const limit = query.limit;
     const offset = (query.page - 1) * limit;
+    const isAdmin = await isAdminUser(request.user.sub);
 
-    // Verify care team access
-    const [access] = await sql<{ id: string }[]>`
-      SELECT ctm.id FROM care_team_members ctm
-      WHERE ctm.patient_id = ${patientId}
-        AND ctm.clinician_id = ${request.user.sub}
-        AND ctm.unassigned_at IS NULL
-    `;
-    if (!access) {
-      return reply.status(403).send({ success: false, error: { code: 'FORBIDDEN', message: 'Not on this patient\'s care team' } });
+    // Verify access - admin can access any, others need care team membership
+    if (!isAdmin) {
+      const [access] = await sql<{ id: string }[]>`
+        SELECT ctm.id FROM care_team_members ctm
+        WHERE ctm.patient_id = ${patientId}
+          AND ctm.clinician_id = ${request.user.sub}
+          AND ctm.unassigned_at IS NULL
+      `;
+      if (!access) {
+        return reply.status(403).send({ success: false, error: { code: 'FORBIDDEN', message: 'Not on this patient\'s care team' } });
+      }
     }
 
     const alerts = await sql`

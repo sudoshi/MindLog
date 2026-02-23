@@ -23,6 +23,14 @@ import patientMeRoutes from './me.js';
 export default async function patientRoutes(fastify: FastifyInstance): Promise<void> {
   const auth = { preHandler: [fastify.authenticate] };
 
+  // Helper to check if current user is an admin (can access all patients)
+  async function isAdminUser(userId: string): Promise<boolean> {
+    const [clinician] = await sql<{ role: string }[]>`
+      SELECT role FROM clinicians WHERE id = ${userId}::UUID LIMIT 1
+    `;
+    return clinician?.role === 'admin';
+  }
+
   // Register /me sub-routes first — static prefix takes priority over /:id
   await fastify.register(patientMeRoutes, { prefix: '/me' });
 
@@ -88,30 +96,53 @@ export default async function patientRoutes(fastify: FastifyInstance): Promise<v
   });
 
   // ---------------------------------------------------------------------------
-  // GET /patients/:id
+  // GET /patients/:id — Admin can access any patient
   // ---------------------------------------------------------------------------
   fastify.get('/:id', auth, async (request, reply) => {
     const { id } = z.object({ id: UuidSchema }).parse(request.params);
+    const isAdmin = await isAdminUser(request.user.sub);
 
-    const [patient] = await sql<{
-      id: string; first_name: string; last_name: string; preferred_name: string | null;
-      mrn: string; email: string | null; phone: string | null; date_of_birth: string;
-      gender: string | null; status: string; risk_level: string; risk_reviewed_at: string | null;
-      tracking_streak: number; longest_streak: number; last_checkin_at: string | null;
-      onboarding_complete: boolean; app_installed: boolean; created_at: string;
-    }[]>`
-      SELECT p.id, p.first_name, p.last_name, p.preferred_name, p.mrn, p.email,
-             p.phone, p.date_of_birth, p.gender, p.status, p.risk_level,
-             p.risk_reviewed_at, p.tracking_streak, p.longest_streak,
-             p.last_checkin_at, p.onboarding_complete, p.app_installed, p.created_at
-      FROM patients p
-      JOIN care_team_members ctm ON ctm.patient_id = p.id AND ctm.unassigned_at IS NULL
-      WHERE p.id = ${id}
-        AND p.organisation_id = ${request.user.org_id}
-        AND p.is_active = TRUE
-        AND ctm.clinician_id = ${request.user.sub}
-      LIMIT 1
-    `;
+    let patient;
+    if (isAdmin) {
+      // Admin can access any patient
+      [patient] = await sql<{
+        id: string; first_name: string; last_name: string; preferred_name: string | null;
+        mrn: string; email: string | null; phone: string | null; date_of_birth: string;
+        gender: string | null; status: string; risk_level: string; risk_reviewed_at: string | null;
+        tracking_streak: number; longest_streak: number; last_checkin_at: string | null;
+        onboarding_complete: boolean; app_installed: boolean; created_at: string;
+      }[]>`
+        SELECT p.id, p.first_name, p.last_name, p.preferred_name, p.mrn, p.email,
+               p.phone, p.date_of_birth, p.gender, p.status, p.risk_level,
+               p.risk_reviewed_at, p.tracking_streak, p.longest_streak,
+               p.last_checkin_at, p.onboarding_complete, p.app_installed, p.created_at
+        FROM patients p
+        WHERE p.id = ${id}
+          AND p.is_active = TRUE
+        LIMIT 1
+      `;
+    } else {
+      // Regular clinician - must be on care team
+      [patient] = await sql<{
+        id: string; first_name: string; last_name: string; preferred_name: string | null;
+        mrn: string; email: string | null; phone: string | null; date_of_birth: string;
+        gender: string | null; status: string; risk_level: string; risk_reviewed_at: string | null;
+        tracking_streak: number; longest_streak: number; last_checkin_at: string | null;
+        onboarding_complete: boolean; app_installed: boolean; created_at: string;
+      }[]>`
+        SELECT p.id, p.first_name, p.last_name, p.preferred_name, p.mrn, p.email,
+               p.phone, p.date_of_birth, p.gender, p.status, p.risk_level,
+               p.risk_reviewed_at, p.tracking_streak, p.longest_streak,
+               p.last_checkin_at, p.onboarding_complete, p.app_installed, p.created_at
+        FROM patients p
+        JOIN care_team_members ctm ON ctm.patient_id = p.id AND ctm.unassigned_at IS NULL
+        WHERE p.id = ${id}
+          AND p.organisation_id = ${request.user.org_id}
+          AND p.is_active = TRUE
+          AND ctm.clinician_id = ${request.user.sub}
+        LIMIT 1
+      `;
+    }
 
     if (!patient) {
       return reply.status(404).send({ success: false, error: { code: 'NOT_FOUND', message: 'Patient not found' } });
@@ -130,24 +161,34 @@ export default async function patientRoutes(fastify: FastifyInstance): Promise<v
   });
 
   // ---------------------------------------------------------------------------
-  // PATCH /patients/:id
+  // PATCH /patients/:id — Admin can update any patient
   // ---------------------------------------------------------------------------
   fastify.patch('/:id', auth, async (request, reply) => {
     const { id } = z.object({ id: UuidSchema }).parse(request.params);
     const updates = UpdatePatientProfileSchema.parse(request.body);
+    const isAdmin = await isAdminUser(request.user.sub);
 
-    // Verify care team membership
-    const [membership] = await sql<{ id: string }[]>`
-      SELECT ctm.id FROM care_team_members ctm
-      JOIN patients p ON p.id = ctm.patient_id
-      WHERE ctm.patient_id = ${id}
-        AND ctm.clinician_id = ${request.user.sub}
-        AND ctm.unassigned_at IS NULL
-        AND p.organisation_id = ${request.user.org_id}
-        AND p.is_active = TRUE
-    `;
+    // Verify access - admin can access any, others need care team membership
+    let hasAccess = false;
+    if (isAdmin) {
+      const [patient] = await sql<{ id: string }[]>`
+        SELECT id FROM patients WHERE id = ${id} AND is_active = TRUE
+      `;
+      hasAccess = !!patient;
+    } else {
+      const [membership] = await sql<{ id: string }[]>`
+        SELECT ctm.id FROM care_team_members ctm
+        JOIN patients p ON p.id = ctm.patient_id
+        WHERE ctm.patient_id = ${id}
+          AND ctm.clinician_id = ${request.user.sub}
+          AND ctm.unassigned_at IS NULL
+          AND p.organisation_id = ${request.user.org_id}
+          AND p.is_active = TRUE
+      `;
+      hasAccess = !!membership;
+    }
 
-    if (!membership) {
+    if (!hasAccess) {
       return reply.status(404).send({ success: false, error: { code: 'NOT_FOUND', message: 'Patient not found' } });
     }
 
@@ -187,17 +228,27 @@ export default async function patientRoutes(fastify: FastifyInstance): Promise<v
   });
 
   // ---------------------------------------------------------------------------
-  // GET /patients/:id/caseload — today's caseload view row
+  // GET /patients/:id/caseload — today's caseload view row (admin sees any)
   // ---------------------------------------------------------------------------
   fastify.get('/:id/caseload', auth, async (request, reply) => {
     const { id } = z.object({ id: UuidSchema }).parse(request.params);
+    const isAdmin = await isAdminUser(request.user.sub);
 
-    const [row] = await sql`
-      SELECT * FROM v_caseload_today
-      WHERE patient_id = ${id}
-        AND clinician_id = ${request.user.sub}
-      LIMIT 1
-    `;
+    let row;
+    if (isAdmin) {
+      [row] = await sql`
+        SELECT * FROM v_caseload_today
+        WHERE patient_id = ${id}
+        LIMIT 1
+      `;
+    } else {
+      [row] = await sql`
+        SELECT * FROM v_caseload_today
+        WHERE patient_id = ${id}
+          AND clinician_id = ${request.user.sub}
+        LIMIT 1
+      `;
+    }
 
     if (!row) {
       return reply.status(404).send({ success: false, error: { code: 'NOT_FOUND', message: 'Patient not found in your caseload' } });
@@ -207,21 +258,24 @@ export default async function patientRoutes(fastify: FastifyInstance): Promise<v
   });
 
   // ---------------------------------------------------------------------------
-  // GET /patients/:id/mood-heatmap — 30-day heatmap
+  // GET /patients/:id/mood-heatmap — 30-day heatmap (admin sees any)
   // ---------------------------------------------------------------------------
   fastify.get('/:id/mood-heatmap', auth, async (request, reply) => {
     const { id } = z.object({ id: UuidSchema }).parse(request.params);
+    const isAdmin = await isAdminUser(request.user.sub);
 
-    // Verify care team access
-    const [access] = await sql<{ id: string }[]>`
-      SELECT ctm.id FROM care_team_members ctm
-      WHERE ctm.patient_id = ${id}
-        AND ctm.clinician_id = ${request.user.sub}
-        AND ctm.unassigned_at IS NULL
-    `;
+    // Verify access - admin can access any, others need care team membership
+    if (!isAdmin) {
+      const [access] = await sql<{ id: string }[]>`
+        SELECT ctm.id FROM care_team_members ctm
+        WHERE ctm.patient_id = ${id}
+          AND ctm.clinician_id = ${request.user.sub}
+          AND ctm.unassigned_at IS NULL
+      `;
 
-    if (!access) {
-      return reply.status(404).send({ success: false, error: { code: 'NOT_FOUND', message: 'Patient not found' } });
+      if (!access) {
+        return reply.status(404).send({ success: false, error: { code: 'NOT_FOUND', message: 'Patient not found' } });
+      }
     }
 
     const rows = await sql`

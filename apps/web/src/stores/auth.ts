@@ -14,6 +14,7 @@ interface AuthState {
   tokenExpiresAt: number | null; // unix seconds
   clinicianId: string | null;
   orgId: string | null;
+  role: string | null; // 'clinician' | 'admin' | 'patient'
 }
 
 // ---------------------------------------------------------------------------
@@ -26,6 +27,7 @@ const KEYS = {
   tokenExpiresAt: 'ml_token_expires_at',
   clinicianId:    'ml_clinician_id',
   orgId:          'ml_org_id',
+  role:           'ml_role',
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -41,6 +43,7 @@ let state: AuthState = {
   tokenExpiresAt: null,
   clinicianId: null,
   orgId: null,
+  role: null,
 };
 
 const listeners = new Set<Listener>();
@@ -77,11 +80,13 @@ function writeToStorage(
   expiresAt: number,
   clinicianId: string,
   orgId: string,
+  role: string,
 ): void {
   storage.setItem(KEYS.accessToken, token);
   storage.setItem(KEYS.tokenExpiresAt, String(expiresAt));
   storage.setItem(KEYS.clinicianId, clinicianId);
   storage.setItem(KEYS.orgId, orgId);
+  storage.setItem(KEYS.role, role);
   if (refreshToken) storage.setItem(KEYS.refreshToken, refreshToken);
 }
 
@@ -106,6 +111,7 @@ export const authActions = {
     refreshToken?: string,
     expiresIn = 900, // seconds, default 15 min
     remember = false,
+    role = 'clinician',
   ): void {
     const expiresAt = Math.floor(Date.now() / 1000) + expiresIn;
 
@@ -114,7 +120,7 @@ export const authActions = {
     const primary   = remember ? localStorage   : sessionStorage;
     const secondary = remember ? sessionStorage  : localStorage;
     clearStorage(secondary);
-    writeToStorage(primary, token, refreshToken, expiresAt, clinicianId, orgId);
+    writeToStorage(primary, token, refreshToken, expiresAt, clinicianId, orgId, role);
 
     setState({
       isAuthenticated: true,
@@ -123,6 +129,7 @@ export const authActions = {
       tokenExpiresAt: expiresAt,
       clinicianId,
       orgId,
+      role,
     });
   },
 
@@ -155,6 +162,7 @@ export const authActions = {
       tokenExpiresAt: null,
       clinicianId: null,
       orgId: null,
+      role: null,
     });
   },
 
@@ -176,6 +184,7 @@ export const authActions = {
     const expiresAt   = Number(storage.getItem(KEYS.tokenExpiresAt) ?? 0);
     const clinicianId = storage.getItem(KEYS.clinicianId);
     const orgId       = storage.getItem(KEYS.orgId);
+    const role        = storage.getItem(KEYS.role) ?? 'clinician';
 
     // Discard if any required field is missing or the access token is expired.
     // The proactive refresh in AppShell will renew it shortly after mount if
@@ -193,6 +202,7 @@ export const authActions = {
       tokenExpiresAt: expiresAt,
       clinicianId,
       orgId,
+      role,
     });
   },
 };

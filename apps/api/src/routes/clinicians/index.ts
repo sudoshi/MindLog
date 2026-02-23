@@ -19,25 +19,60 @@ export default async function clinicianRoutes(fastify: FastifyInstance): Promise
 
   // ---------------------------------------------------------------------------
   // GET /clinicians/caseload — full caseload for today (from pre-aggregated view)
+  // Admin users see ALL patients across all organizations.
   // ---------------------------------------------------------------------------
   fastify.get('/caseload', clinicianOnly, async (request, reply) => {
-    const rows = await sql`
-      SELECT *
-      FROM v_caseload_today
-      WHERE clinician_id = ${request.user.sub}
-      ORDER BY
-        CASE status WHEN 'crisis' THEN 0 WHEN 'active' THEN 1 ELSE 2 END,
-        unacknowledged_alert_count DESC,
-        last_name, first_name
+    // Check if user is admin (either from clinicians.role or special admin login)
+    const [clinician] = await sql<{ role: string }[]>`
+      SELECT role FROM clinicians WHERE id = ${request.user.sub}::UUID LIMIT 1
     `;
+    const isAdmin = clinician?.role === 'admin';
+
+    let rows;
+    if (isAdmin) {
+      // Admin sees ALL patients across all organizations
+      rows = await sql`
+        SELECT DISTINCT ON (patient_id)
+          v.patient_id, v.mrn, v.first_name, v.last_name, v.date_of_birth,
+          v.gender, v.status, v.risk_level, v.tracking_streak, v.last_checkin_at,
+          v.clinician_id, v.care_team_role,
+          v.todays_entry_id, v.todays_mood, v.todays_coping, v.todays_completion_pct,
+          v.todays_submitted_at, v.todays_sleep_minutes, v.todays_exercise_minutes,
+          v.unacknowledged_alert_count, v.highest_alert_severity
+        FROM v_caseload_today v
+        ORDER BY
+          patient_id,
+          CASE v.status WHEN 'crisis' THEN 0 WHEN 'active' THEN 1 ELSE 2 END,
+          v.unacknowledged_alert_count DESC,
+          v.last_name, v.first_name
+      `;
+    } else {
+      // Regular clinician sees only their assigned patients
+      rows = await sql`
+        SELECT *
+        FROM v_caseload_today
+        WHERE clinician_id = ${request.user.sub}
+        ORDER BY
+          CASE status WHEN 'crisis' THEN 0 WHEN 'active' THEN 1 ELSE 2 END,
+          unacknowledged_alert_count DESC,
+          last_name, first_name
+      `;
+    }
 
     return reply.send({ success: true, data: rows });
   });
 
   // ---------------------------------------------------------------------------
   // GET /clinicians/snapshot — population KPI snapshot for the dashboard
+  // Admin users see ALL patients across all organizations.
   // ---------------------------------------------------------------------------
   fastify.get('/snapshot', clinicianOnly, async (request, reply) => {
+    // Check if user is admin
+    const [clinician] = await sql<{ role: string }[]>`
+      SELECT role FROM clinicians WHERE id = ${request.user.sub}::UUID LIMIT 1
+    `;
+    const isAdmin = clinician?.role === 'admin';
+
     // Try clinician-specific snapshot first (OQ-010), fall back to org-wide
     const [snapshot] = await sql`
       SELECT *
@@ -50,45 +85,78 @@ export default async function clinicianRoutes(fastify: FastifyInstance): Promise
     if (!snapshot) {
       // Return live counts if no snapshot exists yet (3 queries in parallel)
       const [[live], [alertCounts], [moodStats]] = await Promise.all([
-        sql`
-          SELECT
-            COUNT(*) FILTER (WHERE p.status = 'active')  AS active_patients,
-            COUNT(*) FILTER (WHERE p.status = 'crisis')  AS crisis_patients,
-            COUNT(*)                                      AS total_patients
-          FROM patients p
-          JOIN care_team_members ctm ON ctm.patient_id = p.id AND ctm.unassigned_at IS NULL
-          WHERE p.organisation_id = ${request.user.org_id}
-            AND p.is_active = TRUE
-            AND ctm.clinician_id = ${request.user.sub}
-        `,
-        sql`
-          SELECT
-            COUNT(*) FILTER (WHERE ca.severity = 'critical'
-              AND ca.acknowledged_at IS NULL AND ca.auto_resolved = FALSE) AS critical_alerts_count,
-            COUNT(*) FILTER (WHERE ca.severity = 'warning'
-              AND ca.acknowledged_at IS NULL AND ca.auto_resolved = FALSE) AS warning_alerts_count
-          FROM clinical_alerts ca
-          JOIN care_team_members ctm ON ctm.patient_id = ca.patient_id AND ctm.unassigned_at IS NULL
-          WHERE ca.organisation_id = ${request.user.org_id}
-            AND ctm.clinician_id   = ${request.user.sub}
-        `,
-        sql`
-          SELECT
-            ROUND(AVG(de.mood_rating) * 10) AS avg_mood_x10,
-            ROUND(
-              100.0 * COUNT(de.id) FILTER (WHERE de.mood_rating IS NOT NULL)
-              / NULLIF(COUNT(DISTINCT p.id), 0)
-            ) AS checkin_rate_pct
-          FROM patients p
-          JOIN care_team_members ctm ON ctm.patient_id = p.id AND ctm.unassigned_at IS NULL
-          LEFT JOIN daily_entries de
-            ON  de.patient_id  = p.id
-            AND de.entry_date  = CURRENT_DATE
-            AND de.submitted_at IS NOT NULL
-          WHERE p.organisation_id = ${request.user.org_id}
-            AND p.is_active       = TRUE
-            AND ctm.clinician_id  = ${request.user.sub}
-        `,
+        isAdmin
+          ? sql`
+              SELECT
+                COUNT(*) FILTER (WHERE p.status = 'active')  AS active_patients,
+                COUNT(*) FILTER (WHERE p.status = 'crisis')  AS crisis_patients,
+                COUNT(*)                                      AS total_patients
+              FROM patients p
+              WHERE p.is_active = TRUE
+            `
+          : sql`
+              SELECT
+                COUNT(*) FILTER (WHERE p.status = 'active')  AS active_patients,
+                COUNT(*) FILTER (WHERE p.status = 'crisis')  AS crisis_patients,
+                COUNT(*)                                      AS total_patients
+              FROM patients p
+              JOIN care_team_members ctm ON ctm.patient_id = p.id AND ctm.unassigned_at IS NULL
+              WHERE p.organisation_id = ${request.user.org_id}
+                AND p.is_active = TRUE
+                AND ctm.clinician_id = ${request.user.sub}
+            `,
+        isAdmin
+          ? sql`
+              SELECT
+                COUNT(*) FILTER (WHERE ca.severity = 'critical'
+                  AND ca.acknowledged_at IS NULL AND ca.auto_resolved = FALSE) AS critical_alerts_count,
+                COUNT(*) FILTER (WHERE ca.severity = 'warning'
+                  AND ca.acknowledged_at IS NULL AND ca.auto_resolved = FALSE) AS warning_alerts_count
+              FROM clinical_alerts ca
+            `
+          : sql`
+              SELECT
+                COUNT(*) FILTER (WHERE ca.severity = 'critical'
+                  AND ca.acknowledged_at IS NULL AND ca.auto_resolved = FALSE) AS critical_alerts_count,
+                COUNT(*) FILTER (WHERE ca.severity = 'warning'
+                  AND ca.acknowledged_at IS NULL AND ca.auto_resolved = FALSE) AS warning_alerts_count
+              FROM clinical_alerts ca
+              JOIN care_team_members ctm ON ctm.patient_id = ca.patient_id AND ctm.unassigned_at IS NULL
+              WHERE ca.organisation_id = ${request.user.org_id}
+                AND ctm.clinician_id   = ${request.user.sub}
+            `,
+        isAdmin
+          ? sql`
+              SELECT
+                ROUND(AVG(de.mood) * 10) AS avg_mood_x10,
+                ROUND(
+                  100.0 * COUNT(de.id) FILTER (WHERE de.mood IS NOT NULL)
+                  / NULLIF(COUNT(DISTINCT p.id), 0)
+                ) AS checkin_rate_pct
+              FROM patients p
+              LEFT JOIN daily_entries de
+                ON  de.patient_id  = p.id
+                AND de.entry_date  = CURRENT_DATE
+                AND de.submitted_at IS NOT NULL
+              WHERE p.is_active = TRUE
+            `
+          : sql`
+              SELECT
+                ROUND(AVG(de.mood) * 10) AS avg_mood_x10,
+                ROUND(
+                  100.0 * COUNT(de.id) FILTER (WHERE de.mood IS NOT NULL)
+                  / NULLIF(COUNT(DISTINCT p.id), 0)
+                ) AS checkin_rate_pct
+              FROM patients p
+              JOIN care_team_members ctm ON ctm.patient_id = p.id AND ctm.unassigned_at IS NULL
+              LEFT JOIN daily_entries de
+                ON  de.patient_id  = p.id
+                AND de.entry_date  = CURRENT_DATE
+                AND de.submitted_at IS NOT NULL
+              WHERE p.organisation_id = ${request.user.org_id}
+                AND p.is_active       = TRUE
+                AND ctm.clinician_id  = ${request.user.sub}
+            `,
       ]);
       return reply.send({
         success: true,

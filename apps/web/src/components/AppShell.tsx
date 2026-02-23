@@ -98,6 +98,7 @@ export function AppShell() {
   const token = useAuthStore((s) => s.accessToken);
   const refreshToken = useAuthStore((s) => s.refreshToken);
   const tokenExpiresAt = useAuthStore((s) => s.tokenExpiresAt);
+  const role = useAuthStore((s) => s.role);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -187,6 +188,7 @@ export function AppShell() {
     '/alerts': { title: 'Clinical Alerts', subtitle: 'Review and action patient alerts' },
     '/trends': { title: 'Population Trends', subtitle: 'Aggregate outcomes across your caseload' },
     '/reports': { title: 'Clinical Reports', subtitle: 'Generate PDF reports for patients' },
+    '/admin': { title: 'Admin Panel', subtitle: 'System administration and configuration' },
   };
 
   const isPatientDetail = location.pathname.startsWith('/patients/') && location.pathname !== '/patients';
@@ -268,6 +270,19 @@ export function AppShell() {
             Invite Patient
           </div>
         </div>
+
+        {/* Nav: Admin (only for admin users) */}
+        {role === 'admin' && (
+          <div className="nav-section">
+            <div className="nav-section-label">Administration</div>
+            <NavItem
+              icon="⚙️"
+              label="Admin Panel"
+              path="/admin"
+              onClick={() => navigate('/admin')}
+            />
+          </div>
+        )}
 
         {/* Footer */}
         <div className="sidebar-footer">

@@ -29,6 +29,75 @@ export default async function authRoutes(fastify: FastifyInstance): Promise<void
   fastify.post('/login', async (request, reply) => {
     const body = LoginSchema.parse(request.body);
 
+    // -------------------------------------------------------------------------
+    // DEV-ONLY: admin:admin bypass for superuser access (no Supabase required)
+    // This allows quick testing without MFA or external auth dependencies.
+    // -------------------------------------------------------------------------
+    if (config.isDev && body.email === 'admin' && body.password === 'admin') {
+      // Check for existing dev admin clinician, or create one on-the-fly
+      let [devOrg] = await sql<{ id: string }[]>`
+        SELECT id FROM organisations WHERE name = 'MindLog Dev' LIMIT 1
+      `;
+
+      if (!devOrg) {
+        [devOrg] = await sql<{ id: string }[]>`
+          INSERT INTO organisations (name, type, timezone, locale)
+          VALUES ('MindLog Dev', 'clinic', 'America/New_York', 'en-US')
+          RETURNING id
+        `;
+      }
+
+      let [devAdmin] = await sql<{ id: string; organisation_id: string }[]>`
+        SELECT id, organisation_id FROM clinicians
+        WHERE email = 'admin@mindlog.dev' AND is_active = TRUE
+        LIMIT 1
+      `;
+
+      if (!devAdmin) {
+        [devAdmin] = await sql<{ id: string; organisation_id: string }[]>`
+          INSERT INTO clinicians (
+            organisation_id, email, first_name, last_name, title, role, mfa_enabled
+          ) VALUES (
+            ${devOrg.id}::UUID, 'admin@mindlog.dev', 'System', 'Administrator', 'Dr', 'admin', FALSE
+          )
+          RETURNING id, organisation_id
+        `;
+      }
+
+      const payload: JwtPayload = {
+        sub: devAdmin.id,
+        email: 'admin@mindlog.dev',
+        role: 'clinician',
+        org_id: devAdmin.organisation_id,
+      };
+      const accessToken = fastify.jwt.sign(payload, { expiresIn: config.jwtAccessExpiry });
+
+      await sql`UPDATE clinicians SET last_login_at = NOW() WHERE id = ${devAdmin.id}`;
+
+      await auditLog({
+        actor: payload,
+        action: 'login',
+        resourceType: 'auth',
+        resourceId: devAdmin.id,
+        ipAddress: request.ip,
+        userAgent: request.headers['user-agent'],
+      });
+
+      fastify.log.info('[auth] DEV admin:admin bypass login successful');
+
+      return reply.send({
+        success: true,
+        data: {
+          access_token: accessToken,
+          refresh_token: 'dev-admin-refresh-token-not-real',
+          clinician_id: devAdmin.id,
+          org_id: devAdmin.organisation_id,
+          role: 'admin',  // Special admin role for frontend routing
+          user: { id: devAdmin.id, email: 'admin@mindlog.dev', role: 'admin', org_id: devAdmin.organisation_id },
+        },
+      });
+    }
+
     // Authenticate against Supabase Auth
     const supabaseRes = await fetch(
       `${config.supabaseUrl}/auth/v1/token?grant_type=password`,

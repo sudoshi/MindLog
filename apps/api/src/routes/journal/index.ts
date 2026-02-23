@@ -17,6 +17,14 @@ import { auditLog } from '../../middleware/audit.js';
 export default async function journalRoutes(fastify: FastifyInstance): Promise<void> {
   const auth = { preHandler: [fastify.authenticate] };
 
+  // Helper to check if current user is an admin
+  async function isAdminUser(userId: string): Promise<boolean> {
+    const [clinician] = await sql<{ role: string }[]>`
+      SELECT role FROM clinicians WHERE id = ${userId}::UUID LIMIT 1
+    `;
+    return clinician?.role === 'admin';
+  }
+
   // ---------------------------------------------------------------------------
   // POST /journal — create entry
   // ---------------------------------------------------------------------------
@@ -115,12 +123,13 @@ export default async function journalRoutes(fastify: FastifyInstance): Promise<v
   });
 
   // ---------------------------------------------------------------------------
-  // GET /journal/:id — single entry (patient reads own; clinician reads if shared)
+  // GET /journal/:id — single entry (patient reads own; clinician reads if shared; admin reads any)
   // ---------------------------------------------------------------------------
   fastify.get('/:id', auth, async (request, reply) => {
     const { id } = z.object({ id: UuidSchema }).parse(request.params);
     const userId = request.user.sub;
     const role = request.user.role;
+    const isAdmin = await isAdminUser(userId);
 
     let entry;
 
@@ -129,6 +138,15 @@ export default async function journalRoutes(fastify: FastifyInstance): Promise<v
         SELECT id, entry_date, body, word_count, shared_with_clinician, shared_at, created_at, updated_at
         FROM journal_entries
         WHERE id = ${id} AND patient_id = ${userId}
+        LIMIT 1
+      `;
+    } else if (isAdmin) {
+      // Admin can read any journal entry
+      [entry] = await sql`
+        SELECT je.id, je.entry_date, je.body, je.word_count, je.shared_with_clinician, je.created_at,
+               je.patient_id
+        FROM journal_entries je
+        WHERE je.id = ${id}
         LIMIT 1
       `;
     } else {
@@ -240,40 +258,46 @@ export default async function journalRoutes(fastify: FastifyInstance): Promise<v
   });
 
   // ---------------------------------------------------------------------------
-  // GET /journal/shared/:patientId — clinician reads patient's shared entries
+  // GET /journal/shared/:patientId — clinician reads patient's shared entries (admin reads all)
   // ---------------------------------------------------------------------------
   fastify.get('/shared/:patientId', auth, async (request, reply) => {
     const { patientId } = z.object({ patientId: UuidSchema }).parse(request.params);
     const query = PaginationSchema.parse(request.query);
+    const isAdmin = await isAdminUser(request.user.sub);
 
-    // Verify care team membership
-    const [access] = await sql<{ id: string }[]>`
-      SELECT ctm.id FROM care_team_members ctm
-      WHERE ctm.patient_id = ${patientId}
-        AND ctm.clinician_id = ${request.user.sub}
-        AND ctm.unassigned_at IS NULL
-    `;
+    // Verify care team membership (admin bypasses)
+    if (!isAdmin) {
+      const [access] = await sql<{ id: string }[]>`
+        SELECT ctm.id FROM care_team_members ctm
+        WHERE ctm.patient_id = ${patientId}
+          AND ctm.clinician_id = ${request.user.sub}
+          AND ctm.unassigned_at IS NULL
+      `;
 
-    if (!access) {
-      return reply.status(403).send({ success: false, error: { code: 'FORBIDDEN', message: 'Not on this patient\'s care team' } });
+      if (!access) {
+        return reply.status(403).send({ success: false, error: { code: 'FORBIDDEN', message: 'Not on this patient\'s care team' } });
+      }
     }
 
     const limit = query.limit;
     const offset = (query.page - 1) * limit;
 
+    // Admin can see all entries; regular clinicians only see shared entries
     const entries = await sql<{
-      id: string; entry_date: string; body: string; word_count: number; shared_at: string;
+      id: string; entry_date: string; body: string; word_count: number; shared_at: string; shared_with_clinician: boolean;
     }[]>`
-      SELECT id, entry_date, body, word_count, shared_at
+      SELECT id, entry_date, body, word_count, shared_at, shared_with_clinician
       FROM journal_entries
-      WHERE patient_id = ${patientId} AND shared_with_clinician = TRUE
+      WHERE patient_id = ${patientId}
+        AND (${isAdmin} = TRUE OR shared_with_clinician = TRUE)
       ORDER BY entry_date DESC
       LIMIT ${limit} OFFSET ${offset}
     `;
 
     const [{ count }] = await sql<{ count: string }[]>`
       SELECT COUNT(*) AS count FROM journal_entries
-      WHERE patient_id = ${patientId} AND shared_with_clinician = TRUE
+      WHERE patient_id = ${patientId}
+        AND (${isAdmin} = TRUE OR shared_with_clinician = TRUE)
     `;
 
     await auditLog({

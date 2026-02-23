@@ -64,6 +64,10 @@ export function MfaPage() {
         data.access_token,
         data.clinician_id ?? data.org_id,
         data.org_id,
+        undefined, // refresh_token not returned from MFA verify
+        900,       // expiresIn
+        false,     // remember (not applicable for MFA flow)
+        data.role ?? 'clinician',
       );
 
       navigate('/dashboard', { replace: true });

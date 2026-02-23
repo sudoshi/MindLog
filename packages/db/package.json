@@ -17,7 +17,8 @@
     "db:migrate": "node --import tsx/esm src/migrate.ts",
     "db:seed": "node --import tsx/esm src/seed.ts",
     "db:seed-demo": "node --import tsx/esm src/seed-demo.ts",
-    "db:fix-clinician-auth": "node --import tsx/esm src/fix-clinician-auth.ts"
+    "db:fix-clinician-auth": "node --import tsx/esm src/fix-clinician-auth.ts",
+    "db:enrich-demo": "node --import tsx/esm src/enrich-demo-data.ts"
   },
   "dependencies": {
     "postgres": "^3.4.5",

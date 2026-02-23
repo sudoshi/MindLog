@@ -52,8 +52,12 @@ export const SeveritySchema = z.number().int().min(1).max(10);
 // ---------------------------------------------------------------------------
 
 export const LoginSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(8).max(128),
+  // Allow "admin" as a dev bypass username, or a valid email
+  email: z.string().refine(
+    (val) => val === 'admin' || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val),
+    { message: 'Must be a valid email or "admin"' }
+  ),
+  password: z.string().min(1).max(128),
 });
 export type LoginInput = z.infer<typeof LoginSchema>;
 

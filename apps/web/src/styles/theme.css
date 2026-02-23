@@ -2,7 +2,9 @@
    MindLog Clinical Dashboard — Glassmorphic Design System
    Healthcare UI/UX best practices: clarity, hierarchy, patient-safety-first.
    Glassmorphism: layered frosted-glass surfaces, ambient depth, colored glows.
-   Typography: fluid clamp() scale — every text element scales with viewport.
+   Typography: fixed 16 px root (NHS Digital Service Manual §Typography;
+   WCAG 2.1 AA §1.4.3 contrast, §1.4.12 text spacing). No viewport scaling —
+   clinical workstations need stable, predictable text density.
    ============================================================================= */
 
 /* ── RESET ── */
@@ -44,7 +46,7 @@
   /* ── Ink (typography) — prototype-matched ── */
   --ink:       #e8edf5;
   --ink-mid:   #8b95a8;
-  --ink-soft:  #545f74;
+  --ink-soft:  #6e7d94;  /* raised from #545f74 — WCAG AA ≥4.5:1 on --bg */
   --ink-ghost: #2e3848;
 
   /* ── Semantic — status with glow variants ── */
@@ -86,30 +88,37 @@
   --r-xl:  20px;
   --r-2xl: 28px;
 
-  /* ── Fluid typography scale (prototype-matched clamp values) ──
-     All sizes scale smoothly between min and max as the viewport
-     grows from ~320 px to ~1920 px. The fluid root font-size
-     (see html rule below) compounds this scaling for true
-     proportional growth on large clinical monitors.              */
-  --text-xs:   clamp(0.70rem, 0.65rem + 0.25vw, 0.85rem);
-  --text-sm:   clamp(0.80rem, 0.75rem + 0.30vw, 1.00rem);
-  --text-base: clamp(0.90rem, 0.85rem + 0.35vw, 1.15rem);
-  --text-md:   clamp(1.00rem, 0.90rem + 0.40vw, 1.30rem);
-  --text-lg:   clamp(1.10rem, 1.00rem + 0.50vw, 1.50rem);
-  --text-xl:   clamp(1.30rem, 1.10rem + 0.60vw, 1.80rem);
-  --text-2xl:  clamp(1.60rem, 1.30rem + 0.80vw, 2.20rem);
-  --text-3xl:  clamp(2.00rem, 1.60rem + 1.00vw, 2.80rem);
+  /* ── Fixed typography scale — NHS Digital Service Manual §Typography ──
+     Root is 16 px (fixed). All --text-* are exact rem fractions:
+       xs   = 11 px  (0.6875rem) — labels, badges, table headers
+       sm   = 12 px  (0.75rem)   — secondary meta, captions
+       base = 14 px  (0.875rem)  — table body, nav items, most UI text
+       md   = 16 px  (1rem)      — primary body copy (NHS minimum)
+       lg   = 18 px  (1.125rem)  — panel headings, topbar title
+       xl   = 22 px  (1.375rem)  — patient name, section display text
+       2xl  = 26 px  (1.625rem)  — metric values
+       3xl  = 36 px  (2.25rem)   — large stat hero numbers             */
+  --text-xs:   0.6875rem;   /* 11 px */
+  --text-sm:   0.75rem;     /* 12 px */
+  --text-base: 0.875rem;    /* 14 px */
+  --text-md:   1rem;        /* 16 px */
+  --text-lg:   1.125rem;    /* 18 px */
+  --text-xl:   1.375rem;    /* 22 px */
+  --text-2xl:  1.625rem;    /* 26 px */
+  --text-3xl:  2.25rem;     /* 36 px */
 }
 
 /* ── BASE ── */
-/* Fluid root — scales from 16 px at small viewports up to 20 px at large
-   monitors. All rem-based tokens compound this scaling proportionally.   */
-html { font-size: clamp(16px, 14px + 0.4vw, 20px); }
+/* Fixed 16 px root — clinical workstations need stable, predictable text.
+   A separate rule bumps to 18 px for 4K/UHD monitors (≥2560 px wide).   */
+html { font-size: 16px; }
+@media (min-width: 2560px) { html { font-size: 18px; } }
 
 body {
   font-family: var(--font-body);
   background: var(--bg);
   color: var(--ink);
+  line-height: 1.5;  /* WCAG 2.1 §1.4.12 text spacing */
   min-height: 100vh;
   overflow: hidden;
 }
@@ -253,7 +262,7 @@ body::before {
   font-size: var(--text-xs);
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 1.2px;
+  letter-spacing: 1.4px;  /* ≥0.12em on 11px = 1.32px min; 1.4px passes */
   color: var(--ink-ghost);
   padding: 0 8px;
   margin-bottom: 2px;
@@ -261,6 +270,7 @@ body::before {
 
 .nav-item {
   display: flex; align-items: center; gap: 10px;
+  min-height: 32px;
   padding: 9px 10px;
   border-radius: var(--r-sm);
   cursor: pointer;
@@ -372,6 +382,7 @@ body::before {
 /* Topbar buttons */
 .topbar-btn {
   display: flex; align-items: center; gap: 6px;
+  min-height: 32px;
   padding: 7px 12px;
   border-radius: var(--r-sm);
   border: 1px solid var(--border2);
@@ -597,6 +608,7 @@ body::before {
 }
 
 .filter-chip {
+  min-height: 32px;
   padding: 6px 14px;
   border-radius: 999px;
   border: 1px solid var(--border2);

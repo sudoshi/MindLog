@@ -65,6 +65,7 @@ export function LoginPage() {
           data.refresh_token,
           900,
           rememberMe,
+          data.role ?? 'clinician',
         );
 
         // Use full page navigation to trigger browser's "Save password?" prompt
@@ -132,7 +133,7 @@ export function LoginPage() {
             Email
           </label>
           <input
-            type="email"
+            type="text"
             name="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
