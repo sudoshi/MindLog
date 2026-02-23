@@ -5,8 +5,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import {
-  ResponsiveContainer, LineChart, Line,
-  XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
+  ResponsiveContainer, LineChart, Line, BarChart, Bar,
+  XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Cell,
 } from 'recharts';
 import { format, parseISO } from 'date-fns';
 import { api } from '../services/api.js';
@@ -326,6 +326,153 @@ function CaseloadSummaryPanel({ caseload, snapshot }: { caseload: CaseloadRow[];
 }
 
 // ---------------------------------------------------------------------------
+// Population Breakdown Types
+// ---------------------------------------------------------------------------
+
+interface PopBreakdown {
+  days: number;
+  moodDistribution: { high: number; good: number; moderate: number; low: number };
+  statusBreakdown: Record<string, number>;
+  assessmentCompletion: { completed: number; total: number; pct: number | null };
+  adherenceRate: { taken: number; total: number; pct: number | null };
+}
+
+// ---------------------------------------------------------------------------
+// Mood Distribution Histogram (BarChart from population-breakdown)
+// ---------------------------------------------------------------------------
+
+function MoodDistributionBarChart({ data }: { data: PopBreakdown['moodDistribution'] }) {
+  const chartData = [
+    { label: 'High (8–10)', count: data.high,     color: 'var(--safe)' },
+    { label: 'Good (6–7)',  count: data.good,     color: 'var(--info)' },
+    { label: 'Mod (4–5)',   count: data.moderate, color: '#c9972a' },
+    { label: 'Low (1–3)',   count: data.low,      color: 'var(--critical)' },
+  ];
+  const total = chartData.reduce((s, d) => s + d.count, 0);
+
+  return (
+    <div className="panel anim anim-d1" style={{ marginBottom: 14 }}>
+      <div className="panel-header">
+        <div>
+          <div className="panel-title">Mood Distribution — Today</div>
+          <div className="panel-sub">{total} patients with today's check-in</div>
+        </div>
+      </div>
+      {total === 0 ? (
+        <div className="empty-state" style={{ padding: '32px 24px' }}>
+          <div className="empty-state-title">No check-ins recorded yet today</div>
+        </div>
+      ) : (
+        <div style={{ padding: '8px 0 4px' }}>
+          <ResponsiveContainer width="100%" height={160}>
+            <BarChart data={chartData} margin={{ top: 4, right: 16, bottom: 4, left: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+              <XAxis
+                dataKey="label"
+                tick={{ fill: 'var(--ink-soft)', fontSize: 11 }}
+                tickLine={false}
+                axisLine={{ stroke: 'var(--border)' }}
+              />
+              <YAxis
+                allowDecimals={false}
+                tick={{ fill: 'var(--ink-soft)', fontSize: 10 }}
+                tickLine={false}
+                axisLine={false}
+                width={24}
+              />
+              <RechartsTooltip
+                contentStyle={{ background: 'var(--glass-02)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 }}
+                cursor={{ fill: 'rgba(255,255,255,0.04)' }}
+                formatter={(v: number) => [v, 'Patients']}
+              />
+              <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+                {chartData.map((d, i) => <Cell key={i} fill={d.color} />)}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Medication Adherence Gauge (custom SVG arc)
+// ---------------------------------------------------------------------------
+
+function AdherenceGaugePanel({ adherence, days }: { adherence: PopBreakdown['adherenceRate']; days: number }) {
+  const pct = adherence.pct ?? 0;
+  // SVG arc: radius 50, half-circle
+  const R = 50;
+  const cx = 70;
+  const cy = 70;
+  const startAngle = Math.PI;
+  const sweep = Math.PI * Math.min(pct, 100) / 100;
+  const endAngle = startAngle + sweep;
+  const x1 = cx + R * Math.cos(startAngle);
+  const y1 = cy + R * Math.sin(startAngle);
+  const x2 = cx + R * Math.cos(endAngle);
+  const y2 = cy + R * Math.sin(endAngle);
+  const largeArc = sweep > Math.PI ? 1 : 0;
+  const arcPath = `M ${x1} ${y1} A ${R} ${R} 0 ${largeArc} 1 ${x2} ${y2}`;
+  const bgPath  = `M ${cx - R} ${cy} A ${R} ${R} 0 1 1 ${cx + R} ${cy}`;
+
+  const color = pct >= 80 ? 'var(--safe)' : pct >= 60 ? '#c9972a' : 'var(--critical)';
+
+  return (
+    <div className="panel">
+      <div className="panel-header">
+        <div className="panel-title">Medication Adherence</div>
+        <div className="panel-sub">Last {days} days · {adherence.taken}/{adherence.total} doses taken</div>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '12px 0 16px' }}>
+        <svg width={140} height={80} viewBox="0 0 140 80">
+          <path d={bgPath}  fill="none" stroke="var(--border)" strokeWidth={10} strokeLinecap="round" />
+          {pct > 0 && <path d={arcPath} fill="none" stroke={color} strokeWidth={10} strokeLinecap="round" />}
+        </svg>
+        <div style={{ fontSize: 28, fontWeight: 800, color, marginTop: -8 }}>{pct}%</div>
+        <div style={{ fontSize: 11, color: 'var(--ink-soft)', marginTop: 2 }}>
+          {pct >= 80 ? 'Excellent adherence' : pct >= 60 ? 'Moderate adherence' : adherence.total === 0 ? 'No data' : 'Needs attention'}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Assessment Completion Panel
+// ---------------------------------------------------------------------------
+
+function AssessmentCompletionPanel({ completion, days }: { completion: PopBreakdown['assessmentCompletion']; days: number }) {
+  const pct = completion.pct ?? 0;
+  const color = pct >= 70 ? 'var(--safe)' : pct >= 40 ? '#c9972a' : 'var(--critical)';
+
+  return (
+    <div className="panel">
+      <div className="panel-header">
+        <div className="panel-title">Assessment Completion</div>
+        <div className="panel-sub">Last {days} days · {completion.completed}/{completion.total} patients</div>
+      </div>
+      <div style={{ padding: '12px 18px 16px' }}>
+        <div style={{ fontSize: 28, fontWeight: 800, color, marginBottom: 10 }}>
+          {completion.total === 0 ? '—' : `${pct}%`}
+        </div>
+        <div style={{
+          height: 8, borderRadius: 4,
+          background: 'var(--border)', overflow: 'hidden',
+        }}>
+          <div style={{ width: `${pct}%`, height: '100%', background: color, borderRadius: 4, transition: 'width 0.6s ease' }} />
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, fontSize: 11, color: 'var(--ink-soft)' }}>
+          <span>{completion.completed} completed</span>
+          <span>{completion.total - completion.completed} outstanding</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Main Page
 // ---------------------------------------------------------------------------
 
@@ -333,27 +480,31 @@ export function TrendsPage() {
   const token = useAuthStore((s) => s.accessToken);
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [caseload, setCaseload] = useState<CaseloadRow[]>([]);
+  const [breakdown, setBreakdown] = useState<PopBreakdown | null>(null);
   const [loading, setLoading] = useState(true);
+  const [days, setDays] = useState(30);
 
   const fetchData = useCallback(async () => {
     if (!token) return;
     setLoading(true);
     try {
-      const [snap, caseRes] = await Promise.all([
+      const [snap, caseRes, bd] = await Promise.all([
         api.get<Snapshot>('/clinicians/snapshot', token),
         api.get<{ success: boolean; data: CaseloadRow[] } | CaseloadRow[]>('/clinicians/caseload', token),
+        api.get<PopBreakdown>(`/clinicians/population-breakdown?days=${days}`, token).catch(() => null),
       ]);
       setSnapshot(snap);
       const rows = Array.isArray(caseRes)
         ? caseRes
         : ((caseRes as { data?: CaseloadRow[] }).data ?? []);
       setCaseload(rows);
+      setBreakdown(bd);
     } catch (e) {
       console.error('[trends] fetch error', e);
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, [token, days]);
 
   useEffect(() => { void fetchData(); }, [fetchData]);
 
@@ -380,6 +531,25 @@ export function TrendsPage() {
 
   return (
     <div className="view-pad">
+      {/* ── Day range selector ── */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+        {[7, 14, 30, 90].map((d) => (
+          <button
+            key={d}
+            onClick={() => setDays(d)}
+            style={{
+              padding: '5px 14px', borderRadius: 20, fontSize: 12, fontWeight: 600,
+              background: days === d ? 'var(--safe)' : 'var(--glass-01)',
+              color: days === d ? '#0a0e1a' : 'var(--ink-mid)',
+              border: `1px solid ${days === d ? 'var(--safe)' : 'var(--border)'}`,
+              cursor: 'pointer',
+            }}
+          >
+            {d}d
+          </button>
+        ))}
+      </div>
+
       {/* ── 3 stat panels ── */}
       <div className="three-col anim">
         <StatPanel
@@ -402,6 +572,17 @@ export function TrendsPage() {
           subtitle={`of ${caseload.length} total in caseload`}
         />
       </div>
+
+      {/* ── Mood distribution histogram + adherence gauge ── */}
+      {breakdown && (
+        <div className="two-col anim anim-d1">
+          <MoodDistributionBarChart data={breakdown.moodDistribution} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <AdherenceGaugePanel adherence={breakdown.adherenceRate} days={days} />
+            <AssessmentCompletionPanel completion={breakdown.assessmentCompletion} days={days} />
+          </div>
+        </div>
+      )}
 
       {/* ── 30-day historical mood trend ── */}
       <HistoricalMoodPanel token={token} />

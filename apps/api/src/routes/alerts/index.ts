@@ -198,9 +198,10 @@ export default async function alertRoutes(fastify: FastifyInstance): Promise<voi
       LIMIT ${limit} OFFSET ${offset}
     `;
 
-    const [{ count }] = await sql<{ count: string }[]>`
+    const [_countRow] = await sql<{ count: string }[]>`
       SELECT COUNT(*) AS count FROM clinical_alerts WHERE patient_id = ${patientId}
     `;
+    const count = _countRow?.count ?? '0';
 
     return reply.send({
       success: true,

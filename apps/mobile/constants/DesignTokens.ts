@@ -245,6 +245,33 @@ export const GRADIENT = {
 } as const;
 
 // ---------------------------------------------------------------------------
+// Dark mode color overrides
+// Accent/brand colors (teal/amber/red) are unchanged — all maintain
+// WCAG AA contrast ratios on these dark backgrounds.
+// ---------------------------------------------------------------------------
+
+export const DARK_TOKENS = {
+  COLOR_BG:               '#0d1117',
+  COLOR_SURFACE:          '#161b22',
+  COLOR_SURFACE_ELEVATED: '#21262d',
+  COLOR_BORDER:           '#30363d',
+  COLOR_TEXT_PRIMARY:     '#e6edf3',
+  COLOR_TEXT_SECONDARY:   '#8b949e',
+  COLOR_TEXT_MUTED:       '#6e7681',
+} as const;
+
+// Light mode color overrides (for users who prefer light)
+export const LIGHT_TOKENS = {
+  COLOR_BG:               '#f6f8fa',
+  COLOR_SURFACE:          '#ffffff',
+  COLOR_SURFACE_ELEVATED: '#ffffff',
+  COLOR_BORDER:           '#d0d7de',
+  COLOR_TEXT_PRIMARY:     '#1f2328',
+  COLOR_TEXT_SECONDARY:   '#656d76',
+  COLOR_TEXT_MUTED:       '#9198a1',
+} as const;
+
+// ---------------------------------------------------------------------------
 // Z-index scale
 // ---------------------------------------------------------------------------
 

@@ -1,0 +1,139 @@
+# =============================================================================
+# MindLog — Deploy Pipeline
+# Runs after CI passes on the main branch.
+#
+# Stages:
+#   1. deploy-api  — SSH into production server, pull, build, restart PM2
+#   2. deploy-web  — rsync web dist to server (or can be adapted for CDN)
+#   3. eas-update  — Publish an OTA update for the mobile app (Expo Updates)
+#
+# Required GitHub secrets:
+#   DEPLOY_HOST          — SSH hostname / IP of the production server
+#   DEPLOY_USER          — SSH user (e.g. mindlog)
+#   DEPLOY_SSH_KEY        — Private SSH key (PEM format) — add public key to server
+#   DEPLOY_DIR           — Absolute path on server (e.g. /opt/mindlog)
+#   EXPO_TOKEN            — Expo personal access token (for EAS)
+#   SENTRY_AUTH_TOKEN     — Sentry release upload token
+#   SENTRY_ORG            — Sentry organisation slug
+#   SENTRY_PROJECT        — Sentry project slug
+# =============================================================================
+
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Guard: only deploy if CI passed
+  # ---------------------------------------------------------------------------
+  check-ci:
+    name: Check CI status
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    steps:
+      - run: echo "CI passed — proceeding with deploy"
+
+  # ---------------------------------------------------------------------------
+  # Deploy API + web to production server
+  # ---------------------------------------------------------------------------
+  deploy-server:
+    name: Deploy — Server
+    runs-on: ubuntu-latest
+    needs: check-ci
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
+
+      - name: Add host to known_hosts
+        run: |
+          ssh-keyscan -H ${{ secrets.DEPLOY_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy via SSH
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_DIR:  ${{ secrets.DEPLOY_DIR }}
+        run: |
+          ssh $DEPLOY_USER@$DEPLOY_HOST << 'ENDSSH'
+            set -e
+            cd "$DEPLOY_DIR"
+
+            echo "==> Pulling latest code"
+            git pull origin main
+
+            echo "==> Installing dependencies"
+            npm ci --omit=dev
+
+            echo "==> Building packages"
+            npm run build --workspace=packages/shared
+            npm run build --workspace=packages/db
+            npm run build --workspace=apps/api
+            npm run build --workspace=apps/web
+
+            echo "==> Running database migrations"
+            npm run db:migrate --workspace=packages/db
+
+            echo "==> Reloading PM2"
+            pm2 reload ecosystem.config.cjs --update-env
+
+            echo "==> Health check"
+            sleep 3
+            curl -sf http://127.0.0.1:3000/health || { echo "Health check failed"; exit 1; }
+
+            echo "==> Deploy complete"
+          ENDSSH
+
+      - name: Create Sentry release
+        uses: getsentry/action-release@v3
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG:        ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT:    ${{ secrets.SENTRY_PROJECT }}
+        with:
+          environment:  production
+          version:      ${{ github.sha }}
+          sourcemaps:   apps/web/dist/assets
+
+  # ---------------------------------------------------------------------------
+  # EAS OTA update for mobile (non-blocking — failure doesn't block deploy)
+  # ---------------------------------------------------------------------------
+  eas-update:
+    name: EAS OTA Update
+    runs-on: ubuntu-latest
+    needs: check-ci
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install Expo CLI
+        run: npm install -g eas-cli
+
+      - name: Install mobile dependencies
+        run: npm ci --workspace=packages/shared --workspace=apps/mobile --include-workspace-root
+
+      - name: Build shared packages
+        run: npm run build --workspace=packages/shared
+
+      - name: Publish EAS update
+        run: |
+          cd apps/mobile
+          eas update \
+            --auto \
+            --branch production \
+            --message "Auto update from CI — ${{ github.sha }}"
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}

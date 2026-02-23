@@ -12,14 +12,14 @@ import type { UserRole } from '@mindlog/shared';
 // Extract JWT from Authorization: Bearer header OR ?token= query param.
 // The query-param fallback is required for WebSocket upgrade requests because
 // browsers cannot set custom headers on the WS handshake.
-function extractToken(request: FastifyRequest): string | null {
+function extractToken(request: FastifyRequest): string | undefined {
   const auth = request.headers.authorization;
   if (auth && /^Bearer\s/i.test(auth)) {
     const parts = auth.split(' ');
-    return parts.length === 2 ? parts[1] : null;
+    return parts.length === 2 ? parts[1] : undefined;
   }
   const q = request.query as Record<string, string | undefined>;
-  return q['token'] ?? null;
+  return q['token'];
 }
 
 export interface JwtPayload {
@@ -27,15 +27,25 @@ export interface JwtPayload {
   email: string;
   role: UserRole;
   org_id: string;
+  // MFA partial token fields — only present during 2FA challenge step
+  mfa_pending?: boolean;
+  supabase_token?: string;
+  factor_id?: string;
+  clinician_id?: string;
+}
+
+// Tell @fastify/jwt what shape our payload has so request.user is correctly typed.
+declare module '@fastify/jwt' {
+  interface FastifyJWT {
+    payload: JwtPayload;
+    user: JwtPayload;
+  }
 }
 
 declare module 'fastify' {
   interface FastifyInstance {
     authenticate: (request: FastifyRequest, reply: FastifyReply) => Promise<void>;
     requireRole: (roles: UserRole[]) => (request: FastifyRequest, reply: FastifyReply) => Promise<void>;
-  }
-  interface FastifyRequest {
-    user: JwtPayload;
   }
 }
 

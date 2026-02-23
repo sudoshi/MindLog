@@ -29,10 +29,10 @@ export const reportQueue = new Queue(REPORT_QUEUE_NAME, { connection });
 
 export interface ReportJobData {
   reportId: string;
-  patientId: string;
+  patientId?: string;
   clinicianId: string;
   orgId: string;
-  reportType: 'weekly_summary' | 'monthly_summary' | 'clinical_export';
+  reportType: 'weekly_summary' | 'monthly_summary' | 'clinical_export' | 'cda_handover';
   periodStart: string; // YYYY-MM-DD
   periodEnd: string;   // YYYY-MM-DD
   title: string;
@@ -108,7 +108,9 @@ interface JournalRow {
 // Data fetch
 // ---------------------------------------------------------------------------
 
-async function fetchReportData(job: ReportJobData) {
+type ReportJobDataWithPatient = ReportJobData & { patientId: string };
+
+async function fetchReportData(job: ReportJobDataWithPatient) {
   const { patientId, clinicianId, periodStart, periodEnd } = job;
 
   const [patient, clinician, entries, alerts, meds, notes, journals] = await Promise.all([
@@ -289,7 +291,7 @@ function buildMoodSvg(entries: DailyEntryRow[]): string {
 // HTML template
 // ---------------------------------------------------------------------------
 
-function renderHtml(job: ReportJobData, data: Awaited<ReturnType<typeof fetchReportData>>): string {
+function renderHtml(job: ReportJobDataWithPatient, data: Awaited<ReturnType<typeof fetchReportData>>): string {
   const { patient, clinician, entries, alerts, meds, notes, journals } = data;
   if (!patient) return '<html><body>Patient not found</body></html>';
 
@@ -569,21 +571,25 @@ function renderHtml(job: ReportJobData, data: Awaited<ReturnType<typeof fetchRep
 const STORAGE_BUCKET = 'reports';
 const SIGNED_URL_EXPIRY_SECONDS = 7 * 24 * 3600; // 7 days
 
-async function uploadToStorage(pdfBuffer: Buffer, objectPath: string): Promise<string> {
+async function uploadToStorage(
+  fileBuffer: Buffer,
+  objectPath: string,
+  contentType = 'application/pdf',
+): Promise<string> {
   const url = `${config.supabaseUrl}/storage/v1/object/${STORAGE_BUCKET}/${objectPath}`;
   const res = await fetch(url, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${config.supabaseServiceRoleKey}`,
-      'Content-Type': 'application/pdf',
+      'Content-Type': contentType,
       'x-upsert': 'true',
     },
-    body: pdfBuffer,
+    body: new Uint8Array(fileBuffer) as unknown as BodyInit,
   });
 
   if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`Supabase Storage upload failed (${res.status}): ${body}`);
+    const errText = await res.text();
+    throw new Error(`Supabase Storage upload failed (${res.status}): ${errText}`);
   }
 
   return `${STORAGE_BUCKET}/${objectPath}`;
@@ -617,7 +623,7 @@ async function createSignedUrl(objectPath: string): Promise<string> {
 
 async function notifyClinicianReportReady(
   clinician: ClinicianRow,
-  job: ReportJobData,
+  job: ReportJobDataWithPatient,
   signedUrl: string,
 ): Promise<void> {
   if (!config.resendApiKey) return;
@@ -673,14 +679,52 @@ async function processReportJob(job: Job<ReportJobData>): Promise<void> {
     UPDATE clinical_reports SET status = 'generating' WHERE id = ${reportId}
   `;
 
-  let pdfBuffer: Buffer;
   try {
+    // ── CDA Handover: generate XML, upload, skip Puppeteer ──────────────────
+    if (job.data.reportType === 'cda_handover') {
+      if (!job.data.patientId) throw new Error('cda_handover requires patientId');
+
+      const { generateCda } = await import('../services/cdaGenerator.js');
+      const xmlStr = await generateCda({
+        patientId:   job.data.patientId,
+        clinicianId: job.data.clinicianId,
+        periodStart: job.data.periodStart,
+        periodEnd:   job.data.periodEnd,
+        title:       job.data.title,
+      });
+
+      const xmlBuffer = Buffer.from(xmlStr, 'utf8');
+      const objectPath = `${orgId}/${reportId}.xml`;
+      await uploadToStorage(xmlBuffer, objectPath, 'text/xml');
+      const storageRef = `${STORAGE_BUCKET}/${objectPath}`;
+      const signedUrl = await createSignedUrl(storageRef);
+      const expiresAt = new Date(Date.now() + SIGNED_URL_EXPIRY_SECONDS * 1000).toISOString();
+
+      await sql`
+        UPDATE clinical_reports
+        SET status          = 'ready',
+            file_url        = ${signedUrl},
+            file_size_bytes = ${xmlBuffer.byteLength},
+            generated_at    = NOW(),
+            expires_at      = ${expiresAt}
+        WHERE id = ${reportId}
+      `;
+
+      console.info(`[report-generator] CDA done — report ${reportId} (${xmlBuffer.byteLength} bytes)`);
+      return;
+    }
+
+    // ── Standard PDF reports ────────────────────────────────────────────────
+    if (!job.data.patientId) throw new Error(`${job.data.reportType} requires patientId`);
+
+    let pdfBuffer: Buffer;
+
     // 1. Fetch all data
-    const data = await fetchReportData(job.data);
+    const data = await fetchReportData(job.data as ReportJobData & { patientId: string });
     if (!data.patient) throw new Error(`Patient ${job.data.patientId} not found`);
 
     // 2. Render HTML
-    const html = renderHtml(job.data, data);
+    const html = renderHtml(job.data as ReportJobData & { patientId: string }, data);
 
     // 3. Puppeteer → PDF (dynamic import to keep startup fast)
     const { default: puppeteer } = await import('puppeteer');
@@ -722,7 +766,7 @@ async function processReportJob(job: Job<ReportJobData>): Promise<void> {
 
     // 6. Notify clinician
     if (data.clinician?.alert_email_enabled) {
-      await notifyClinicianReportReady(data.clinician, job.data, signedUrl);
+      await notifyClinicianReportReady(data.clinician, job.data as ReportJobData & { patientId: string }, signedUrl);
     }
 
     console.info(`[report-generator] Done — report ${reportId} (${pdfBuffer.byteLength} bytes)`);

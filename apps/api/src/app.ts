@@ -9,6 +9,7 @@ import fastifyHelmet from '@fastify/helmet';
 import fastifyRateLimit from '@fastify/rate-limit';
 import { config } from './config.js';
 import authPlugin from './plugins/auth.js';
+import auditPlugin from './plugins/audit.js';
 import errorHandlerPlugin from './plugins/error-handler.js';
 import websocketPlugin from './plugins/websocket.js';
 import notificationsPlugin from './plugins/notifications.js';
@@ -26,17 +27,42 @@ export async function buildApp() {
               options: { colorize: true, translateTime: 'SYS:HH:MM:ss' },
             },
           }
-        : {}),
+        : {
+            // Production: redact PHI fields from structured logs
+            redact: {
+              paths: [
+                'req.headers.authorization',
+                'req.headers.cookie',
+                'req.body.password',
+                'req.body.access_token',
+                'req.body.refresh_token',
+                'req.body.email',
+              ],
+              censor: '[Redacted]',
+            },
+          }),
     },
     // Trust X-Forwarded-For in production (behind load balancer)
     trustProxy: config.isProd,
   });
 
   // ------------------------------------------------------------------
-  // Security
+  // Security headers
   // ------------------------------------------------------------------
   await fastify.register(fastifyHelmet, {
-    contentSecurityPolicy: false, // CSP handled at CDN/gateway level
+    // Enable HSTS in production (1 year, include subdomains)
+    hsts: config.isProd
+      ? { maxAge: 31536000, includeSubDomains: true, preload: true }
+      : false,
+    // Prevent MIME type sniffing
+    noSniff: true,
+    // Deny all framing (clickjacking protection)
+    frameguard: { action: 'deny' },
+    // Disable X-Powered-By
+    hidePoweredBy: true,
+    contentSecurityPolicy: false, // CSP applied at nginx / CDN level
+    // Referrer policy — no PHI in referer headers
+    referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
   });
 
   await fastify.register(fastifyCors, {
@@ -46,6 +72,9 @@ export async function buildApp() {
     credentials: true,
   });
 
+  // ------------------------------------------------------------------
+  // Global rate limiting
+  // ------------------------------------------------------------------
   await fastify.register(fastifyRateLimit, {
     global: true,
     max: 200,
@@ -69,6 +98,7 @@ export async function buildApp() {
   // ------------------------------------------------------------------
   await fastify.register(errorHandlerPlugin);
   await fastify.register(authPlugin);
+  await fastify.register(auditPlugin);
   await fastify.register(websocketPlugin);
   await fastify.register(notificationsPlugin);
 

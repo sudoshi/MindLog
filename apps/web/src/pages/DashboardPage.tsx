@@ -106,13 +106,15 @@ function buildActiveTodayDrilldown(caseload: CaseloadRow[]): DrilldownConfig {
       id: r.patient_id,
       name: `${r.last_name}, ${r.first_name}`,
       initials: initials(r.first_name, r.last_name),
-      avatarColor: AVATAR_COLORS[idx % AVATAR_COLORS.length],
+      avatarColor: AVATAR_COLORS[idx % AVATAR_COLORS.length] ?? '#4a5568',
       meta: `${r.mrn} · ${r.risk_level ?? 'unknown'} risk`,
-      moodDot: r.todays_mood ? {
-        value: Math.round(r.todays_mood),
-        color: MOOD_COLORS[Math.round(r.todays_mood) - 1] ?? '#666',
-      } : undefined,
-      valueSecondary: r.todays_submitted_at ? fmtRelative(r.todays_submitted_at) : undefined,
+      ...(r.todays_mood ? {
+        moodDot: {
+          value: Math.round(r.todays_mood),
+          color: MOOD_COLORS[Math.round(r.todays_mood) - 1] ?? '#666',
+        },
+      } : {}),
+      ...(r.todays_submitted_at ? { valueSecondary: fmtRelative(r.todays_submitted_at) } : {}),
     })),
   };
 }
@@ -143,8 +145,8 @@ function buildAvgMoodDrilldown(caseload: CaseloadRow[]): DrilldownConfig {
         id: r.patient_id,
         name: `${r.last_name}, ${r.first_name}`,
         initials: initials(r.first_name, r.last_name),
-        avatarColor: AVATAR_COLORS[idx % AVATAR_COLORS.length],
-        meta: r.risk_level ? `${r.risk_level} risk` : undefined,
+        avatarColor: AVATAR_COLORS[idx % AVATAR_COLORS.length] ?? '#4a5568',
+        ...(r.risk_level ? { meta: `${r.risk_level} risk` } : {}),
         moodDot: {
           value: Math.round(mood),
           color: MOOD_COLORS[Math.round(mood) - 1] ?? '#666',
@@ -185,8 +187,8 @@ function buildAvgSleepDrilldown(caseload: CaseloadRow[]): DrilldownConfig {
       id: r.patient_id,
       name: `${r.last_name}, ${r.first_name}`,
       initials: initials(r.first_name, r.last_name),
-      avatarColor: AVATAR_COLORS[idx % AVATAR_COLORS.length],
-      meta: r.risk_level ? `${r.risk_level} risk` : undefined,
+      avatarColor: AVATAR_COLORS[idx % AVATAR_COLORS.length] ?? '#4a5568',
+      ...(r.risk_level ? { meta: `${r.risk_level} risk` } : {}),
       value: `${r.sleepHrs.toFixed(1)}h`,
       valueColor: r.sleepHrs < 6 ? 'var(--critical)' : r.sleepHrs >= 8 ? 'var(--safe)' : 'var(--warning)',
       valueSecondary: r.sleepHrs < 6 ? 'Below target' : r.sleepHrs >= 8 ? 'Optimal' : 'Adequate',
@@ -219,11 +221,11 @@ function buildCheckInRateDrilldown(caseload: CaseloadRow[]): DrilldownConfig {
       id: r.patient_id,
       name: `${r.last_name}, ${r.first_name}`,
       initials: initials(r.first_name, r.last_name),
-      avatarColor: AVATAR_COLORS[idx % AVATAR_COLORS.length],
+      avatarColor: AVATAR_COLORS[idx % AVATAR_COLORS.length] ?? '#4a5568',
       meta: `${r.mrn} · ${r.tracking_streak}d streak`,
       value: 'Not logged',
       valueColor: 'var(--warning)',
-      valueSecondary: r.risk_level ? `${r.risk_level} risk` : undefined,
+      ...(r.risk_level ? { valueSecondary: `${r.risk_level} risk` } : {}),
     })),
     emptyMessage: 'All patients have checked in today!',
   };
@@ -264,13 +266,13 @@ function buildMoodBucketDrilldown(
         id: r.patient_id,
         name: `${r.last_name}, ${r.first_name}`,
         initials: initials(r.first_name, r.last_name),
-        avatarColor: AVATAR_COLORS[idx % AVATAR_COLORS.length],
-        meta: r.risk_level ? `${r.risk_level} risk` : undefined,
+        avatarColor: AVATAR_COLORS[idx % AVATAR_COLORS.length] ?? '#4a5568',
+        ...(r.risk_level ? { meta: `${r.risk_level} risk` } : {}),
         moodDot: {
           value: Math.round(mood),
           color: MOOD_COLORS[Math.round(mood) - 1] ?? '#666',
         },
-        valueSecondary: r.todays_submitted_at ? fmtRelative(r.todays_submitted_at) : undefined,
+        ...(r.todays_submitted_at ? { valueSecondary: fmtRelative(r.todays_submitted_at) } : {}),
       };
     }),
     emptyMessage: `No patients with mood in ${bucket.label} range today.`,
@@ -296,6 +298,7 @@ function MetricCard({
     <div
       className={`metric-card${variant ? ` ${variant}` : ''}${onClick ? ' clickable' : ''}`}
       onClick={onClick}
+      data-testid={`metric-card-${label.toLowerCase().replace(/\s+/g, '-')}`}
     >
       <div className="metric-label">{label}</div>
       <div className={`metric-value${valueClass ? ` ${valueClass}` : ''}`}>{value}</div>
@@ -558,9 +561,9 @@ export function DashboardPage() {
   })();
 
   return (
-    <div className="view-pad">
+    <div className="view-pad" data-testid="dashboard-page">
       {/* ── 5 Metric cards ── */}
-      <div className="metric-row anim">
+      <div className="metric-row anim" data-testid="metric-row">
         <MetricCard
           label="Critical Alerts"
           value={loading ? '…' : String(criticalAlerts)}

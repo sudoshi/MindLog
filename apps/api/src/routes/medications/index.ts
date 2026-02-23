@@ -334,11 +334,12 @@ export default async function medicationRoutes(fastify: FastifyInstance): Promis
 
     const offset = (page - 1) * limit;
 
-    const [{ total }] = await sql<{ total: number }[]>`
+    const [_totalRow] = await sql<{ total: number }[]>`
       SELECT COUNT(*)::int AS total
       FROM medication_adherence_logs
       WHERE patient_medication_id = ${id}
     `;
+    const total = _totalRow?.total ?? 0;
 
     const logs = await sql<{
       id: string;

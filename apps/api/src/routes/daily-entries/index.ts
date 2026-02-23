@@ -191,9 +191,10 @@ export default async function dailyEntryRoutes(fastify: FastifyInstance): Promis
       LIMIT ${limit} OFFSET ${offset}
     `;
 
-    const [{ count }] = await sql<{ count: string }[]>`
+    const [_countRow] = await sql<{ count: string }[]>`
       SELECT COUNT(*) AS count FROM daily_entries WHERE patient_id = ${request.user.sub}
     `;
+    const count = _countRow?.count ?? '0';
 
     const total = Number(count);
     return reply.send({

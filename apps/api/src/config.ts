@@ -57,6 +57,9 @@ export const config = {
   emailFrom: optional('EMAIL_FROM', 'alerts@mindlog.app'),
   webAppUrl: optional('WEB_APP_URL', 'http://localhost:5173'),
 
+  // Observability
+  sentryDsn: process.env['SENTRY_DSN'] ?? '',
+
   // Crisis resources (US)
   crisisLinePhone: optional('CRISIS_LINE_PHONE', '988'),
   crisisTextNumber: optional('CRISIS_TEXT_NUMBER', '741741'),

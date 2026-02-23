@@ -19,7 +19,7 @@ export interface DrilldownPatient {
   id: string;
   name: string;
   initials: string;
-  avatarColor: string;
+  avatarColor?: string;
   meta?: string;
   value?: string | number;
   valueColor?: string;
@@ -278,8 +278,8 @@ export function DrilldownModal({ config, onClose }: Props) {
   };
 
   return (
-    <div style={S.backdrop} onClick={onClose}>
-      <div style={S.modal} onClick={(e) => e.stopPropagation()}>
+    <div style={S.backdrop} onClick={onClose} data-testid="drilldown-backdrop">
+      <div style={S.modal} onClick={(e) => e.stopPropagation()} data-testid="drilldown-modal">
         {/* Header */}
         <div style={S.header}>
           <div style={S.titleWrap}>
@@ -289,6 +289,7 @@ export function DrilldownModal({ config, onClose }: Props) {
           <button
             style={S.closeBtn}
             onClick={onClose}
+            data-testid="drilldown-close"
             onMouseOver={(e) => {
               e.currentTarget.style.background = 'rgba(255,77,109,0.15)';
               e.currentTarget.style.color = 'var(--critical)';
@@ -304,9 +305,9 @@ export function DrilldownModal({ config, onClose }: Props) {
 
         {/* Summary Stats */}
         {config.stats && config.stats.length > 0 && (
-          <div style={S.statsRow}>
+          <div style={S.statsRow} data-testid="drilldown-stats">
             {config.stats.map((stat, idx) => (
-              <div key={idx} style={S.statCard}>
+              <div key={idx} style={S.statCard} data-testid={`drilldown-stat-${idx}`}>
                 <div style={{ ...S.statValue, color: stat.color ?? 'var(--ink)' }}>
                   {stat.value}
                 </div>
@@ -329,6 +330,7 @@ export function DrilldownModal({ config, onClose }: Props) {
                   key={`${patient.id}-${idx}`}
                   style={S.item}
                   onClick={() => handlePatientClick(patient.id)}
+                  data-testid={`drilldown-patient-${patient.id}`}
                   onMouseOver={(e) => {
                     e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
                   }}
@@ -336,7 +338,7 @@ export function DrilldownModal({ config, onClose }: Props) {
                     e.currentTarget.style.background = 'transparent';
                   }}
                 >
-                  <div style={{ ...S.avatar, background: patient.avatarColor }}>
+                  <div style={{ ...S.avatar, background: patient.avatarColor ?? '#4a5568' }}>
                     {patient.initials}
                   </div>
                   <div style={S.itemInfo}>
@@ -377,6 +379,7 @@ export function DrilldownModal({ config, onClose }: Props) {
             <button
               style={{ ...S.btn, ...S.btnPrimary }}
               onClick={handleExport}
+              data-testid="drilldown-export"
             >
               Export CSV
             </button>

@@ -10,8 +10,11 @@ import { api } from '../services/api.js';
 import { useAlertSocket } from '../hooks/useAlertSocket.js';
 import { useAuthStore, authActions } from '../stores/auth.js';
 import { useUiStore } from '../stores/ui.js';
+import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts.js';
 import { API_PREFIX } from '@mindlog/shared';
 import { InvitePatientModal } from './InvitePatientModal.js';
+import { GlobalSearch } from './GlobalSearch.js';
+import { QuickNotePanel } from './QuickNotePanel.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -108,6 +111,9 @@ export function AppShell() {
   const [criticalCount, setCriticalCount] = useState(0);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteToast, setInviteToast] = useState('');
+  const [showGlobalSearch, setShowGlobalSearch] = useState(false);
+  const [showQuickNote, setShowQuickNote] = useState(false);
+  const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
 
   // Fetch clinician profile for sidebar badge
   useEffect(() => {
@@ -181,6 +187,13 @@ export function AppShell() {
 
   const patientName = useUiStore((s) => s.patientName);
 
+  // Global keyboard shortcuts
+  useKeyboardShortcuts({
+    onOpenSearch: () => setShowGlobalSearch(true),
+    onOpenQuickNote: () => setShowQuickNote(true),
+    onShowHelp: () => setShowShortcutsHelp(true),
+  });
+
   // Topbar dynamic title based on route
   const topbarConfig: Record<string, { title: string; subtitle: string }> = {
     '/dashboard': { title: 'Population Overview', subtitle: `${formatDate()} · ${snapshot?.total_patients ?? '…'} patients` },
@@ -189,6 +202,7 @@ export function AppShell() {
     '/trends': { title: 'Population Trends', subtitle: 'Aggregate outcomes across your caseload' },
     '/reports': { title: 'Clinical Reports', subtitle: 'Generate PDF reports for patients' },
     '/admin': { title: 'Admin Panel', subtitle: 'System administration and configuration' },
+    '/cohort': { title: 'Cohort Builder', subtitle: 'Build research populations and export de-identified data' },
   };
 
   const isPatientDetail = location.pathname.startsWith('/patients/') && location.pathname !== '/patients';
@@ -208,9 +222,9 @@ export function AppShell() {
   const wsColor = ws === 'connected' ? 'var(--safe)' : ws === 'connecting' ? 'var(--warning)' : 'var(--critical)';
 
   return (
-    <div className="app">
+    <div className="app" data-testid="app-shell">
       {/* ════════ SIDEBAR ════════ */}
-      <aside className="sidebar">
+      <aside className="sidebar" data-testid="sidebar">
         {/* Brand */}
         <div className="sidebar-brand">
           <div className="brand-name">Mind<em>Log</em> Clinical</div>
@@ -257,6 +271,9 @@ export function AppShell() {
           <div className="nav-section-label">Clinical Tools</div>
           <NavItem icon="📈" label="Population Trends" path="/trends" onClick={() => navigate('/trends')} />
           <NavItem icon="📄" label="Reports" path="/reports" onClick={() => navigate('/reports')} />
+          {role === 'admin' && (
+            <NavItem icon="🔬" label="Cohort Builder" path="/cohort" onClick={() => navigate('/cohort')} />
+          )}
         </div>
 
         {/* Nav: Actions */}
@@ -295,7 +312,7 @@ export function AppShell() {
       {/* ════════ MAIN ════════ */}
       <div className="main">
         {/* Top bar */}
-        <div className="topbar">
+        <div className="topbar" data-testid="topbar">
           <div className="topbar-title-group">
             <div className="topbar-title">{currentTopbar.title}</div>
             {currentTopbar.subtitle && (
@@ -322,6 +339,24 @@ export function AppShell() {
               {criticalCount} Critical Alert{criticalCount !== 1 ? 's' : ''}
             </button>
           )}
+          <button
+            className="topbar-btn"
+            title="Quick note (N)"
+            onClick={() => setShowQuickNote(true)}
+            style={{ cursor: 'pointer' }}
+            data-testid="quick-note-btn"
+          >
+            <span style={{ fontSize: 13 }}>✏ Note</span>
+          </button>
+          <button
+            className="topbar-btn"
+            title="Keyboard shortcuts (?)"
+            onClick={() => setShowShortcutsHelp(true)}
+            style={{ cursor: 'pointer', fontSize: 13 }}
+            data-testid="shortcuts-help-btn"
+          >
+            ?
+          </button>
           <div
             className="topbar-btn"
             title={`WebSocket: ${ws}`}
@@ -371,6 +406,76 @@ export function AppShell() {
         }}>
           ✓ {inviteToast}
         </div>
+      )}
+
+      {/* Global Search overlay */}
+      <GlobalSearch
+        open={showGlobalSearch}
+        onClose={() => setShowGlobalSearch(false)}
+      />
+
+      {/* Quick Note panel */}
+      <QuickNotePanel
+        open={showQuickNote}
+        onClose={() => setShowQuickNote(false)}
+      />
+
+      {/* Keyboard shortcuts help overlay */}
+      {showShortcutsHelp && (
+        <>
+          <div
+            onClick={() => setShowShortcutsHelp(false)}
+            style={{
+              position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
+              backdropFilter: 'blur(4px)', zIndex: 1200,
+            }}
+          />
+          <div style={{
+            position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
+            width: 'min(420px, 90vw)', zIndex: 1201,
+            background: 'var(--bg)', border: '1px solid var(--border)',
+            borderRadius: 14, overflow: 'hidden',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
+          }} data-testid="shortcuts-help-overlay">
+            <div style={{
+              padding: '14px 20px', borderBottom: '1px solid var(--border)',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>Keyboard Shortcuts</div>
+              <button
+                onClick={() => setShowShortcutsHelp(false)}
+                style={{ background: 'transparent', border: 'none', color: 'var(--ink-soft)', fontSize: 20, cursor: 'pointer', padding: 4 }}
+              >
+                ×
+              </button>
+            </div>
+            <div style={{ padding: '8px 0 16px' }}>
+              {([
+                ['/', 'Open global search'],
+                ['⌘K', 'Open global search'],
+                ['N', 'Add quick note'],
+                ['A', 'Go to Alerts'],
+                ['P', 'Go to Patients'],
+                ['?', 'Show this help'],
+                ['Esc', 'Close any modal'],
+              ] as [string, string][]).map(([key, desc]) => (
+                <div key={key} style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '7px 20px',
+                }}>
+                  <span style={{ fontSize: 13, color: 'var(--ink-mid)' }}>{desc}</span>
+                  <kbd style={{
+                    background: 'var(--glass-02)', border: '1px solid var(--border)',
+                    borderRadius: 5, padding: '2px 8px', fontSize: 11,
+                    fontFamily: 'monospace', color: 'var(--ink)',
+                  }}>
+                    {key}
+                  </kbd>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
       )}
     </div>
   );

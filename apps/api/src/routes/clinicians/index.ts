@@ -12,6 +12,7 @@ import { z } from 'zod';
 import { sql } from '@mindlog/db';
 import { CreateClinicianNoteSchema, UuidSchema, PaginationSchema } from '@mindlog/shared';
 import { auditLog } from '../../middleware/audit.js';
+import { getPublisher } from '../../plugins/websocket.js';
 
 export default async function clinicianRoutes(fastify: FastifyInstance): Promise<void> {
   const auth = { preHandler: [fastify.authenticate] };
@@ -285,12 +286,13 @@ export default async function clinicianRoutes(fastify: FastifyInstance): Promise
       LIMIT ${limit} OFFSET ${offset}
     `;
 
-    const [{ count }] = await sql<{ count: string }[]>`
+    const [_countRow] = await sql<{ count: string }[]>`
       SELECT COUNT(*) AS count FROM clinician_notes
       WHERE patient_id = ${patientId}
         AND deleted_at IS NULL
         AND (is_private = FALSE OR clinician_id = ${request.user.sub}::UUID)
     `;
+    const count = _countRow?.count ?? '0';
 
     await auditLog({
       actor: request.user,
@@ -305,6 +307,119 @@ export default async function clinicianRoutes(fastify: FastifyInstance): Promise
       success: true,
       data: { items: notes, total, page: query.page, limit, has_next: offset + notes.length < total },
     });
+  });
+
+  // ---------------------------------------------------------------------------
+  // GET /clinicians/population-breakdown?days=30
+  // Returns mood distribution, status breakdown, assessment completion, adherence.
+  // Redis-cached for 30 minutes per (clinician_id, days).
+  // ---------------------------------------------------------------------------
+  fastify.get('/population-breakdown', clinicianOnly, async (request, reply) => {
+    const { days } = z.object({
+      days: z.coerce.number().int().min(1).max(90).default(30),
+    }).parse(request.query);
+
+    const { sub: clinicianId, org_id: orgId } = request.user as { sub: string; org_id: string };
+    const cacheKey = `pop-breakdown:${clinicianId}:${days}`;
+    const redis = getPublisher();
+
+    const cached = await redis.get(cacheKey).catch(() => null);
+    if (cached) {
+      return reply.send({ success: true, data: JSON.parse(cached) as unknown });
+    }
+
+    const [clinicianRow] = await sql<{ role: string }[]>`
+      SELECT role FROM clinicians WHERE id = ${clinicianId}::UUID LIMIT 1
+    `;
+    const isAdmin = clinicianRow?.role === 'admin';
+
+    const cutoffIso = new Date(Date.now() - days * 86_400_000).toISOString().slice(0, 10);
+
+    // Mood distribution — today's check-ins bucketed into 4 ranges
+    const moodDistRows = await sql<{ bucket: string; count: string }[]>`
+      SELECT
+        CASE
+          WHEN de.mood >= 8 THEN 'high'
+          WHEN de.mood >= 6 THEN 'good'
+          WHEN de.mood >= 4 THEN 'moderate'
+          ELSE 'low'
+        END AS bucket,
+        COUNT(*) AS count
+      FROM daily_entries de
+      JOIN patients p ON p.id = de.patient_id
+      ${isAdmin ? sql`` : sql`JOIN care_team_members ctm ON ctm.patient_id = p.id AND ctm.clinician_id = ${clinicianId}::UUID AND ctm.unassigned_at IS NULL`}
+      WHERE de.entry_date = CURRENT_DATE
+        AND de.submitted_at IS NOT NULL
+        AND de.mood IS NOT NULL
+        ${isAdmin ? sql`` : sql`AND p.organisation_id = ${orgId}`}
+      GROUP BY 1
+    `;
+
+    // Status breakdown — current patient status counts
+    const statusRows = await sql<{ status: string; count: string }[]>`
+      SELECT p.status, COUNT(*) AS count
+      FROM patients p
+      ${isAdmin ? sql`` : sql`JOIN care_team_members ctm ON ctm.patient_id = p.id AND ctm.clinician_id = ${clinicianId}::UUID AND ctm.unassigned_at IS NULL`}
+      WHERE p.is_active = TRUE
+        ${isAdmin ? sql`` : sql`AND p.organisation_id = ${orgId}`}
+      GROUP BY 1
+    `;
+
+    // Assessment completion over the period
+    const [assessmentRow] = await sql<{ completed: string; total: string }[]>`
+      SELECT
+        COUNT(DISTINCT va.patient_id) AS completed,
+        COUNT(DISTINCT p.id)          AS total
+      FROM patients p
+      ${isAdmin ? sql`` : sql`JOIN care_team_members ctm ON ctm.patient_id = p.id AND ctm.clinician_id = ${clinicianId}::UUID AND ctm.unassigned_at IS NULL`}
+      LEFT JOIN validated_assessments va
+        ON  va.patient_id = p.id
+        AND va.completed_at >= ${cutoffIso}::DATE
+      WHERE p.is_active = TRUE
+        ${isAdmin ? sql`` : sql`AND p.organisation_id = ${orgId}`}
+    `;
+
+    // Medication adherence rate over the period
+    const [adherenceRow] = await sql<{ taken: string; total: string }[]>`
+      SELECT
+        COUNT(*) FILTER (WHERE mal.taken = TRUE) AS taken,
+        COUNT(*)                                  AS total
+      FROM medication_adherence_logs mal
+      JOIN patients p ON p.id = mal.patient_id
+      ${isAdmin ? sql`` : sql`JOIN care_team_members ctm ON ctm.patient_id = p.id AND ctm.clinician_id = ${clinicianId}::UUID AND ctm.unassigned_at IS NULL`}
+      WHERE mal.log_date >= ${cutoffIso}::DATE
+        ${isAdmin ? sql`` : sql`AND p.organisation_id = ${orgId}`}
+    `;
+
+    const moodDistribution: Record<string, number> = { high: 0, good: 0, moderate: 0, low: 0 };
+    for (const r of moodDistRows) moodDistribution[r.bucket] = Number(r.count);
+
+    const statusBreakdown: Record<string, number> = {};
+    for (const r of statusRows) statusBreakdown[r.status] = Number(r.count);
+
+    const assessmentCompleted = Number(assessmentRow?.completed ?? 0);
+    const assessmentTotal = Number(assessmentRow?.total ?? 0);
+    const adherenceTaken = Number(adherenceRow?.taken ?? 0);
+    const adherenceTotal = Number(adherenceRow?.total ?? 0);
+
+    const result = {
+      days,
+      moodDistribution,
+      statusBreakdown,
+      assessmentCompletion: {
+        completed: assessmentCompleted,
+        total: assessmentTotal,
+        pct: assessmentTotal > 0 ? Math.round((assessmentCompleted / assessmentTotal) * 100) : null,
+      },
+      adherenceRate: {
+        taken: adherenceTaken,
+        total: adherenceTotal,
+        pct: adherenceTotal > 0 ? Math.round((adherenceTaken / adherenceTotal) * 100) : null,
+      },
+    };
+
+    await redis.setex(cacheKey, 1800, JSON.stringify(result)).catch(() => {});
+    return reply.send({ success: true, data: result });
   });
 
   // ---------------------------------------------------------------------------

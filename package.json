@@ -24,7 +24,10 @@
     "demo:api": "npm run dev --workspace=apps/api",
     "demo:web": "npm run dev --workspace=apps/web",
     "android": "expo run:android",
-    "ios": "expo run:ios"
+    "ios": "expo run:ios",
+    "build:mobile:preview": "eas build --profile preview --platform all",
+    "build:mobile:production": "eas build --profile production --platform all",
+    "submit:mobile": "eas submit --profile production --platform all"
   },
   "devDependencies": {
     "turbo": "^2.3.3",

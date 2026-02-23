@@ -8,6 +8,8 @@
 import { Worker, Queue } from 'bullmq';
 import { sql } from '@mindlog/db';
 import { connection, rulesQueue, type RulesJobData } from './rules-engine.js';
+import { aiInsightsQueue, type AiInsightJobData } from './ai-insights-worker.js';
+import { config } from '../config.js';
 
 const SCHEDULER_QUEUE_NAME = 'mindlog-nightly';
 
@@ -155,7 +157,7 @@ export function startNightlyScheduler(): Worker {
       repeat: {
         // 02:00 EST/EDT (UTC-5 winter, UTC-4 summer) — approximated as 07:00 UTC
         // For production, use a timezone-aware cron library or set TZ=America/New_York
-        cron: '0 7 * * *',
+        pattern: '0 7 * * *',
       },
       jobId: 'nightly-tick-singleton',
     },
@@ -221,6 +223,62 @@ export function startNightlyScheduler(): Worker {
       } catch (err) {
         // Non-fatal — dashboard falls back to live counts if snapshot missing
         console.error('[nightly] Snapshot generation failed:', err);
+      }
+
+      // -----------------------------------------------------------------------
+      // Step 4: Risk stratification for all active patients (rule-based, no AI)
+      // Runs regardless of AI_INSIGHTS_ENABLED — score is pure rules engine.
+      // -----------------------------------------------------------------------
+      try {
+        for (const patient of patients) {
+          const jobData: AiInsightJobData = {
+            patientId: patient.id,
+            orgId:     patient.organisation_id,
+            jobType:   'risk_stratification',
+          };
+          await aiInsightsQueue.add('risk_stratification', jobData, {
+            jobId: `risk:${patient.id}:${dateStr}`,
+          });
+        }
+        console.info(`[nightly] Enqueued ${patients.length} risk_stratification jobs`);
+      } catch (err) {
+        console.error('[nightly] Risk stratification fan-out failed:', err);
+      }
+
+      // -----------------------------------------------------------------------
+      // Step 5: Weekly AI summaries (gated — only runs if AI is fully enabled)
+      // Generates AI narratives for patients who have given ai_insights consent.
+      // -----------------------------------------------------------------------
+      if (config.aiInsightsEnabled && config.anthropicBaaSigned) {
+        try {
+          const aiPatients = await sql<{ id: string; organisation_id: string }[]>`
+            SELECT DISTINCT p.id, p.organisation_id
+            FROM patients p
+            JOIN consent_records cr
+              ON cr.patient_id   = p.id
+             AND cr.consent_type = 'ai_insights'
+             AND cr.granted      = TRUE
+            JOIN daily_entries de ON de.patient_id = p.id
+            WHERE p.status      = 'active'
+              AND de.entry_date >= CURRENT_DATE - INTERVAL '7 days'
+          `;
+
+          for (const patient of aiPatients) {
+            const jobData: AiInsightJobData = {
+              patientId:  patient.id,
+              orgId:      patient.organisation_id,
+              jobType:    'generate_weekly_summary',
+              periodDays: 7,
+            };
+            await aiInsightsQueue.add('weekly_summary', jobData, {
+              jobId: `ai_weekly:${patient.id}:${dateStr}`,
+            });
+          }
+          console.info(`[nightly] Enqueued ${aiPatients.length} weekly AI summary jobs`);
+        } catch (err) {
+          // Non-fatal — AI summaries are supplementary
+          console.error('[nightly] AI summary fan-out failed:', err);
+        }
       }
     },
     { connection, concurrency: 1 },

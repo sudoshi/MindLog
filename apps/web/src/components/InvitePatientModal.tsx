@@ -103,8 +103,8 @@ export function InvitePatientModal({ token, onClose, onSuccess }: Props) {
   };
 
   return (
-    <div style={S.backdrop} onClick={onClose}>
-      <div style={S.box} onClick={(e) => e.stopPropagation()}>
+    <div style={S.backdrop} onClick={onClose} data-testid="invite-modal-backdrop">
+      <div style={S.box} onClick={(e) => e.stopPropagation()} data-testid="invite-modal">
         <div style={S.header}>
           <span style={S.title}>Invite Patient</span>
           <button style={S.closeBtn} onClick={onClose}>✕</button>
@@ -121,6 +121,7 @@ export function InvitePatientModal({ token, onClose, onSuccess }: Props) {
               placeholder="patient@example.com"
               required
               autoFocus
+              data-testid="invite-email"
             />
           </div>
 
@@ -138,6 +139,7 @@ export function InvitePatientModal({ token, onClose, onSuccess }: Props) {
               placeholder="e.g. I look forward to seeing you at our appointment on Thursday…"
               rows={4}
               style={{ resize: 'vertical', fontFamily: 'inherit', fontSize: 13, width: '100%' }}
+              data-testid="invite-message"
             />
             <div style={S.counter}>{message.length} / {MAX_MSG}</div>
           </div>
@@ -156,6 +158,7 @@ export function InvitePatientModal({ token, onClose, onSuccess }: Props) {
               type="submit"
               className="detail-actions-btn primary"
               disabled={loading}
+              data-testid="invite-submit"
             >
               {loading ? 'Sending…' : 'Send Invite'}
             </button>

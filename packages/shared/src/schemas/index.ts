@@ -318,13 +318,62 @@ export type IntakeInput = z.infer<typeof IntakeSchema>;
 // ---------------------------------------------------------------------------
 
 export const CreateReportSchema = z.object({
-  // patient_id required for 'weekly_summary' (individual); optional/null for population & handover
+  // patient_id required for 'weekly_summary' and 'cda_handover'; optional/null for population reports
   patient_id: UuidSchema.nullable().optional(),
-  report_type: z.enum(['weekly_summary', 'monthly_summary', 'clinical_export']),
+  report_type: z.enum(['weekly_summary', 'monthly_summary', 'clinical_export', 'cda_handover']),
   period_start: IsoDateSchema,
   period_end: IsoDateSchema,
 });
 export type CreateReportInput = z.infer<typeof CreateReportSchema>;
+
+// ---------------------------------------------------------------------------
+// Research export
+// ---------------------------------------------------------------------------
+
+export const CreateResearchExportSchema = z.object({
+  cohort_id: UuidSchema.optional(),
+  filters: z.object({
+    diagnoses:     z.array(z.string()).optional(),
+    risk_levels:   z.array(z.enum(['low', 'moderate', 'high', 'critical'])).optional(),
+    age_min:       z.number().int().min(0).max(150).optional(),
+    age_max:       z.number().int().min(0).max(150).optional(),
+    active_only:   z.boolean().default(true),
+    period_start:  IsoDateSchema.optional(),
+    period_end:    IsoDateSchema.optional(),
+  }).default({}),
+  format: z.enum(['ndjson', 'csv', 'fhir_bundle']).default('ndjson'),
+  include_fields: z.array(z.string()).optional(),
+});
+export type CreateResearchExportInput = z.infer<typeof CreateResearchExportSchema>;
+
+export const CreateCohortSchema = z.object({
+  name:        z.string().min(1).max(200),
+  description: z.string().max(1000).optional(),
+  filters:     z.record(z.unknown()).default({}),
+});
+export type CreateCohortInput = z.infer<typeof CreateCohortSchema>;
+
+// ---------------------------------------------------------------------------
+// Crisis safety plan
+// ---------------------------------------------------------------------------
+
+export const UpsertSafetyPlanSchema = z.object({
+  warning_signs:               z.array(z.string().max(500)).max(20).optional(),
+  internal_coping_strategies:  z.array(z.string().max(500)).max(20).optional(),
+  social_distractions:         z.array(z.record(z.unknown())).max(10).optional(),
+  support_contacts:            z.array(z.record(z.unknown())).max(10).optional(),
+  professional_contact_name:   z.string().max(200).optional(),
+  professional_contact_phone:  z.string().max(50).optional(),
+  professional_contact_agency: z.string().max(200).optional(),
+  crisis_line_phone:           z.string().max(50).optional(),
+  crisis_line_name:            z.string().max(200).optional(),
+  er_address:                  z.string().max(500).optional(),
+  means_restriction_notes:     z.string().max(2000).optional(),
+  emergency_steps:             z.string().max(2000).optional(),
+  reasons_for_living:          z.array(z.string().max(500)).max(20).optional(),
+  patient_signature_at:        z.string().datetime().optional(),
+});
+export type UpsertSafetyPlanInput = z.infer<typeof UpsertSafetyPlanSchema>;
 
 // ---------------------------------------------------------------------------
 // Pagination & filtering

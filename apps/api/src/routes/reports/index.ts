@@ -22,19 +22,21 @@ async function isAdminUser(userId: string): Promise<boolean> {
 // Maps Zod schema report_type values → DB CHECK constraint values
 // DB allows: 'individual_patient' | 'population_summary' | 'handover' | 'custom'
 const REPORT_TYPE_DB_MAP: Record<string, string> = {
-  weekly_summary: 'individual_patient',
+  weekly_summary:  'individual_patient',
   monthly_summary: 'population_summary', // aggregate caseload — no patient_id
   clinical_export: 'handover',           // cover-clinician handover — no patient_id
+  cda_handover:    'handover',           // CDA R2 XML handover — requires patient_id
 };
 
 const REPORT_TYPE_LABEL: Record<string, string> = {
-  weekly_summary: 'Individual Patient Report',
+  weekly_summary:  'Individual Patient Report',
   monthly_summary: 'Population Summary',
   clinical_export: 'Handover Report',
+  cda_handover:    'CDA R2 Handover Document',
 };
 
-// Only individual patient reports require a patient_id and care-team check
-const REQUIRES_PATIENT = new Set(['weekly_summary']);
+// Reports that require a patient_id + care-team check
+const REQUIRES_PATIENT = new Set(['weekly_summary', 'cda_handover']);
 
 export default async function reportRoutes(fastify: FastifyInstance): Promise<void> {
   const clinicianOnly = { preHandler: [fastify.requireRole(['clinician', 'admin'])] };
@@ -100,7 +102,7 @@ export default async function reportRoutes(fastify: FastifyInstance): Promise<vo
     // Enqueue PDF generation
     const jobData: ReportJobData = {
       reportId: report.id,
-      patientId: patientId ?? undefined,
+      ...(patientId ? { patientId } : {}),
       clinicianId: request.user.sub,
       orgId: request.user.org_id,
       reportType: body.report_type,

@@ -1,0 +1,75 @@
+# =============================================================================
+# MindLog — Security Analysis Pipeline
+# Runs CodeQL static analysis and dependency vulnerability scanning.
+# =============================================================================
+
+name: Security
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Run weekly on Mondays at 08:00 UTC
+    - cron: '0 8 * * 1'
+
+permissions:
+  security-events: write
+  actions: read
+  contents: read
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # CodeQL static analysis (TypeScript/JavaScript)
+  # ---------------------------------------------------------------------------
+  codeql:
+    name: CodeQL Analysis
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+          queries: security-and-quality
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: /language:javascript-typescript
+
+  # ---------------------------------------------------------------------------
+  # Dependency vulnerability scan (npm audit)
+  # ---------------------------------------------------------------------------
+  dependency-scan:
+    name: Dependency Vulnerability Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: npm audit (critical only)
+        # Fail on critical vulnerabilities; high/moderate are warnings
+        run: npm audit --audit-level=critical
+        continue-on-error: false
+
+      - name: npm audit (high — informational)
+        run: npm audit --audit-level=high
+        continue-on-error: true

@@ -111,9 +111,10 @@ export default async function journalRoutes(fastify: FastifyInstance): Promise<v
       LIMIT ${limit} OFFSET ${offset}
     `;
 
-    const [{ count }] = await sql<{ count: string }[]>`
+    const [_countRow] = await sql<{ count: string }[]>`
       SELECT COUNT(*) AS count FROM journal_entries WHERE patient_id = ${patientId}
     `;
+    const count = _countRow?.count ?? '0';
 
     const total = Number(count);
     return reply.send({
@@ -294,11 +295,12 @@ export default async function journalRoutes(fastify: FastifyInstance): Promise<v
       LIMIT ${limit} OFFSET ${offset}
     `;
 
-    const [{ count }] = await sql<{ count: string }[]>`
+    const [_countRow2] = await sql<{ count: string }[]>`
       SELECT COUNT(*) AS count FROM journal_entries
       WHERE patient_id = ${patientId}
         AND (${isAdmin} = TRUE OR shared_with_clinician = TRUE)
     `;
+    const count = _countRow2?.count ?? '0';
 
     await auditLog({
       actor: request.user,

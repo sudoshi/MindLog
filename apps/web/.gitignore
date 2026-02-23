@@ -1,0 +1,10 @@
+# Auth state files for Playwright tests
+.auth/
+
+# Playwright test results and reports
+test-results/
+playwright-report/
+playwright/.cache/
+
+# Coverage
+coverage/

@@ -18,6 +18,7 @@ import { DESIGN_TOKENS, MOOD_COLORS, MOOD_LABELS, MOOD_EMOJIS, CRISIS_CONTACTS }
 import { COLOR, FONTS, GRADIENT } from '../../constants/DesignTokens';
 import { useTodayEntry } from '../../hooks/useTodayEntry';
 import { apiFetch } from '../../services/auth';
+import { syncHealthData, getHealthPermissionGranted, requestHealthPermissions } from '../../services/healthData';
 import * as Haptics from 'expo-haptics';
 
 // Quick-mood row: 5 representative emoji → mood scores
@@ -60,7 +61,7 @@ function StatCard({
   iconBg: string;
   label: string;
   value: string;
-  valueColor?: string;
+  valueColor?: string | undefined;
 }) {
   return (
     <View style={statStyles.card}>
@@ -97,6 +98,16 @@ export default function TodayScreen() {
 
   // Pending assessments (PHQ-9, GAD-7, ASRM, C-SSRS)
   const [pendingAssessments, setPendingAssessments] = useState<Array<{ scale: string; interval_days: number }>>([]);
+
+  // Passive health snapshot
+  const [healthSnapshot, setHealthSnapshot] = useState<{
+    step_count: number | null;
+    sleep_hours: number | null;
+    resting_hr: number | null;
+    hrv_ms: number | null;
+    snapshot_date: string;
+  } | null>(null);
+  const [healthPermission, setHealthPermission] = useState<boolean | null>(null);
 
   // Phase 11c: animated scale values for quick-mood buttons
   const scaleAnims = useRef(QUICK_MOODS.map(() => new Animated.Value(1))).current;
@@ -152,6 +163,36 @@ export default function TodayScreen() {
   })(); }, []);
 
   useFocusEffect(loadPendingAssessments);
+
+  const loadHealthSnapshot = useCallback(() => { void (async () => {
+    const granted = await getHealthPermissionGranted();
+    setHealthPermission(granted);
+    if (!granted) return;
+    // Sync in background, then fetch the latest snapshot
+    void syncHealthData();
+    try {
+      const res = await apiFetch('/health-data/me');
+      if (!res.ok) return;
+      const json = (await res.json()) as {
+        success: boolean;
+        data: { snapshots: Array<{ snapshot_date: string; step_count: number | null; sleep_hours: number | null; resting_hr: number | null; hrv_ms: number | null }> };
+      };
+      if (json.success && json.data.snapshots.length > 0) {
+        const latest = json.data.snapshots[0]!;
+        setHealthSnapshot({
+          snapshot_date: latest.snapshot_date,
+          step_count:    latest.step_count,
+          sleep_hours:   latest.sleep_hours,
+          resting_hr:    latest.resting_hr,
+          hrv_ms:        latest.hrv_ms,
+        });
+      }
+    } catch {
+      // non-critical
+    }
+  })(); }, []);
+
+  useFocusEffect(loadHealthSnapshot);
 
   // Quick-mood tap: POST /daily-entries with just the mood score
   const handleQuickMood = async (score: number, index: number) => {
@@ -421,6 +462,63 @@ export default function TodayScreen() {
           </TouchableOpacity>
         ))}
 
+        {/* Passive health card — shown when health data is available */}
+        {healthPermission === false && (
+          <TouchableOpacity
+            style={styles.healthCard}
+            onPress={() => void requestHealthPermissions().then((granted) => setHealthPermission(granted))}
+            activeOpacity={0.8}
+            accessibilityLabel="Connect health data to see sleep, steps, and heart rate"
+            accessibilityRole="button"
+          >
+            <Text style={styles.healthCardTitle}>🏃 Connect Health Data</Text>
+            <Text style={styles.healthCardSub}>
+              Tap to link {'{'}platform{'}'} Health — track sleep, steps and heart rate alongside your mood.
+            </Text>
+          </TouchableOpacity>
+        )}
+        {healthPermission === true && healthSnapshot && (
+          <View style={styles.healthCard}>
+            <Text style={styles.healthCardTitle}>
+              ❤️ Yesterday's Health · {healthSnapshot.snapshot_date}
+            </Text>
+            <View style={styles.healthGrid}>
+              {healthSnapshot.step_count != null && (
+                <View style={styles.healthStat}>
+                  <Text style={styles.healthStatValue}>
+                    {healthSnapshot.step_count.toLocaleString()}
+                  </Text>
+                  <Text style={styles.healthStatLabel}>steps</Text>
+                </View>
+              )}
+              {healthSnapshot.sleep_hours != null && (
+                <View style={styles.healthStat}>
+                  <Text style={styles.healthStatValue}>
+                    {healthSnapshot.sleep_hours.toFixed(1)}h
+                  </Text>
+                  <Text style={styles.healthStatLabel}>sleep</Text>
+                </View>
+              )}
+              {healthSnapshot.resting_hr != null && (
+                <View style={styles.healthStat}>
+                  <Text style={styles.healthStatValue}>
+                    {healthSnapshot.resting_hr}
+                  </Text>
+                  <Text style={styles.healthStatLabel}>resting HR</Text>
+                </View>
+              )}
+              {healthSnapshot.hrv_ms != null && (
+                <View style={styles.healthStat}>
+                  <Text style={styles.healthStatValue}>
+                    {healthSnapshot.hrv_ms.toFixed(0)}ms
+                  </Text>
+                  <Text style={styles.healthStatLabel}>HRV</Text>
+                </View>
+              )}
+            </View>
+          </View>
+        )}
+
         {/* Safety card (always visible — SAF-002) */}
         <View style={styles.safetyCard}>
           <Text style={styles.safetyTitle}>Need immediate support?</Text>
@@ -530,6 +628,15 @@ const styles = StyleSheet.create({
   assessmentBannerTitle: { color: COLOR.INSIGHT, fontFamily: FONTS.SANS_BOLD, fontSize: 14 },
   assessmentBannerSub:   { color: COLOR.INSIGHT_MUTED, fontFamily: FONTS.SANS, fontSize: 11, marginTop: 2 },
   assessmentBannerArrow: { color: COLOR.INSIGHT, fontSize: 22, fontWeight: '300' },
+
+  // Passive health card
+  healthCard:      { backgroundColor: CARD, borderRadius: 16, borderWidth: 1, borderColor: '#1e3a4a', padding: 16, marginBottom: 16 },
+  healthCardTitle: { color: TEXT, fontFamily: FONTS.SANS_BOLD, fontSize: 15, fontWeight: '700', marginBottom: 6 },
+  healthCardSub:   { color: SUB, fontFamily: FONTS.SANS, fontSize: 12, lineHeight: 18 },
+  healthGrid:      { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 4 },
+  healthStat:      { minWidth: 60, alignItems: 'center' },
+  healthStatValue: { color: '#7ec8e3', fontFamily: FONTS.SANS_BOLD, fontSize: 18, fontWeight: '700' },
+  healthStatLabel: { color: SUB, fontFamily: FONTS.SANS, fontSize: 11, marginTop: 2 },
 
   // Safety card
   safetyCard:      { backgroundColor: COLOR.DANGER_BG, borderRadius: 16, borderWidth: 1, borderColor: COLOR.DANGER_BORDER, padding: 16, marginBottom: 16 },

@@ -8,6 +8,7 @@ import { AlertsPage } from './pages/AlertsPage.js';
 import { TrendsPage } from './pages/TrendsPage.js';
 import { ReportsPage } from './pages/ReportsPage.js';
 import { AdminPage } from './pages/AdminPage.js';
+import { CohortPage } from './pages/CohortPage.js';
 import { NotFoundPage } from './pages/NotFoundPage.js';
 import { AuthGuard } from './components/AuthGuard.js';
 import { AppShell } from './components/AppShell.js';
@@ -30,6 +31,7 @@ export function App() {
           <Route path="/alerts" element={<AlertsPage />} />
           <Route path="/trends" element={<TrendsPage />} />
           <Route path="/reports" element={<ReportsPage />} />
+          <Route path="/cohort" element={<CohortPage />} />
           <Route path="/admin" element={<AdminPage />} />
         </Route>
       </Route>

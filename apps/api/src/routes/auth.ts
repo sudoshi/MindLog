@@ -25,8 +25,11 @@ const MfaVerifyBodySchema = z.object({
 export default async function authRoutes(fastify: FastifyInstance): Promise<void> {
   // ---------------------------------------------------------------------------
   // POST /login — supports both clinician and patient accounts
+  // Stricter rate limit: 10 attempts per minute per IP (brute-force protection)
   // ---------------------------------------------------------------------------
-  fastify.post('/login', async (request, reply) => {
+  fastify.post('/login', {
+    config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
+  }, async (request, reply) => {
     const body = LoginSchema.parse(request.body);
 
     // -------------------------------------------------------------------------
@@ -58,16 +61,18 @@ export default async function authRoutes(fastify: FastifyInstance): Promise<void
           INSERT INTO clinicians (
             organisation_id, email, first_name, last_name, title, role, mfa_enabled
           ) VALUES (
-            ${devOrg.id}::UUID, 'admin@mindlog.dev', 'System', 'Administrator', 'Dr', 'admin', FALSE
+            ${devOrg!.id}::UUID, 'admin@mindlog.dev', 'System', 'Administrator', 'Dr', 'admin', FALSE
           )
           RETURNING id, organisation_id
         `;
       }
 
+      if (!devAdmin) throw new Error('[auth] DEV: could not create dev admin');
+
       const payload: JwtPayload = {
         sub: devAdmin.id,
         email: 'admin@mindlog.dev',
-        role: 'clinician',
+        role: 'admin',
         org_id: devAdmin.organisation_id,
       };
       const accessToken = fastify.jwt.sign(payload, { expiresIn: config.jwtAccessExpiry });
@@ -263,8 +268,11 @@ export default async function authRoutes(fastify: FastifyInstance): Promise<void
 
   // ---------------------------------------------------------------------------
   // POST /register — invite-only patient self-registration
+  // Stricter rate limit: 5 registrations per minute per IP
   // ---------------------------------------------------------------------------
-  fastify.post('/register', async (request, reply) => {
+  fastify.post('/register', {
+    config: { rateLimit: { max: 5, timeWindow: '1 minute' } },
+  }, async (request, reply) => {
     const body = RegisterSchema.parse(request.body);
 
     // --- 1. Validate invite token -------------------------------------------

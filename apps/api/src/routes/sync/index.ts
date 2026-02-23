@@ -209,11 +209,10 @@ async function syncRoutes(fastify: FastifyInstance): Promise<void> {
       ]);
 
       await auditLog({
-        userId: patientId,
-        action: 'READ',
-        resourceType: 'SYNC_PULL',
+        actor: user,
+        action: 'read',
+        resourceType: 'sync_pull',
         resourceId: patientId,
-        detail: { lastPulledAtMs, tables: ['daily_entries', 'journal_entries', 'triggers', 'symptoms', 'wellness_strategies'] },
       });
 
       // Helper to filter out null ids from empty queries
@@ -362,14 +361,10 @@ async function syncRoutes(fastify: FastifyInstance): Promise<void> {
       }
 
       await auditLog({
-        userId: patientId,
-        action: 'WRITE',
-        resourceType: 'SYNC_PUSH',
+        actor: user,
+        action: 'create',
+        resourceType: 'sync_push',
         resourceId: patientId,
-        detail: {
-          entryCount: entryCreated.length + entryUpdated.length,
-          journalCount: journalCreated.length + journalUpdated.length,
-        },
       });
 
       return reply.send({ success: true });

@@ -11,6 +11,8 @@
 import { startRulesWorker, rulesQueue } from './workers/rules-engine.js';
 import { startNightlyScheduler } from './workers/nightly-scheduler.js';
 import { startReportWorker, reportQueue } from './workers/report-generator.js';
+import { startAiInsightsWorker, aiInsightsQueue } from './workers/ai-insights-worker.js';
+import { startResearchExportWorker, researchQueue } from './routes/research/index.js';
 import { closeDb } from '@mindlog/db';
 import { config } from './config.js';
 
@@ -19,9 +21,11 @@ console.info(`[worker] Redis: ${config.redisUrl}`);
 console.info(`[worker] AI insights: ${config.aiInsightsEnabled ? 'ENABLED' : 'disabled'}`);
 
 // Start workers
-const rulesWorker = startRulesWorker();
-const scheduler = startNightlyScheduler();
-const reportWorker = startReportWorker();
+const rulesWorker          = startRulesWorker();
+const scheduler            = startNightlyScheduler();
+const reportWorker         = startReportWorker();
+const aiWorker             = startAiInsightsWorker();
+const researchExportWorker = startResearchExportWorker();
 
 // Graceful shutdown
 const shutdown = async (signal: string): Promise<void> => {
@@ -30,8 +34,12 @@ const shutdown = async (signal: string): Promise<void> => {
     rulesWorker.close(),
     scheduler.close(),
     reportWorker.close(),
+    aiWorker.close(),
+    researchExportWorker.close(),
     rulesQueue.close(),
     reportQueue.close(),
+    aiInsightsQueue.close(),
+    researchQueue.close(),
   ]);
   await closeDb();
   process.exit(0);

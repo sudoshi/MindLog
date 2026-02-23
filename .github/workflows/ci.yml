@@ -1,0 +1,223 @@
+# =============================================================================
+# MindLog — CI Pipeline
+# Runs on every push and pull request to main.
+#
+# Jobs (run in parallel where possible):
+#   typecheck-api  — TypeScript strict-mode check for apps/api
+#   typecheck-web  — TypeScript strict-mode check for apps/web
+#   lint           — ESLint across the monorepo
+#   test-api       — Vitest unit tests for apps/api (with Postgres service)
+#   test-web       — Vitest unit tests for apps/web
+#   build          — Production build of all packages (gate for deploy)
+# =============================================================================
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '20'
+  # Test database — ephemeral, created by the postgres service container
+  DATABASE_URL: postgresql://mindlog_test:test_pass@localhost:5432/mindlog_test
+  JWT_SECRET: ci-test-jwt-secret-not-for-production
+  NODE_ENV: test
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # TypeScript type checks (fast — no compilation artifacts needed)
+  # ---------------------------------------------------------------------------
+
+  typecheck-api:
+    name: Typecheck — API
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --workspace=packages/shared --workspace=packages/db --workspace=apps/api --include-workspace-root
+
+      - name: Build shared packages (required for type resolution)
+        run: |
+          npm run build --workspace=packages/shared
+          npm run build --workspace=packages/db
+
+      - name: Type-check API
+        run: npm run typecheck --workspace=apps/api
+
+  typecheck-web:
+    name: Typecheck — Web
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --workspace=packages/shared --workspace=apps/web --include-workspace-root
+
+      - name: Build shared packages
+        run: npm run build --workspace=packages/shared
+
+      - name: Type-check web
+        run: npm run typecheck --workspace=apps/web
+
+  # ---------------------------------------------------------------------------
+  # Lint
+  # ---------------------------------------------------------------------------
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build shared packages
+        run: |
+          npm run build --workspace=packages/shared
+          npm run build --workspace=packages/db
+
+      - name: Lint
+        run: npm run lint
+
+  # ---------------------------------------------------------------------------
+  # API unit tests (requires PostgreSQL)
+  # ---------------------------------------------------------------------------
+
+  test-api:
+    name: Tests — API
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: mindlog_test
+          POSTGRES_PASSWORD: test_pass
+          POSTGRES_DB: mindlog_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U mindlog_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build shared packages
+        run: |
+          npm run build --workspace=packages/shared
+          npm run build --workspace=packages/db
+
+      - name: Run migrations on test DB
+        run: npm run db:migrate --workspace=packages/db
+        env:
+          DATABASE_URL: ${{ env.DATABASE_URL }}
+
+      - name: Run API tests
+        run: npm run test --workspace=apps/api
+        env:
+          DATABASE_URL: ${{ env.DATABASE_URL }}
+          REDIS_URL: redis://localhost:6379
+          JWT_SECRET: ${{ env.JWT_SECRET }}
+          NODE_ENV: test
+
+  # ---------------------------------------------------------------------------
+  # Web unit tests
+  # ---------------------------------------------------------------------------
+
+  test-web:
+    name: Tests — Web
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --workspace=packages/shared --workspace=apps/web --include-workspace-root
+
+      - name: Build shared packages
+        run: npm run build --workspace=packages/shared
+
+      - name: Run web tests
+        run: npm run test --workspace=apps/web
+
+  # ---------------------------------------------------------------------------
+  # Production build (runs after type checks and tests pass)
+  # ---------------------------------------------------------------------------
+
+  build:
+    name: Build — All packages
+    runs-on: ubuntu-latest
+    needs: [typecheck-api, typecheck-web, test-api, test-web]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build (turbo)
+        run: npm run build
+        env:
+          NODE_ENV: production
+          # Vite needs a placeholder API URL at build time
+          VITE_API_BASE: https://placeholder.mindlog.app
+
+      - name: Upload web build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-dist
+          path: apps/web/dist
+          retention-days: 7

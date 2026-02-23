@@ -2,6 +2,10 @@
 // MindLog API — Entry point
 // =============================================================================
 
+// Sentry must be initialised before any other import
+import { initSentry } from './sentry.js';
+initSentry();
+
 import { buildApp } from './app.js';
 import { config } from './config.js';
 import { closeDb } from '@mindlog/db';

@@ -5,6 +5,7 @@
 import type { FastifyInstance, FastifyError } from 'fastify';
 import fp from 'fastify-plugin';
 import { ZodError } from 'zod';
+import { captureException } from '../sentry.js';
 
 async function errorHandlerPlugin(fastify: FastifyInstance): Promise<void> {
   fastify.setErrorHandler((error: FastifyError | ZodError | Error, request, reply) => {
@@ -46,8 +47,9 @@ async function errorHandlerPlugin(fastify: FastifyInstance): Promise<void> {
       });
     }
 
-    // Unexpected server errors — log full error, return generic message
+    // Unexpected server errors — log + send to Sentry, return generic message
     log.error({ err: error, req: { method: request.method, url: request.url } }, 'Unhandled error');
+    captureException(error, { method: request.method, url: request.url });
 
     return reply.status(500).send({
       success: false,

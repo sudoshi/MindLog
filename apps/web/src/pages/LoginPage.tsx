@@ -95,6 +95,7 @@ export function LoginPage() {
         justifyContent: 'center',
         fontFamily: 'var(--font-body)',
       }}
+      data-testid="login-page"
     >
       <div style={{
         width: 400,
@@ -141,6 +142,7 @@ export function LoginPage() {
             style={inputStyle}
             autoComplete="username"
             disabled={loading}
+            data-testid="login-email"
           />
 
           <label style={{ ...labelStyle, marginTop: 18 }}>
@@ -155,6 +157,7 @@ export function LoginPage() {
             style={inputStyle}
             autoComplete="current-password"
             disabled={loading}
+            data-testid="login-password"
           />
 
           {/* Remember Me */}
@@ -172,6 +175,7 @@ export function LoginPage() {
               type="checkbox"
               checked={rememberMe}
               onChange={(e) => setRememberMe(e.target.checked)}
+              data-testid="login-remember"
               style={{
                 width: 15,
                 height: 15,
@@ -185,7 +189,7 @@ export function LoginPage() {
           </label>
 
           {error && (
-            <p style={{ color: 'var(--critical)', fontSize: 13, marginTop: 12 }}>
+            <p style={{ color: 'var(--critical)', fontSize: 13, marginTop: 12 }} data-testid="login-error">
               {error}
             </p>
           )}
@@ -193,6 +197,7 @@ export function LoginPage() {
           <button
             type="submit"
             disabled={loading}
+            data-testid="login-submit"
             style={{
               display: 'block',
               width: '100%',

@@ -23,14 +23,14 @@ interface AuditLogParams {
   actor: JwtPayload;
   action: AuditAction;
   resourceType: string;
-  resourceId?: string;
-  patientId?: string;
-  ipAddress?: string;
-  userAgent?: string;
-  oldValues?: Record<string, unknown>;
-  newValues?: Record<string, unknown>;
-  success?: boolean;
-  failureReason?: string;
+  resourceId?: string | undefined;
+  patientId?: string | undefined;
+  ipAddress?: string | undefined;
+  userAgent?: string | undefined;
+  oldValues?: Record<string, unknown> | undefined;
+  newValues?: Record<string, unknown> | undefined;
+  success?: boolean | undefined;
+  failureReason?: string | undefined;
 }
 
 /**

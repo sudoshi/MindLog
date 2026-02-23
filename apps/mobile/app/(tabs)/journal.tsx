@@ -2,15 +2,16 @@
 // MindLog Mobile — Journal tab
 // =============================================================================
 
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Modal } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { DESIGN_TOKENS } from '@mindlog/shared';
 import { COLOR, FONTS } from '../../constants/DesignTokens';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { apiFetch } from '../../services/auth';
 import { SkeletonCard } from '../../components/SkeletonCard';
+import { VoiceRecorder } from '../../components/VoiceRecorder';
 
 interface JournalEntry {
   id: string;
@@ -24,6 +25,7 @@ export default function JournalScreen() {
   const [entries, setEntries] = useState<JournalEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showVoice, setShowVoice] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -43,13 +45,38 @@ export default function JournalScreen() {
   useEffect(() => { void load(); }, [load]);
   useFocusEffect(useCallback(() => { void load(); }, [load]));
 
+  // When a voice transcript arrives, navigate to the new entry screen
+  // and pre-populate the body with the transcribed text.
+  const handleTranscript = useCallback((text: string) => {
+    setShowVoice(false);
+    router.push({ pathname: '/checkin', params: { step: 'journal', prefill: encodeURIComponent(text) } });
+  }, []);
+
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.headerRow}>
         <Text style={styles.title}>Journal</Text>
-        <TouchableOpacity style={styles.newBtn} onPress={() => router.push('/checkin?step=journal')}>
-          <Text style={styles.newBtnText}>+ New</Text>
-        </TouchableOpacity>
+        <View style={styles.headerBtns}>
+          {/* Voice journal shortcut */}
+          <TouchableOpacity
+            style={styles.micBtn}
+            onPress={() => setShowVoice(true)}
+            accessibilityLabel="Record a voice journal entry"
+            accessibilityRole="button"
+          >
+            <Text style={styles.micBtnText}>🎙</Text>
+          </TouchableOpacity>
+
+          {/* Write entry */}
+          <TouchableOpacity
+            style={styles.newBtn}
+            onPress={() => router.push('/checkin?step=journal')}
+            accessibilityLabel="Write a new journal entry"
+            accessibilityRole="button"
+          >
+            <Text style={styles.newBtnText}>+ New</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll}>
@@ -73,9 +100,15 @@ export default function JournalScreen() {
             <Text style={styles.emptyEmoji}>📓</Text>
             <Text style={styles.emptyText}>No journal entries yet.</Text>
             <Text style={styles.emptySub}>Writing helps you understand your patterns.</Text>
-            <TouchableOpacity style={styles.ctaBtn} onPress={() => router.push('/checkin?step=journal')}>
-              <Text style={styles.ctaBtnText}>Write your first entry</Text>
-            </TouchableOpacity>
+
+            <View style={styles.emptyActions}>
+              <TouchableOpacity style={styles.ctaBtn} onPress={() => router.push('/checkin?step=journal')}>
+                <Text style={styles.ctaBtnText}>✏️ Write an entry</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.ctaBtn, styles.ctaBtnSecondary]} onPress={() => setShowVoice(true)}>
+                <Text style={styles.ctaBtnText}>🎙 Record with voice</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         )}
         {!loading && !error && entries.map((e) => (
@@ -83,6 +116,8 @@ export default function JournalScreen() {
             key={e.id}
             style={styles.entryCard}
             onPress={() => router.push({ pathname: '/journal/[id]', params: { id: e.id } })}
+            accessibilityLabel={`Journal entry from ${new Date(e.entry_date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}, ${e.word_count} words${e.shared_with_clinician ? ', shared with care team' : ''}`}
+            accessibilityRole="button"
           >
             <Text style={styles.entryDate}>
               {new Date(e.entry_date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
@@ -94,6 +129,26 @@ export default function JournalScreen() {
           </TouchableOpacity>
         ))}
       </ScrollView>
+
+      {/* Voice recorder modal */}
+      <Modal
+        visible={showVoice}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowVoice(false)}
+        accessibilityViewIsModal
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalSheet}>
+            <Text style={styles.modalTitle}>Voice Journal</Text>
+            <Text style={styles.modalSub}>Record your thoughts — we'll transcribe and pre-fill your entry.</Text>
+            <VoiceRecorder
+              onTranscript={handleTranscript}
+              onCancel={() => setShowVoice(false)}
+            />
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -110,7 +165,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     padding: 20, paddingBottom: 8,
   },
+  headerBtns: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   title:      { color: TEXT, fontFamily: FONTS.SERIF, fontSize: 22, fontWeight: '400' },
+  micBtn:     { backgroundColor: COLOR.SURFACE_3, borderRadius: 8, width: 40, height: 36, alignItems: 'center', justifyContent: 'center' },
+  micBtnText: { fontSize: 18 },
   newBtn:     { backgroundColor: DESIGN_TOKENS.COLOR_PRIMARY, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 8 },
   newBtnText: { color: COLOR.WHITE, fontFamily: FONTS.SANS_BOLD, fontSize: 13 },
   scroll:     { padding: 20, paddingTop: 8 },
@@ -122,15 +180,32 @@ const styles = StyleSheet.create({
     backgroundColor: CARD, borderRadius: 16, borderWidth: 1, borderColor: BORDER,
     padding: 32, alignItems: 'center',
   },
-  emptyEmoji: { fontSize: 48, marginBottom: 12 },
-  emptyText:  { color: TEXT, fontFamily: FONTS.SANS_SEMIBOLD, fontSize: 16, marginBottom: 4 },
-  emptySub:   { color: SUB, fontFamily: FONTS.SANS, fontSize: 13, textAlign: 'center', marginBottom: 20 },
-  ctaBtn:     { backgroundColor: DESIGN_TOKENS.COLOR_PRIMARY, borderRadius: 10, paddingHorizontal: 24, paddingVertical: 12 },
-  ctaBtnText: { color: COLOR.WHITE, fontFamily: FONTS.SANS_BOLD },
+  emptyEmoji:   { fontSize: 48, marginBottom: 12 },
+  emptyText:    { color: TEXT, fontFamily: FONTS.SANS_SEMIBOLD, fontSize: 16, marginBottom: 4 },
+  emptySub:     { color: SUB, fontFamily: FONTS.SANS, fontSize: 13, textAlign: 'center', marginBottom: 20 },
+  emptyActions: { width: '100%', gap: 10 },
+  ctaBtn:       { backgroundColor: DESIGN_TOKENS.COLOR_PRIMARY, borderRadius: 10, paddingHorizontal: 24, paddingVertical: 12, alignItems: 'center' },
+  ctaBtnSecondary: { backgroundColor: COLOR.SURFACE_3 },
+  ctaBtnText:   { color: COLOR.WHITE, fontFamily: FONTS.SANS_BOLD },
   entryCard: {
     backgroundColor: CARD, borderRadius: 12, borderWidth: 1, borderColor: BORDER,
     padding: 16, marginBottom: 10,
   },
   entryDate: { color: TEXT, fontFamily: FONTS.SANS_SEMIBOLD, fontSize: 15, marginBottom: 4 },
   entryMeta: { color: SUB, fontFamily: FONTS.SANS, fontSize: 12 },
+
+  // Voice modal
+  modalOverlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'flex-end',
+  },
+  modalSheet: {
+    backgroundColor: COLOR.SURFACE,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    paddingBottom: 40,
+  },
+  modalTitle: { color: TEXT, fontFamily: FONTS.SANS_BOLD, fontSize: 18, marginBottom: 4 },
+  modalSub:   { color: SUB, fontFamily: FONTS.SANS, fontSize: 13, marginBottom: 20 },
 });

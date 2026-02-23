@@ -3,7 +3,7 @@
 // 5 tabs: Overview · Mood Trends · Journal · Notes · Alerts
 // =============================================================================
 
-import { useState, useEffect, useCallback, type CSSProperties } from 'react';
+import { useState, useEffect, useCallback, useRef, type CSSProperties } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ResponsiveContainer,
@@ -13,12 +13,15 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip as RechartsTooltip,
+  ReferenceLine,
+  Legend,
 } from 'recharts';
-import { format, parseISO, differenceInYears } from 'date-fns';
+import { format, parseISO, differenceInYears, subDays } from 'date-fns';
 import { MEDICATION_FREQUENCY_LABELS, type MedicationFrequency } from '@mindlog/shared';
 import { api } from '../services/api.js';
 import { useAuthStore } from '../stores/auth.js';
 import { uiActions } from '../stores/ui.js';
+import { AssessmentRequestModal } from '../components/AssessmentRequestModal.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -124,7 +127,38 @@ interface PatientMedication {
   last_taken_at: string | null;
 }
 
-type Tab = 'overview' | 'trends' | 'journal' | 'notes' | 'alerts' | 'medications';
+interface AssessmentScore {
+  id: string;
+  scale: string;
+  score: number;
+  completed_at: string;
+  loinc_code: string | null;
+  notes: string | null;
+}
+
+type Tab = 'overview' | 'trends' | 'journal' | 'notes' | 'alerts' | 'medications' | 'ai';
+
+// AI types
+interface AiInsight {
+  id:           string;
+  insight_type: string;
+  period_start: string;
+  period_end:   string;
+  narrative:    string;
+  key_findings: string[];
+  risk_delta:   number | null;
+  model_id:     string;
+  generated_at: string;
+}
+
+interface AiInsightsData {
+  patient_id:            string;
+  risk_score:            number | null;
+  risk_score_factors:    Array<{ rule: string; label: string; weight: number; fired: boolean; value: unknown }> | null;
+  risk_score_updated_at: string | null;
+  insights:              AiInsight[];
+  disclaimer:            string;
+}
 
 // ---------------------------------------------------------------------------
 // Design constants
@@ -178,17 +212,49 @@ function formatRelative(iso: string): string {
 
 function buildHeatmapDays(
   data: HeatmapEntry[],
-): Array<{ date: string; mood: number | null; has_safety_flag: boolean }> {
+  numDays = 90,
+): Array<{ date: string; mood: number | null; completion_pct: number | null; has_safety_flag: boolean }> {
   const map = new Map(data.map((e) => [e.entry_date, e]));
   const today = new Date();
-  return Array.from({ length: 30 }, (_, i) => {
+  return Array.from({ length: numDays }, (_, i) => {
     const d = new Date(today);
-    d.setDate(today.getDate() - (29 - i));
+    d.setDate(today.getDate() - (numDays - 1 - i));
     const dateStr = d.toISOString().split('T')[0]!;
     const entry = map.get(dateStr);
-    return { date: dateStr, mood: entry?.mood ?? null, has_safety_flag: entry?.has_safety_flag ?? false };
+    return {
+      date: dateStr,
+      mood: entry?.mood ?? null,
+      completion_pct: entry?.completion_pct ?? null,
+      has_safety_flag: entry?.has_safety_flag ?? false,
+    };
   });
 }
+
+// Clinical cut-off reference lines per scale
+const SCALE_CUTOFFS: Record<string, Array<{ score: number; label: string; color: string }>> = {
+  'PHQ-9': [
+    { score: 5,  label: 'Mild',     color: '#c9972a' },
+    { score: 10, label: 'Moderate', color: '#e07a3a' },
+    { score: 20, label: 'Severe',   color: 'var(--critical)' },
+  ],
+  'GAD-7': [
+    { score: 5,  label: 'Mild',     color: '#c9972a' },
+    { score: 10, label: 'Moderate', color: '#e07a3a' },
+    { score: 15, label: 'Severe',   color: 'var(--critical)' },
+  ],
+  'ASRM': [
+    { score: 6, label: 'Elevated mania', color: 'var(--critical)' },
+  ],
+};
+
+const SCALE_COLORS: Record<string, string> = {
+  'PHQ-9': '#4a90e2',
+  'GAD-7': '#e07a3a',
+  'ASRM':  '#9b59b6',
+  'ISI':   '#2ecc71',
+  'C-SSRS':'#e74c3c',
+  'WHODAS':'#1abc9c',
+};
 
 // ---------------------------------------------------------------------------
 // Shared sub-components
@@ -421,34 +487,128 @@ function OverviewTab({
 }
 
 // ---------------------------------------------------------------------------
-// Tab: Mood Trends
+// Tab: Mood Trends  (enhanced with 90-day heatmap + assessment chart)
 // ---------------------------------------------------------------------------
 
-function MoodTrendsTab({ heatmap, loading }: { heatmap: HeatmapEntry[]; loading: boolean }) {
+function HeatmapTooltip({
+  day, x, y,
+}: {
+  day: { date: string; mood: number | null; completion_pct: number | null; has_safety_flag: boolean };
+  x: number;
+  y: number;
+}) {
+  return (
+    <div style={{
+      position: 'fixed', left: x + 12, top: y - 10,
+      background: 'var(--bg)', border: '1px solid var(--border)',
+      borderRadius: 8, padding: '8px 12px', zIndex: 900,
+      fontSize: 12, color: 'var(--ink)', boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
+      pointerEvents: 'none', minWidth: 140,
+    }}>
+      <div style={{ fontWeight: 600, marginBottom: 4 }}>
+        {format(parseISO(day.date), 'EEE, MMM d')}
+      </div>
+      {day.mood !== null ? (
+        <div>Mood: <span style={{ color: moodColor(day.mood), fontWeight: 700 }}>{day.mood}/10</span></div>
+      ) : (
+        <div style={{ color: 'var(--ink-ghost)' }}>No check-in</div>
+      )}
+      {day.completion_pct !== null && (
+        <div>Check-in: <span style={{ fontWeight: 600 }}>{Math.round(day.completion_pct)}%</span></div>
+      )}
+      {day.has_safety_flag && (
+        <div style={{ color: 'var(--critical)', fontWeight: 700, marginTop: 4 }}>⚠ Safety flag</div>
+      )}
+    </div>
+  );
+}
+
+function MoodTrendsTab({
+  heatmap, loading, assessments, assessmentsLoading,
+}: {
+  heatmap: HeatmapEntry[];
+  loading: boolean;
+  assessments: AssessmentScore[];
+  assessmentsLoading: boolean;
+}) {
+  const [comparePrev, setComparePrev] = useState(false);
+  const [activeScales, setActiveScales] = useState<Set<string>>(new Set(['PHQ-9', 'GAD-7', 'ASRM']));
+  const [tooltip, setTooltip] = useState<{ day: ReturnType<typeof buildHeatmapDays>[0]; x: number; y: number } | null>(null);
+  const heatmapRef = useRef<HTMLDivElement>(null);
+
   if (loading) {
     return <div className="tab-loading">Loading mood data…</div>;
   }
 
-  const days = buildHeatmapDays(heatmap);
-  const chartData = days
+  const days90 = buildHeatmapDays(heatmap, 90);
+  const days30 = days90.slice(-30);
+  const prev30 = days90.slice(30, 60);
+
+  const chartData = days30
     .filter((d) => d.mood !== null)
     .map((d) => ({ date: d.date, mood: d.mood! }));
 
+  const prevChartData = prev30
+    .filter((d) => d.mood !== null)
+    .map((d) => ({ date: d.date, mood: d.mood! }));
+
+  // Assessment chart data: merge last 90 days per active scale
+  const cutoff = subDays(new Date(), 90).toISOString();
+  const assessmentChartData = assessments
+    .filter((a) => activeScales.has(a.scale) && a.completed_at >= cutoff)
+    .sort((a, b) => a.completed_at.localeCompare(b.completed_at))
+    .reduce((acc, a) => {
+      const dateKey = a.completed_at.split('T')[0]!;
+      const existing = acc.find((r) => r.date === dateKey);
+      if (existing) {
+        existing[a.scale] = a.score;
+      } else {
+        const row: Record<string, unknown> = { date: dateKey };
+        row[a.scale] = a.score;
+        acc.push(row);
+      }
+      return acc;
+    }, [] as Array<Record<string, unknown>>);
+
+  const toggleScale = (scale: string) => {
+    setActiveScales((prev) => {
+      const next = new Set(prev);
+      if (next.has(scale)) { if (next.size > 1) next.delete(scale); }
+      else next.add(scale);
+      return next;
+    });
+  };
+
+  const availableScales = [...new Set(assessments.map((a) => a.scale))];
+
   return (
     <div>
-      {/* Line chart */}
+      {/* Mood trend chart */}
       <div className="tab-card" style={{ marginBottom: 20 }}>
-        <h3 className="tab-section-title" style={{ marginBottom: 20 }}>Mood Score — Last 30 Days</h3>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+          <h3 className="tab-section-title" style={{ margin: 0 }}>Mood Score — Last 30 Days</h3>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: SUB, cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={comparePrev}
+              onChange={(e) => setComparePrev(e.target.checked)}
+              style={{ accentColor: PRIMARY }}
+            />
+            Compare prev. 30 days
+          </label>
+        </div>
         {chartData.length < 2 ? (
           <div style={{ color: SUB, textAlign: 'center', padding: 40 }}>
             Not enough data to display trend chart (need at least 2 check-ins).
           </div>
         ) : (
           <ResponsiveContainer width="100%" height={220}>
-            <LineChart data={chartData} margin={{ top: 5, right: 16, bottom: 5, left: 0 }}>
+            <LineChart margin={{ top: 5, right: 16, bottom: 5, left: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke={BORDER} />
               <XAxis
                 dataKey="date"
+                type="category"
+                allowDuplicatedCategory={false}
                 tick={{ fill: SUB, fontSize: 11 }}
                 tickLine={false}
                 axisLine={{ stroke: BORDER }}
@@ -471,53 +631,172 @@ function MoodTrendsTab({ heatmap, loading }: { heatmap: HeatmapEntry[]; loading:
                 formatter={(v: number) => [v, 'Mood']}
               />
               <Line
+                data={chartData}
                 type="monotone"
                 dataKey="mood"
+                name="Current period"
                 stroke={PRIMARY}
                 strokeWidth={2}
                 dot={{ r: 4, fill: PRIMARY, strokeWidth: 0 }}
                 activeDot={{ r: 6, fill: PRIMARY }}
               />
+              {comparePrev && prevChartData.length >= 2 && (
+                <Line
+                  data={prevChartData}
+                  type="monotone"
+                  dataKey="mood"
+                  name="Previous period"
+                  stroke="#4a5568"
+                  strokeWidth={1.5}
+                  strokeDasharray="4 3"
+                  dot={false}
+                />
+              )}
             </LineChart>
           </ResponsiveContainer>
         )}
       </div>
 
-      {/* 30-day heatmap grid */}
-      <div className="tab-card">
-        <h3 className="tab-section-title">30-Day Activity Grid</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(10, 40px)', gap: 6 }}>
-          {days.map((d) => (
-            <div
-              key={d.date}
-              title={`${d.date}${d.mood !== null ? `: Mood ${d.mood}` : ': No entry'}${d.has_safety_flag ? ' ⚠️' : ''}`}
-              style={{
-                width: 40, height: 40,
-                borderRadius: 6,
-                background: d.mood !== null ? moodColor(d.mood) : 'rgba(255,255,255,0.07)',
-                border: d.has_safety_flag ? '2px solid var(--critical)' : '1px solid rgba(255,255,255,0.10)',
-              }}
-            />
-          ))}
+      {/* Assessment history chart */}
+      {!assessmentsLoading && availableScales.length > 0 && (
+        <div className="tab-card" style={{ marginBottom: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+            <h3 className="tab-section-title" style={{ margin: 0 }}>Assessment Scores — Last 90 Days</h3>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              {availableScales.map((scale) => (
+                <button
+                  key={scale}
+                  onClick={() => toggleScale(scale)}
+                  style={{
+                    padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600,
+                    background: activeScales.has(scale) ? `${SCALE_COLORS[scale] ?? PRIMARY}22` : 'var(--glass-01)',
+                    color: activeScales.has(scale) ? (SCALE_COLORS[scale] ?? PRIMARY) : SUB,
+                    border: `1px solid ${activeScales.has(scale) ? (SCALE_COLORS[scale] ?? PRIMARY) : BORDER}`,
+                    cursor: 'pointer',
+                  }}
+                >
+                  {scale}
+                </button>
+              ))}
+            </div>
+          </div>
+          {assessmentChartData.length < 2 ? (
+            <div style={{ color: SUB, textAlign: 'center', padding: 32, fontSize: 13 }}>
+              Not enough assessment data for the selected scales.
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={240}>
+              <LineChart data={assessmentChartData} margin={{ top: 5, right: 16, bottom: 5, left: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke={BORDER} />
+                <XAxis
+                  dataKey="date"
+                  tick={{ fill: SUB, fontSize: 11 }}
+                  tickLine={false}
+                  axisLine={{ stroke: BORDER }}
+                  tickFormatter={(v: string) => format(parseISO(v), 'MMM d')}
+                  interval="preserveStartEnd"
+                />
+                <YAxis
+                  tick={{ fill: SUB, fontSize: 11 }}
+                  tickLine={false}
+                  axisLine={{ stroke: BORDER }}
+                  width={28}
+                />
+                <RechartsTooltip
+                  contentStyle={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 8, fontSize: 13 }}
+                  labelStyle={{ color: SUB }}
+                  labelFormatter={(v: string) => format(parseISO(v), 'EEE, MMM d')}
+                />
+                <Legend
+                  wrapperStyle={{ fontSize: 11, color: SUB, paddingTop: 8 }}
+                />
+                {/* Reference lines for clinical cut-offs */}
+                {[...activeScales].flatMap((scale) =>
+                  (SCALE_CUTOFFS[scale] ?? []).map((cutoff) => (
+                    <ReferenceLine
+                      key={`${scale}-${cutoff.score}`}
+                      y={cutoff.score}
+                      stroke={cutoff.color}
+                      strokeDasharray="3 3"
+                      strokeOpacity={0.6}
+                      label={{ value: `${scale} ${cutoff.label}`, fill: cutoff.color, fontSize: 9, position: 'right' }}
+                    />
+                  ))
+                )}
+                {[...activeScales].map((scale) => (
+                  <Line
+                    key={scale}
+                    type="monotone"
+                    dataKey={scale}
+                    name={scale}
+                    stroke={SCALE_COLORS[scale] ?? PRIMARY}
+                    strokeWidth={2}
+                    dot={{ r: 5, fill: SCALE_COLORS[scale] ?? PRIMARY, strokeWidth: 0 }}
+                    connectNulls={false}
+                    activeDot={{ r: 7 }}
+                  />
+                ))}
+              </LineChart>
+            </ResponsiveContainer>
+          )}
         </div>
-        <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: SUB }}>
-          <span>Low</span>
-          <div style={{ display: 'flex', gap: 3 }}>
-            {[1, 3, 5, 7, 9, 10].map((v) => (
-              <div key={v} style={{ width: 14, height: 14, borderRadius: 2, background: moodColor(v) }} />
+      )}
+
+      {/* 90-day scrollable heatmap grid */}
+      <div className="tab-card">
+        <h3 className="tab-section-title">90-Day Activity Grid</h3>
+        <div
+          ref={heatmapRef}
+          style={{ overflowX: 'auto', paddingBottom: 8 }}
+        >
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(30, 34px)',
+            gridTemplateRows: 'repeat(3, 34px)',
+            gap: 5,
+            width: 'fit-content',
+          }}>
+            {days90.map((d) => (
+              <div
+                key={d.date}
+                onMouseEnter={(e) => setTooltip({ day: d, x: e.clientX, y: e.clientY })}
+                onMouseLeave={() => setTooltip(null)}
+                style={{
+                  width: 34, height: 34,
+                  borderRadius: 5,
+                  background: d.mood !== null ? moodColor(d.mood) : 'rgba(255,255,255,0.06)',
+                  border: d.has_safety_flag ? '2px solid var(--critical)' : '1px solid rgba(255,255,255,0.08)',
+                  cursor: 'default',
+                  transition: 'transform 0.1s',
+                }}
+                onMouseOver={(e) => { (e.currentTarget as HTMLElement).style.transform = 'scale(1.15)'; }}
+                onMouseOut={(e) => { (e.currentTarget as HTMLElement).style.transform = 'scale(1)'; }}
+              />
             ))}
           </div>
-          <span>High</span>
-          <span style={{ marginLeft: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
-            <div style={{ width: 14, height: 14, borderRadius: 2, background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.15)', display: 'inline-block' }} />
+        </div>
+        <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: SUB, flexWrap: 'wrap' }}>
+          <span>Low mood</span>
+          <div style={{ display: 'flex', gap: 3 }}>
+            {[1, 3, 5, 7, 9, 10].map((v) => (
+              <div key={v} style={{ width: 13, height: 13, borderRadius: 2, background: moodColor(v) }} />
+            ))}
+          </div>
+          <span>High mood</span>
+          <span style={{ marginLeft: 8, display: 'flex', alignItems: 'center', gap: 4 }}>
+            <div style={{ width: 13, height: 13, borderRadius: 2, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', display: 'inline-block' }} />
             No entry
           </span>
-          <span style={{ marginLeft: 8, display: 'flex', alignItems: 'center', gap: 4 }}>
-            <div style={{ width: 14, height: 14, borderRadius: 2, background: 'rgba(255,255,255,0.07)', border: '2px solid var(--critical)', display: 'inline-block' }} />
+          <span style={{ marginLeft: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
+            <div style={{ width: 13, height: 13, borderRadius: 2, background: 'rgba(255,255,255,0.06)', border: '2px solid var(--critical)', display: 'inline-block' }} />
             Safety flag
           </span>
+          <span style={{ marginLeft: 'auto', color: 'var(--ink-ghost)' }}>← scroll to see older days</span>
         </div>
       </div>
+
+      {/* Hover tooltip rendered via portal-style fixed positioning */}
+      {tooltip && <HeatmapTooltip day={tooltip.day} x={tooltip.x} y={tooltip.y} />}
     </div>
   );
 }
@@ -947,6 +1226,311 @@ function MedicationsTab({
 }
 
 // ---------------------------------------------------------------------------
+// Tab: AI Insights
+// ---------------------------------------------------------------------------
+
+const RISK_BAND_COLOR: Record<string, string> = {
+  critical: 'var(--critical)',
+  high:     '#e07a3a',
+  moderate: 'var(--warning)',
+  low:      'var(--safe)',
+};
+
+function riskScoreBand(score: number | null): string {
+  if (score === null) return 'unknown';
+  if (score >= 75) return 'critical';
+  if (score >= 50) return 'high';
+  if (score >= 25) return 'moderate';
+  return 'low';
+}
+
+function RiskGaugeBar({ score }: { score: number | null }) {
+  if (score === null) return <span style={{ color: SUB, fontSize: 13 }}>Not yet computed</span>;
+  const band  = riskScoreBand(score);
+  const color = RISK_BAND_COLOR[band]!;
+  return (
+    <div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+        <span style={{ fontSize: 32, fontWeight: 800, color }}>{score}</span>
+        <span style={{ color: SUB, fontSize: 14, alignSelf: 'flex-end', marginBottom: 4 }}>/100</span>
+        <span style={{
+          background: `${color}22`, border: `1px solid ${color}44`,
+          borderRadius: 6, padding: '2px 10px', fontSize: 12, fontWeight: 700,
+          color, textTransform: 'uppercase', letterSpacing: 0.5,
+        }}>
+          {band}
+        </span>
+      </div>
+      <div style={{ height: 8, background: 'rgba(255,255,255,0.08)', borderRadius: 4, overflow: 'hidden', maxWidth: 400 }}>
+        <div style={{ height: '100%', width: `${score}%`, background: color, borderRadius: 4, transition: 'width 0.6s ease' }} />
+      </div>
+    </div>
+  );
+}
+
+function AiInsightsTab({
+  patientId, data, loading, unavailable, token, onTrigger,
+}: {
+  patientId:   string;
+  data:        AiInsightsData | null;
+  loading:     boolean;
+  unavailable: boolean;
+  token:       string | null;
+  onTrigger:   () => void;
+}) {
+  const [triggering, setTriggering] = useState(false);
+  const [triggerMsg, setTriggerMsg] = useState<string | null>(null);
+  const [expanded, setExpanded]     = useState<string | null>(null);
+
+  const triggerInsight = async () => {
+    if (!token || triggering) return;
+    setTriggering(true);
+    setTriggerMsg(null);
+    try {
+      await api.post(`/insights/${patientId}/ai/trigger`, { type: 'weekly_summary', period_days: 7 }, token);
+      setTriggerMsg('Insight generation queued. Results will appear in ~2 minutes.');
+      setTimeout(() => onTrigger(), 5_000);
+    } catch (e) {
+      const err = e as { message?: string };
+      setTriggerMsg(`Failed: ${err.message ?? 'Unknown error'}`);
+    } finally {
+      setTriggering(false);
+    }
+  };
+
+  if (loading) {
+    return <div className="tab-loading">Loading AI insights…</div>;
+  }
+
+  if (unavailable) {
+    return (
+      <div className="tab-card" style={{ textAlign: 'center', padding: 48 }}>
+        <div style={{ fontSize: 36, marginBottom: 12 }}>🔒</div>
+        <h3 style={{ color: TEXT, margin: '0 0 8px' }}>AI Insights Not Available</h3>
+        <p style={{ color: SUB, maxWidth: 440, margin: '0 auto 16px', fontSize: 14, lineHeight: 1.6 }}>
+          AI-powered clinical insights require a signed Business Associate Agreement with Anthropic
+          and the <code>AI_INSIGHTS_ENABLED=true</code> environment variable. Contact your MindLog
+          administrator to enable this feature.
+        </p>
+      </div>
+    );
+  }
+
+  const latestInsight = data?.insights[0] ?? null;
+  const updatedAt = data?.risk_score_updated_at
+    ? format(parseISO(data.risk_score_updated_at), 'MMM d, yyyy \'at\' h:mm a')
+    : null;
+
+  return (
+    <div>
+      {/* Risk Score card */}
+      <div className="tab-card" style={{ marginBottom: 20 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+          <div>
+            <h3 className="tab-section-title" style={{ margin: 0, marginBottom: 4 }}>Composite Risk Score</h3>
+            {updatedAt && (
+              <div style={{ fontSize: 11, color: SUB }}>Last computed {updatedAt}</div>
+            )}
+          </div>
+          <button
+            onClick={() => void triggerInsight()}
+            disabled={triggering}
+            style={{
+              background: `${PRIMARY}22`, border: `1px solid ${PRIMARY}55`,
+              color: PRIMARY, borderRadius: 8, padding: '7px 14px',
+              fontSize: 12, fontWeight: 600, cursor: triggering ? 'not-allowed' : 'pointer',
+              opacity: triggering ? 0.6 : 1,
+            }}
+          >
+            {triggering ? 'Generating…' : '✦ Generate Insight'}
+          </button>
+        </div>
+
+        {triggerMsg && (
+          <div style={{
+            background: triggerMsg.startsWith('Failed') ? 'var(--critical-bg)' : 'var(--safe-bg)',
+            border: `1px solid ${triggerMsg.startsWith('Failed') ? 'var(--critical)' : 'var(--safe)'}44`,
+            borderRadius: 8, padding: '8px 14px', fontSize: 13,
+            color: triggerMsg.startsWith('Failed') ? 'var(--critical)' : 'var(--safe)',
+            marginBottom: 16,
+          }}>
+            {triggerMsg}
+          </div>
+        )}
+
+        <RiskGaugeBar score={data?.risk_score ?? null} />
+
+        {/* Risk factor breakdown */}
+        {data?.risk_score_factors && data.risk_score_factors.length > 0 && (
+          <div style={{ marginTop: 20 }}>
+            <div style={{ fontSize: 11, color: SUB, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10 }}>
+              Risk Factors
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 8 }}>
+              {data.risk_score_factors.map((factor) => (
+                <div
+                  key={factor.rule}
+                  style={{
+                    background:   factor.fired ? 'var(--glass-02)' : 'var(--glass-01)',
+                    border:       `1px solid ${factor.fired ? 'var(--critical)44' : 'var(--border)'}`,
+                    borderRadius: 8,
+                    padding:      '10px 14px',
+                    opacity:      factor.fired ? 1 : 0.55,
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: factor.fired ? TEXT : SUB }}>
+                      {factor.label}
+                    </span>
+                    <span style={{
+                      fontSize: 11, fontWeight: 700,
+                      color: factor.fired ? 'var(--critical)' : SUB,
+                      background: factor.fired ? 'var(--critical-bg)' : 'transparent',
+                      padding: '1px 6px', borderRadius: 4,
+                    }}>
+                      {factor.fired ? `+${factor.weight} pts` : 'Not fired'}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Latest AI insight */}
+      {latestInsight && (
+        <div className="tab-card" style={{ marginBottom: 20 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
+            <h3 className="tab-section-title" style={{ margin: 0 }}>
+              {latestInsight.insight_type === 'weekly_summary' ? 'Weekly Clinical Summary' :
+               latestInsight.insight_type === 'anomaly_detection' ? 'Anomaly Detection' :
+               'Trend Narrative'}
+            </h3>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+              <span style={{
+                background: `${PRIMARY}22`, border: `1px solid ${PRIMARY}44`,
+                borderRadius: 6, padding: '2px 8px', fontSize: 10, fontWeight: 800,
+                color: PRIMARY, letterSpacing: 0.5,
+              }}>
+                AI
+              </span>
+              {latestInsight.risk_delta !== null && latestInsight.risk_delta !== 0 && (
+                <span style={{
+                  fontSize: 12, fontWeight: 600,
+                  color: (latestInsight.risk_delta ?? 0) > 0 ? 'var(--critical)' : 'var(--safe)',
+                }}>
+                  {(latestInsight.risk_delta ?? 0) > 0 ? '▲' : '▼'} {Math.abs(latestInsight.risk_delta ?? 0)} pts risk
+                </span>
+              )}
+            </div>
+          </div>
+          <div style={{ fontSize: 11, color: SUB, marginBottom: 16 }}>
+            {format(parseISO(latestInsight.generated_at), 'EEE, MMM d, yyyy \'at\' h:mm a')}
+            {' · '}
+            Period: {latestInsight.period_start} → {latestInsight.period_end}
+          </div>
+
+          {/* Key findings chips */}
+          {latestInsight.key_findings.length > 0 && (
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 11, color: SUB, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10 }}>
+                Key Findings
+              </div>
+              {latestInsight.key_findings.map((f, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 8 }}>
+                  <div style={{ width: 6, height: 6, borderRadius: 3, background: PRIMARY, marginTop: 6, flexShrink: 0 }} />
+                  <span style={{ fontSize: 13, color: TEXT, lineHeight: 1.6 }}>{f}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Narrative */}
+          <div style={{ fontSize: 11, color: SUB, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10 }}>
+            Clinical Narrative
+          </div>
+          <p style={{ fontSize: 14, color: TEXT, lineHeight: 1.7, margin: 0, whiteSpace: 'pre-wrap' }}>
+            {latestInsight.narrative}
+          </p>
+        </div>
+      )}
+
+      {/* Historical insights accordion */}
+      {data && data.insights.length > 1 && (
+        <div className="tab-card">
+          <h3 className="tab-section-title">Insight History</h3>
+          {data.insights.slice(1).map((insight) => (
+            <div
+              key={insight.id}
+              style={{
+                borderBottom: `1px solid ${BORDER}`,
+                paddingBottom: expanded === insight.id ? 16 : 0,
+                marginBottom: 12,
+              }}
+            >
+              <button
+                onClick={() => setExpanded((p) => p === insight.id ? null : insight.id)}
+                style={{
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  width: '100%', background: 'none', border: 'none', cursor: 'pointer',
+                  padding: '8px 0', textAlign: 'left',
+                }}
+              >
+                <div>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: TEXT }}>
+                    {insight.insight_type === 'weekly_summary' ? 'Weekly Summary' : insight.insight_type}
+                  </span>
+                  <span style={{ fontSize: 11, color: SUB, marginLeft: 10 }}>
+                    {format(parseISO(insight.generated_at), 'MMM d, yyyy')}
+                  </span>
+                </div>
+                <span style={{ color: SUB, fontSize: 16 }}>{expanded === insight.id ? '▲' : '▼'}</span>
+              </button>
+
+              {expanded === insight.id && (
+                <div style={{ paddingTop: 8 }}>
+                  {insight.key_findings.length > 0 && (
+                    <div style={{ marginBottom: 12 }}>
+                      {insight.key_findings.map((f, i) => (
+                        <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 4 }}>
+                          <span style={{ color: PRIMARY }}>•</span>
+                          <span style={{ fontSize: 13, color: TEXT }}>{f}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <p style={{ fontSize: 13, color: TEXT, lineHeight: 1.7, margin: 0, whiteSpace: 'pre-wrap' }}>
+                    {insight.narrative}
+                  </p>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* HIPAA disclaimer */}
+      <div style={{
+        background: 'var(--glass-01)', border: `1px solid ${BORDER}`,
+        borderRadius: 10, padding: '12px 16px', marginTop: 8,
+      }}>
+        <p style={{ fontSize: 11, color: SUB, margin: 0, lineHeight: 1.7, fontStyle: 'italic' }}>
+          ⚕ {data?.disclaimer ?? 'AI-generated content is for clinical decision support only. It does not constitute a diagnosis or replace clinical assessment.'}
+        </p>
+      </div>
+
+      {/* Empty state — no insights yet */}
+      {!loading && (!data || data.insights.length === 0) && (
+        <div style={{ textAlign: 'center', color: SUB, padding: '32px 0', fontSize: 13 }}>
+          No AI insights generated yet. Click "Generate Insight" to create the first summary.
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Main page
 // ---------------------------------------------------------------------------
 
@@ -992,6 +1576,20 @@ export function PatientDetailPage() {
   const [medications, setMedications] = useState<PatientMedication[]>([]);
   const [medsLoading, setMedsLoading] = useState(false);
   const [showDiscontinued, setShowDiscontinued] = useState(false);
+
+  // Tab: AI Insights
+  const [aiData,        setAiData]        = useState<AiInsightsData | null>(null);
+  const [aiLoading,     setAiLoading]     = useState(false);
+  const [aiUnavailable, setAiUnavailable] = useState(false);
+
+  // Assessment history (used in Trends tab chart)
+  const [assessments, setAssessments]             = useState<AssessmentScore[]>([]);
+  const [assessmentsLoading, setAssessmentsLoading] = useState(false);
+
+  // Quick actions footer — Assessment Request modal
+  const [showAssessmentModal, setShowAssessmentModal] = useState(false);
+  const [actionToast, setActionToast] = useState('');
+
   // Header: inline status/risk edit
   const [editStatus, setEditStatus] = useState('');
   const [editRisk, setEditRisk] = useState('');
@@ -1038,12 +1636,13 @@ export function PatientDetailPage() {
     }
   }, [patient]);
 
-  // Push patient name to UI store so the topbar can display it; clear on unmount
+  // Push patient name + id to UI store so topbar and QuickNotePanel can use it; clear on unmount
   useEffect(() => {
     if (patient) {
       uiActions.setPatientName(`${patient.first_name} ${patient.last_name}`);
+      uiActions.setPatientId(patient.id);
     }
-    return () => { uiActions.setPatientName(null); };
+    return () => { uiActions.setPatientName(null); uiActions.setPatientId(null); };
   }, [patient]);
 
   // -- Tab data fetchers
@@ -1103,12 +1702,38 @@ export function PatientDetailPage() {
     } catch { /* silent */ } finally { setMedsLoading(false); }
   }, [token, patientId, showDiscontinued]);
 
+  const fetchAssessments = useCallback(async () => {
+    if (!token || !patientId) return;
+    setAssessmentsLoading(true);
+    try {
+      const rows = await api.get<AssessmentScore[]>(`/patients/${patientId}/assessments`, token);
+      setAssessments(rows);
+    } catch { /* silent — endpoint may not return data yet */ } finally { setAssessmentsLoading(false); }
+  }, [token, patientId]);
+
+  const fetchAiInsights = useCallback(async () => {
+    if (!token || !patientId) return;
+    setAiLoading(true);
+    setAiUnavailable(false);
+    try {
+      const d = await api.get<AiInsightsData>(`/insights/${patientId}/ai?limit=5`, token);
+      setAiData(d);
+    } catch (e) {
+      const err = e as { status?: number };
+      if (err.status === 503) setAiUnavailable(true);
+      // 403 (not on care team) handled by page-level 404
+    } finally {
+      setAiLoading(false);
+    }
+  }, [token, patientId]);
+
   // Load tab data when tab is active (also re-fires when page deps change)
-  useEffect(() => { if (tab === 'trends') void fetchHeatmap(); }, [tab, fetchHeatmap]);
+  useEffect(() => { if (tab === 'trends') { void fetchHeatmap(); void fetchAssessments(); } }, [tab, fetchHeatmap, fetchAssessments]);
   useEffect(() => { if (tab === 'journal') void fetchJournal(); }, [tab, fetchJournal]);
   useEffect(() => { if (tab === 'notes') void fetchNotes(); }, [tab, fetchNotes]);
   useEffect(() => { if (tab === 'alerts') void fetchAlerts(); }, [tab, fetchAlerts]);
   useEffect(() => { if (tab === 'medications') void fetchMedications(); }, [tab, fetchMedications]);
+  useEffect(() => { if (tab === 'ai') void fetchAiInsights(); }, [tab, fetchAiInsights]);
 
   // -- Add note
   const submitNote = useCallback(async () => {
@@ -1170,6 +1795,7 @@ export function PatientDetailPage() {
     { key: 'notes', label: 'Notes' },
     { key: 'alerts', label: alertsTotal > 0 ? `Alerts (${alertsTotal})` : 'Alerts' },
     { key: 'medications', label: `Medications${medications.length > 0 ? ` (${medications.length})` : ''}` },
+    { key: 'ai', label: '✦ AI Insights' },
   ];
 
   // Avatar color based on name hash
@@ -1290,7 +1916,7 @@ export function PatientDetailPage() {
       </div>
 
       {/* ── Tab content ── */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '24px' }}>
+      <div style={{ flex: 1, overflowY: 'auto', padding: '24px', paddingBottom: 84 }}>
         {!patient && !patientLoading ? (
           <div style={{ textAlign: 'center', color: 'var(--ink-soft)', padding: 60 }}>
             Patient not found or you don't have access.
@@ -1306,7 +1932,12 @@ export function PatientDetailPage() {
             onInviteAction={() => void fetchInvite(patient)}
           />
         ) : tab === 'trends' ? (
-          <MoodTrendsTab heatmap={heatmap} loading={heatmapLoading} />
+          <MoodTrendsTab
+            heatmap={heatmap}
+            loading={heatmapLoading}
+            assessments={assessments}
+            assessmentsLoading={assessmentsLoading}
+          />
         ) : tab === 'journal' ? (
           <JournalTab
             entries={journal} loading={journalLoading} total={journalTotal}
@@ -1335,8 +1966,101 @@ export function PatientDetailPage() {
             onToggleDiscontinued={() => setShowDiscontinued((v) => !v)}
             onDiscontinue={(id) => void discontinueMedication(id)}
           />
+        ) : tab === 'ai' ? (
+          <AiInsightsTab
+            patientId={patientId!}
+            data={aiData}
+            loading={aiLoading}
+            unavailable={aiUnavailable}
+            token={token}
+            onTrigger={() => void fetchAiInsights()}
+          />
         ) : null}
       </div>
+
+      {/* ── Quick Actions sticky footer (only shown when patient loaded) ── */}
+      {patient && (
+        <div style={{
+          position: 'sticky', bottom: 0, left: 0, right: 0,
+          background: 'rgba(10,14,26,0.92)', backdropFilter: 'blur(12px)',
+          borderTop: '1px solid var(--border)',
+          padding: '10px 24px',
+          display: 'flex', alignItems: 'center', gap: 10,
+          zIndex: 100,
+        }}>
+          <span style={{ fontSize: 11, color: 'var(--ink-soft)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, marginRight: 4 }}>
+            Quick Actions
+          </span>
+          <button
+            className="detail-actions-btn"
+            onClick={() => setTab('notes')}
+            title="Go to Notes tab to add a clinical note"
+          >
+            ✏ Add Note
+          </button>
+          <button
+            className="detail-actions-btn"
+            onClick={() => setShowAssessmentModal(true)}
+          >
+            📋 Request Assessment
+          </button>
+          <button
+            className="detail-actions-btn primary"
+            onClick={() => navigate(`/reports?patientId=${patientId}`)}
+          >
+            📄 Generate Report
+          </button>
+          <button
+            className="detail-actions-btn"
+            style={{ color: 'var(--critical)', borderColor: 'var(--critical)44' }}
+            onClick={() => {
+              setEditStatus('crisis');
+              void (async () => {
+                if (!token || !patientId) return;
+                try {
+                  const updated = await api.patch<Patient>(`/patients/${patientId}`, { status: 'crisis' }, token);
+                  setPatient(updated);
+                  setActionToast('Patient status escalated to Crisis');
+                  setTimeout(() => setActionToast(''), 4000);
+                } catch { /* non-fatal */ }
+              })();
+            }}
+          >
+            🚨 Escalate Alert
+          </button>
+          <div style={{ flex: 1 }} />
+          <span style={{ fontSize: 11, color: 'var(--ink-ghost)' }}>
+            {patient.first_name} {patient.last_name} · MRN {patient.mrn}
+          </span>
+        </div>
+      )}
+
+      {/* Assessment Request Modal */}
+      {showAssessmentModal && patient && (
+        <AssessmentRequestModal
+          patientId={patient.id}
+          patientName={`${patient.first_name} ${patient.last_name}`}
+          onClose={() => setShowAssessmentModal(false)}
+          onSuccess={() => {
+            setShowAssessmentModal(false);
+            setActionToast('Assessment request sent successfully');
+            setTimeout(() => setActionToast(''), 4000);
+          }}
+        />
+      )}
+
+      {/* Action toast */}
+      {actionToast && (
+        <div style={{
+          position: 'fixed', bottom: 80, right: 24,
+          background: 'var(--safe-bg)', border: '1px solid var(--safe)',
+          color: 'var(--safe)', padding: '10px 18px', borderRadius: 10,
+          fontSize: 13, fontWeight: 600, zIndex: 1200,
+          boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
+        }}>
+          ✓ {actionToast}
+        </div>
+      )}
     </div>
   );
 }

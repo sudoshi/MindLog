@@ -70,7 +70,7 @@ export default async function patientRoutes(fastify: FastifyInstance): Promise<v
       LIMIT ${limit} OFFSET ${offset}
     `;
 
-    const [{ count }] = await sql<{ count: string }[]>`
+    const [_countRow] = await sql<{ count: string }[]>`
       SELECT COUNT(*) AS count
       FROM patients p
       JOIN care_team_members ctm ON ctm.patient_id = p.id AND ctm.unassigned_at IS NULL
@@ -81,6 +81,7 @@ export default async function patientRoutes(fastify: FastifyInstance): Promise<v
         AND (${searchFilter}::TEXT IS NULL
              OR (p.first_name || ' ' || p.last_name) ILIKE ${searchFilter})
     `;
+    const count = _countRow?.count ?? '0';
 
     const total = Number(count);
     return reply.send({
@@ -370,6 +371,44 @@ export default async function patientRoutes(fastify: FastifyInstance): Promise<v
     });
 
     return reply.status(201).send({ success: true, data: { id: member?.id } });
+  });
+
+  // ---------------------------------------------------------------------------
+  // GET /patients/:id/assessments — clinician views patient assessment history
+  // ---------------------------------------------------------------------------
+  fastify.get('/:id/assessments', auth, async (request, reply) => {
+    const { id } = z.object({ id: UuidSchema }).parse(request.params);
+    const isAdmin = await isAdminUser(request.user.sub);
+
+    // Verify care-team access
+    if (!isAdmin) {
+      const [access] = await sql<{ id: string }[]>`
+        SELECT ctm.id FROM care_team_members ctm
+        WHERE ctm.patient_id   = ${id}
+          AND ctm.clinician_id = ${request.user.sub}
+          AND ctm.unassigned_at IS NULL
+      `;
+      if (!access) {
+        return reply.status(403).send({ success: false, error: { code: 'FORBIDDEN', message: "Not on this patient's care team" } });
+      }
+    }
+
+    const rows = await sql<{
+      id: string;
+      scale: string;
+      score: number;
+      completed_at: string;
+      loinc_code: string | null;
+      notes: string | null;
+    }[]>`
+      SELECT id, scale, score, completed_at, loinc_code, notes
+      FROM validated_assessments
+      WHERE patient_id = ${id}
+      ORDER BY completed_at DESC
+      LIMIT 100
+    `;
+
+    return reply.send({ success: true, data: rows });
   });
 
   // ---------------------------------------------------------------------------

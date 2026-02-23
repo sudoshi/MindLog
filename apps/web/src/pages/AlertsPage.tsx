@@ -82,18 +82,21 @@ function AlertCard({ alert, token, onRefresh }: { alert: Alert; token: string | 
     alert.severity === 'warning'  ? 'rgba(245,158,11,0.05)' : 'var(--glass-01)';
 
   return (
-    <div style={{
-      background: bgColor,
-      backdropFilter: 'blur(20px) saturate(1.4)',
-      WebkitBackdropFilter: 'blur(20px) saturate(1.4)',
-      border: `1px solid ${alert.severity === 'critical' ? 'var(--critical-border)' : 'var(--border)'}`,
-      borderLeft: `3px solid ${borderColor}`,
-      borderRadius: 'var(--r-lg)',
-      padding: '14px 18px',
-      marginBottom: 10,
-      boxShadow: `0 2px 16px rgba(0,0,0,0.3), 0 0 20px ${glowColor}, inset 0 1px 0 rgba(255,255,255,0.06)`,
-      transition: 'all 0.15s ease',
-    }}>
+    <div
+      style={{
+        background: bgColor,
+        backdropFilter: 'blur(20px) saturate(1.4)',
+        WebkitBackdropFilter: 'blur(20px) saturate(1.4)',
+        border: `1px solid ${alert.severity === 'critical' ? 'var(--critical-border)' : 'var(--border)'}`,
+        borderLeft: `3px solid ${borderColor}`,
+        borderRadius: 'var(--r-lg)',
+        padding: '14px 18px',
+        marginBottom: 10,
+        boxShadow: `0 2px 16px rgba(0,0,0,0.3), 0 0 20px ${glowColor}, inset 0 1px 0 rgba(255,255,255,0.06)`,
+        transition: 'all 0.15s ease',
+      }}
+      data-testid={`alert-card-${alert.id}`}
+    >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           {/* Severity badge */}
@@ -182,7 +185,7 @@ function LiveToast({ alerts, onDismiss }: { alerts: LiveAlert[]; onDismiss: () =
     latest.severity === 'warning'  ? 'var(--warning)'  : 'var(--info)';
 
   return (
-    <div className="live-toast" style={{ borderColor }}>
+    <div className="live-toast" style={{ borderColor }} data-testid="live-toast">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
         <span style={{ color: borderColor, fontSize: 11, fontWeight: 700, textTransform: 'uppercase' }}>
           {alerts.length > 1 ? `${alerts.length} new alerts` : 'New alert'}
@@ -205,17 +208,19 @@ function LiveToast({ alerts, onDismiss }: { alerts: LiveAlert[]; onDismiss: () =
 // ---------------------------------------------------------------------------
 
 function FilterChip({
-  label, active, variant, onClick,
+  label, active, variant, onClick, testId,
 }: {
   label: string;
   active: boolean;
   variant?: 'critical';
   onClick: () => void;
+  testId?: string;
 }) {
   return (
     <div
       className={`filter-chip${active ? ' active' : ''}${variant ? ` ${variant}` : ''}`}
       onClick={onClick}
+      data-testid={testId}
     >
       {label}
     </div>
@@ -275,30 +280,34 @@ export function AlertsPage() {
   });
 
   return (
-    <div className="view">
+    <div className="view" data-testid="alerts-page">
       {/* Filter bar */}
       <div style={{ padding: '0 24px' }}>
-        <div className="filter-bar">
+        <div className="filter-bar" data-testid="alerts-filter-bar">
           <FilterChip
             label={`All alerts (${total})`}
             active={fStatus === 'all' && fSev === 'all'}
             onClick={() => { setFStatus('all'); setFSev('all'); setPage(1); }}
+            testId="filter-all"
           />
           <FilterChip
             label={`Critical (${critCount})`}
             variant="critical"
             active={fSev === 'critical'}
             onClick={() => { setFSev(fSev === 'critical' ? 'all' : 'critical'); setPage(1); }}
+            testId="filter-critical"
           />
           <FilterChip
             label={`Warning (${warnCount})`}
             active={fSev === 'warning'}
             onClick={() => { setFSev(fSev === 'warning' ? 'all' : 'warning'); setPage(1); }}
+            testId="filter-warning"
           />
           <FilterChip
             label={`Info (${infoCount})`}
             active={fSev === 'info'}
             onClick={() => { setFSev(fSev === 'info' ? 'all' : 'info'); setPage(1); }}
+            testId="filter-info"
           />
           <FilterChip
             label={`Unacknowledged (${unackCount})`}
@@ -308,11 +317,13 @@ export function AlertsPage() {
               setFSev('all');
               setPage(1);
             }}
+            testId="filter-unacknowledged"
           />
           <FilterChip
             label="Resolved"
             active={fStatus === 'resolved'}
             onClick={() => { setFStatus(fStatus === 'resolved' ? 'all' : 'resolved'); setPage(1); }}
+            testId="filter-resolved"
           />
         </div>
       </div>
@@ -340,12 +351,12 @@ export function AlertsPage() {
               />
             ))}
             {total > 20 && (
-              <div className="pagination">
-                <button className="page-btn" disabled={page === 1} onClick={() => setPage((p) => p - 1)}>
+              <div className="pagination" data-testid="alerts-pagination">
+                <button className="page-btn" disabled={page === 1} onClick={() => setPage((p) => p - 1)} data-testid="alerts-prev">
                   ← Prev
                 </button>
-                <span className="page-info">Page {page} of {Math.ceil(total / 20)}</span>
-                <button className="page-btn" disabled={alerts.length < 20} onClick={() => setPage((p) => p + 1)}>
+                <span className="page-info" data-testid="alerts-page-info">Page {page} of {Math.ceil(total / 20)}</span>
+                <button className="page-btn" disabled={alerts.length < 20} onClick={() => setPage((p) => p + 1)} data-testid="alerts-next">
                   Next →
                 </button>
               </div>

@@ -7,9 +7,16 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { sql } from '@mindlog/db';
+import { aiGate } from '../../middleware/aiGate.js';
+import { aiInsightsQueue } from '../../workers/ai-insights-worker.js';
 
 const InsightsQuerySchema = z.object({
   days: z.coerce.number().int().min(7).max(90).default(30),
+});
+
+const AiHistoryQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(20).default(10),
+  type:  z.enum(['weekly_summary', 'trend_narrative', 'anomaly_detection', 'risk_stratification']).optional(),
 });
 
 export default async function insightsRoutes(fastify: FastifyInstance): Promise<void> {
@@ -212,6 +219,246 @@ export default async function insightsRoutes(fastify: FastifyInstance): Promise<
         top_triggers: topTriggers.map((t) => ({ ...t, count: Number(t.count) })),
         top_symptoms: topSymptoms.map((s) => ({ ...s, count: Number(s.count) })),
         top_strategies: topStrategies.map((s) => ({ ...s, count: Number(s.count) })),
+      },
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // GET /insights/me/ai — patient's latest AI insight (gated)
+  // Requires: authenticated patient + AI enabled + BAA signed + consent
+  // ---------------------------------------------------------------------------
+  fastify.get('/me/ai', { preHandler: [fastify.authenticate, aiGate] }, async (request, reply) => {
+    if (request.user.role !== 'patient') {
+      return reply.status(403).send({ success: false, error: { code: 'FORBIDDEN', message: 'Patient access only' } });
+    }
+
+    const patientId = request.user.sub;
+
+    // Verify patient has consented to AI insights
+    const [consent] = await sql<{ granted: boolean }[]>`
+      SELECT granted FROM consent_records
+      WHERE patient_id   = ${patientId}
+        AND consent_type = 'ai_insights'
+      ORDER BY created_at DESC LIMIT 1
+    `;
+
+    if (!consent?.granted) {
+      return reply.status(403).send({
+        success: false,
+        error: { code: 'CONSENT_REQUIRED', message: 'AI insights consent is required. Please update your privacy settings.' },
+      });
+    }
+
+    const [patient] = await sql<{ risk_score: number | null; risk_score_factors: unknown }[]>`
+      SELECT risk_score, risk_score_factors FROM patients WHERE id = ${patientId}
+    `;
+
+    const [latest] = await sql<{
+      id:           string;
+      insight_type: string;
+      period_start: string;
+      period_end:   string;
+      narrative:    string;
+      key_findings: unknown;
+      risk_delta:   number | null;
+      model_id:     string;
+      generated_at: string;
+    }[]>`
+      SELECT id, insight_type, period_start, period_end,
+             narrative, key_findings, risk_delta, model_id, generated_at
+      FROM patient_ai_insights
+      WHERE patient_id = ${patientId}
+        AND insight_type IN ('weekly_summary', 'trend_narrative')
+      ORDER BY generated_at DESC
+      LIMIT 1
+    `;
+
+    return reply.send({
+      success: true,
+      data: {
+        risk_score:         patient?.risk_score ?? null,
+        risk_score_factors: patient?.risk_score_factors ?? null,
+        latest_insight:     latest ?? null,
+        disclaimer: 'This AI-generated summary is a clinical decision support tool. It does not constitute a diagnosis. Always apply clinical judgment.',
+      },
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // GET /insights/me/ai/history — patient's AI insight history (gated)
+  // ---------------------------------------------------------------------------
+  fastify.get('/me/ai/history', { preHandler: [fastify.authenticate, aiGate] }, async (request, reply) => {
+    if (request.user.role !== 'patient') {
+      return reply.status(403).send({ success: false, error: { code: 'FORBIDDEN', message: 'Patient access only' } });
+    }
+
+    const patientId = request.user.sub;
+
+    const [consent] = await sql<{ granted: boolean }[]>`
+      SELECT granted FROM consent_records
+      WHERE patient_id = ${patientId} AND consent_type = 'ai_insights'
+      ORDER BY created_at DESC LIMIT 1
+    `;
+    if (!consent?.granted) {
+      return reply.status(403).send({
+        success: false,
+        error: { code: 'CONSENT_REQUIRED', message: 'AI insights consent required.' },
+      });
+    }
+
+    const { limit, type } = AiHistoryQuerySchema.parse(request.query);
+
+    const insights = await sql<{
+      id:           string;
+      insight_type: string;
+      period_start: string;
+      period_end:   string;
+      narrative:    string;
+      key_findings: unknown;
+      risk_delta:   number | null;
+      generated_at: string;
+    }[]>`
+      SELECT id, insight_type, period_start, period_end,
+             narrative, key_findings, risk_delta, generated_at
+      FROM patient_ai_insights
+      WHERE patient_id   = ${patientId}
+        ${type ? sql`AND insight_type = ${type}` : sql``}
+      ORDER BY generated_at DESC
+      LIMIT ${limit}
+    `;
+
+    return reply.send({ success: true, data: { items: insights, total: insights.length } });
+  });
+
+  // ---------------------------------------------------------------------------
+  // GET /insights/:patientId/ai — clinician: AI insights for a patient (gated)
+  // ---------------------------------------------------------------------------
+  fastify.get('/:patientId/ai', { preHandler: [fastify.authenticate, aiGate] }, async (request, reply) => {
+    if (request.user.role !== 'clinician') {
+      return reply.status(403).send({ success: false, error: { code: 'FORBIDDEN', message: 'Clinician access only' } });
+    }
+
+    const { patientId } = request.params as { patientId: string };
+    const clinicianId   = request.user.sub;
+
+    // Verify clinician is on patient's care team
+    const [membership] = await sql<{ id: string }[]>`
+      SELECT id FROM care_team_members
+      WHERE clinician_id = ${clinicianId}
+        AND patient_id   = ${patientId}
+        AND unassigned_at IS NULL
+    `;
+    if (!membership) {
+      return reply.status(403).send({ success: false, error: { code: 'NOT_ON_CARE_TEAM', message: 'You are not on this patient\'s care team.' } });
+    }
+
+    const [patient] = await sql<{
+      risk_score:            number | null;
+      risk_score_factors:    unknown;
+      risk_score_updated_at: string | null;
+    }[]>`
+      SELECT risk_score, risk_score_factors, risk_score_updated_at
+      FROM patients WHERE id = ${patientId}
+    `;
+
+    const { limit, type } = AiHistoryQuerySchema.parse(request.query);
+
+    const insights = await sql<{
+      id:           string;
+      insight_type: string;
+      period_start: string;
+      period_end:   string;
+      narrative:    string;
+      key_findings: unknown;
+      risk_delta:   number | null;
+      model_id:     string;
+      generated_at: string;
+    }[]>`
+      SELECT id, insight_type, period_start, period_end,
+             narrative, key_findings, risk_delta, model_id, generated_at
+      FROM patient_ai_insights
+      WHERE patient_id = ${patientId}
+        ${type ? sql`AND insight_type = ${type}` : sql``}
+      ORDER BY generated_at DESC
+      LIMIT ${limit}
+    `;
+
+    return reply.send({
+      success: true,
+      data: {
+        patient_id:            patientId,
+        risk_score:            patient?.risk_score ?? null,
+        risk_score_factors:    patient?.risk_score_factors ?? null,
+        risk_score_updated_at: patient?.risk_score_updated_at ?? null,
+        insights,
+        disclaimer: 'AI-generated content is for clinical decision support only. Not a substitute for clinical assessment.',
+      },
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // POST /insights/:patientId/ai/trigger — clinician: manually trigger AI insight
+  // ---------------------------------------------------------------------------
+  fastify.post('/:patientId/ai/trigger', { preHandler: [fastify.authenticate, aiGate] }, async (request, reply) => {
+    if (request.user.role !== 'clinician') {
+      return reply.status(403).send({ success: false, error: { code: 'FORBIDDEN', message: 'Clinician access only' } });
+    }
+
+    const { patientId } = request.params as { patientId: string };
+    const clinicianId   = request.user.sub;
+
+    // Verify care team membership
+    const [membership] = await sql<{ id: string }[]>`
+      SELECT id FROM care_team_members
+      WHERE clinician_id = ${clinicianId}
+        AND patient_id   = ${patientId}
+        AND unassigned_at IS NULL
+    `;
+    if (!membership) {
+      return reply.status(403).send({ success: false, error: { code: 'NOT_ON_CARE_TEAM', message: 'You are not on this patient\'s care team.' } });
+    }
+
+    // Verify patient consent
+    const [consent] = await sql<{ granted: boolean }[]>`
+      SELECT granted FROM consent_records
+      WHERE patient_id = ${patientId} AND consent_type = 'ai_insights'
+      ORDER BY created_at DESC LIMIT 1
+    `;
+    if (!consent?.granted) {
+      return reply.status(409).send({
+        success: false,
+        error: { code: 'CONSENT_REQUIRED', message: 'Patient has not consented to AI insights.' },
+      });
+    }
+
+    const [patient] = await sql<{ organisation_id: string }[]>`
+      SELECT organisation_id FROM patients WHERE id = ${patientId}
+    `;
+    if (!patient) {
+      return reply.status(404).send({ success: false, error: { code: 'NOT_FOUND', message: 'Patient not found.' } });
+    }
+
+    const body = request.body as { type?: string; period_days?: number };
+    const jobType = (['weekly_summary', 'trend_narrative', 'anomaly_detection'].includes(body?.type ?? ''))
+      ? (body.type as 'weekly_summary' | 'trend_narrative' | 'anomaly_detection')
+      : 'weekly_summary';
+    const periodDays = Math.max(7, Math.min(30, Number(body?.period_days ?? 7)));
+
+    const job = await aiInsightsQueue.add(jobType, {
+      patientId,
+      orgId:       patient.organisation_id,
+      jobType,
+      clinicianId,
+      periodDays,
+    });
+
+    return reply.status(202).send({
+      success: true,
+      data: {
+        job_id:     job.id,
+        insight_type: jobType,
+        period_days:  periodDays,
+        message: 'AI insight generation queued. Results will appear in the AI Insights tab within a few minutes.',
       },
     });
   });

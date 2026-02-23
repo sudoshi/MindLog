@@ -1,48 +1,63 @@
 {
   "cli": {
-    "version": ">= 12.0.0",
+    "version": ">= 14.0.0",
     "appVersionSource": "local"
   },
   "build": {
     "base": {
       "env": {
-        "EXPO_PUBLIC_API_BASE": "https://api.mindlog.app"
-      }
-    },
-    "simulator": {
-      "extends": "base",
-      "distribution": "internal",
-      "ios": {
-        "simulator": true
-      },
-      "env": {
-        "EXPO_PUBLIC_API_BASE": "http://localhost:3000"
+        "EXPO_PUBLIC_API_BASE": "https://app.mindlog.health",
+        "EXPO_PUBLIC_AI_INSIGHTS_ENABLED": "false"
       }
     },
     "development": {
       "extends": "base",
       "developmentClient": true,
       "distribution": "internal",
+      "ios": {
+        "simulator": true
+      },
       "env": {
-        "EXPO_PUBLIC_API_BASE": "http://localhost:3000"
+        "EXPO_PUBLIC_API_BASE": "http://localhost:3000",
+        "EXPO_PUBLIC_AI_INSIGHTS_ENABLED": "false"
       }
     },
     "preview": {
       "extends": "base",
       "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
       "ios": {
         "simulator": false
+      },
+      "env": {
+        "EXPO_PUBLIC_API_BASE": "https://staging.mindlog.health",
+        "EXPO_PUBLIC_AI_INSIGHTS_ENABLED": "false"
       }
     },
     "production": {
       "extends": "base",
       "distribution": "store",
+      "android": {
+        "buildType": "aab"
+      },
       "ios": {
         "simulator": false
       }
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "android": {
+        "serviceAccountKeyPath": "secrets/google-play-key.json",
+        "track": "internal"
+      },
+      "ios": {
+        "appleId": "APPLE_ID",
+        "ascAppId": "APP_STORE_CONNECT_APP_ID",
+        "appleTeamId": "TEAM_ID"
+      }
+    }
   }
 }

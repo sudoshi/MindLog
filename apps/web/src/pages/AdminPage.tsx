@@ -5,8 +5,60 @@
 // =============================================================================
 
 import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api.js';
 import { useAuthStore } from '../stores/auth.js';
+
+// ---------------------------------------------------------------------------
+// Access Denied Component (for non-admin users)
+// ---------------------------------------------------------------------------
+
+function AccessDenied() {
+  const navigate = useNavigate();
+
+  return (
+    <div className="view" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }} data-testid="access-denied">
+      <div style={{ textAlign: 'center', maxWidth: 400 }}>
+        <div style={{
+          width: 64,
+          height: 64,
+          borderRadius: 16,
+          background: 'var(--critical-bg)',
+          border: '1px solid var(--critical-border)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          margin: '0 auto 20px',
+          fontSize: 28,
+        }}>
+          🔒
+        </div>
+        <h1 style={{ fontSize: 20, fontWeight: 700, color: 'var(--ink)', margin: '0 0 8px' }}>
+          Admin Access Required
+        </h1>
+        <p style={{ fontSize: 14, color: 'var(--ink-mid)', margin: '0 0 24px', lineHeight: 1.5 }}>
+          This section is restricted to system administrators. If you believe you should have access, please contact your organization's admin.
+        </p>
+        <button
+          onClick={() => navigate('/dashboard')}
+          data-testid="return-to-dashboard"
+          style={{
+            padding: '10px 24px',
+            background: 'var(--safe)',
+            color: '#fff',
+            border: 'none',
+            borderRadius: 8,
+            fontSize: 14,
+            fontWeight: 600,
+            cursor: 'pointer',
+          }}
+        >
+          Return to Dashboard
+        </button>
+      </div>
+    </div>
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Types
@@ -25,31 +77,44 @@ interface FhirEndpoint {
   tokenExpiry: string | null;
 }
 
-interface AdminUser {
+// API response types
+interface ApiAdminUser {
   id: string;
-  name: string;
   email: string;
+  first_name: string;
+  last_name: string;
+  title: string | null;
   role: string;
-  status: 'active' | 'suspended';
-  lastLogin: string | null;
-  mfaEnabled: boolean;
-  source: 'ldap' | 'manual';
-  patientsAssigned: number;
-  department: string;
+  npi: string | null;
+  is_active: boolean;
+  mfa_enabled: boolean;
+  last_login_at: string | null;
+  created_at: string;
+  patients_assigned: number;
 }
 
-interface AuditEntry {
-  id: number;
-  timestamp: string;
-  user: string;
+interface ApiAuditEntry {
+  id: string;
+  actor_id: string;
+  actor_email: string;
   action: string;
-  resource: string;
-  detail: string;
-  status: 'success' | 'error' | 'warning' | 'critical';
-  ip: string;
-  ehrTarget: string | null;
+  resource_type: string;
+  resource_id: string | null;
+  patient_id: string | null;
+  new_values: Record<string, unknown> | null;
+  ip_address: string | null;
+  user_agent: string | null;
+  occurred_at: string;
 }
 
+interface ApiAdminStats {
+  patients: { total: number; active: number; crisis: number };
+  clinicians: { total: number; active: number; admins: number };
+  alerts: { critical: number; warning: number; total: number };
+  audit: { total: number; phi_access: number; errors: number };
+}
+
+// Legacy types for FHIR/roles (still mock)
 interface RoleConfig {
   id: string;
   label: string;
@@ -59,30 +124,13 @@ interface RoleConfig {
 }
 
 // ---------------------------------------------------------------------------
-// Mock Data (until API endpoints are implemented)
+// Mock Data (FHIR endpoints - Phase 4 future feature)
 // ---------------------------------------------------------------------------
 
 const MOCK_FHIR_ENDPOINTS: FhirEndpoint[] = [
   { id: 1, name: 'Epic - Memorial Hermann', type: 'epic', baseUrl: 'https://fhir.memorial.org/api/FHIR/R4', status: 'connected', lastSync: new Date().toISOString(), patientsLinked: 1247, version: 'Feb 2026', authType: 'SMART v2', tokenExpiry: new Date(Date.now() + 3600000).toISOString() },
   { id: 2, name: 'Oracle Health - Geisinger', type: 'oracle', baseUrl: 'https://fhir-ehr-code.cerner.com/r4/ec2458f2', status: 'connected', lastSync: new Date().toISOString(), patientsLinked: 893, version: 'Millennium R4', authType: 'SMART v2', tokenExpiry: new Date(Date.now() + 1800000).toISOString() },
   { id: 3, name: 'Epic - Cleveland Clinic', type: 'epic', baseUrl: 'https://fhir.ccf.org/api/FHIR/R4', status: 'degraded', lastSync: new Date(Date.now() - 3600000).toISOString(), patientsLinked: 562, version: 'Nov 2025', authType: 'SMART v2', tokenExpiry: null },
-];
-
-const MOCK_USERS: AdminUser[] = [
-  { id: '1', name: 'Dr. Sarah Chen', email: 'schen@memorial.org', role: 'psychiatrist', status: 'active', lastLogin: new Date().toISOString(), mfaEnabled: true, source: 'ldap', patientsAssigned: 48, department: 'Behavioral Health' },
-  { id: '2', name: 'Dr. James Okafor', email: 'jokafor@geisinger.edu', role: 'psychiatrist', status: 'active', lastLogin: new Date().toISOString(), mfaEnabled: true, source: 'ldap', patientsAssigned: 35, department: 'Psychiatry' },
-  { id: '3', name: 'Maria Torres, LCSW', email: 'mtorres@memorial.org', role: 'nurse', status: 'active', lastLogin: new Date(Date.now() - 86400000).toISOString(), mfaEnabled: true, source: 'ldap', patientsAssigned: 62, department: 'Social Work' },
-  { id: '4', name: 'Dr. Rachel Kim', email: 'rkim@ccf.org', role: 'admin', status: 'active', lastLogin: new Date().toISOString(), mfaEnabled: true, source: 'manual', patientsAssigned: 0, department: 'IT - Clinical Informatics' },
-  { id: '5', name: 'Tom Bradford, RN', email: 'tbradford@memorial.org', role: 'nurse', status: 'active', lastLogin: new Date(Date.now() - 172800000).toISOString(), mfaEnabled: false, source: 'ldap', patientsAssigned: 120, department: 'Outpatient Psych' },
-];
-
-const MOCK_AUDIT_LOG: AuditEntry[] = [
-  { id: 1, timestamp: new Date().toISOString(), user: 'svc-mindlog@mindlog.health', action: 'fhir_sync', resource: 'Observation', detail: 'Batch write 47 observations to Epic Memorial Hermann', status: 'success', ip: '10.0.1.50', ehrTarget: 'Epic - Memorial Hermann' },
-  { id: 2, timestamp: new Date(Date.now() - 300000).toISOString(), user: 'svc-mindlog@mindlog.health', action: 'fhir_sync', resource: 'QuestionnaireResponse', detail: 'Write 12 PHQ-9 responses to Oracle Health Geisinger', status: 'success', ip: '10.0.1.50', ehrTarget: 'Oracle Health - Geisinger' },
-  { id: 3, timestamp: new Date(Date.now() - 600000).toISOString(), user: 'svc-mindlog@mindlog.health', action: 'fhir_sync', resource: 'Observation', detail: 'Token refresh failed - Epic Cleveland Clinic', status: 'error', ip: '10.0.1.50', ehrTarget: 'Epic - Cleveland Clinic' },
-  { id: 4, timestamp: new Date(Date.now() - 1200000).toISOString(), user: 'rkim@ccf.org', action: 'user_login', resource: 'Session', detail: 'Admin login via SSO + MFA', status: 'success', ip: '172.16.4.88', ehrTarget: null },
-  { id: 5, timestamp: new Date(Date.now() - 2400000).toISOString(), user: 'schen@memorial.org', action: 'phi_access', resource: 'Patient/1247', detail: 'Viewed patient mood trend report (30-day)', status: 'success', ip: '172.16.2.15', ehrTarget: null },
-  { id: 6, timestamp: new Date(Date.now() - 3600000).toISOString(), user: 'svc-mindlog@mindlog.health', action: 'safety_alert', resource: 'Observation/C-SSRS', detail: 'Positive C-SSRS screen - Patient ID 892 - Alert sent to care team', status: 'critical', ip: '10.0.1.50', ehrTarget: 'Epic - Memorial Hermann' },
 ];
 
 const ROLES_CONFIG: RoleConfig[] = [
@@ -94,7 +142,6 @@ const ROLES_CONFIG: RoleConfig[] = [
   { id: 'readonly', label: 'Read-Only / Auditor', color: '#6B7280', permissions: ['view_audit', 'view_reports'], description: 'Compliance or audit staff with read-only access to logs and reports' },
 ];
 
-const SYNC_QUEUE_STATS = { pending: 23, inProgress: 4, completed: 1847, failed: 3, retry: 2 };
 
 // ---------------------------------------------------------------------------
 // Utility Functions
@@ -175,10 +222,11 @@ function MetricCard({ label, value, sublabel, accent = '#2563EB' }: {
   );
 }
 
-function NavTab({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+function NavTab({ label, active, onClick, testId }: { label: string; active: boolean; onClick: () => void; testId?: string }) {
   return (
     <button
       onClick={onClick}
+      data-testid={testId}
       style={{
         padding: '8px 16px',
         background: active ? 'var(--safe)' : 'transparent',
@@ -201,60 +249,168 @@ function NavTab({ label, active, onClick }: { label: string; active: boolean; on
 // ---------------------------------------------------------------------------
 
 function DashboardSection() {
+  const token = useAuthStore((s) => s.accessToken);
+  const [stats, setStats] = useState<ApiAdminStats | null>(null);
+  const [recentActivity, setRecentActivity] = useState<ApiAuditEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!token) return;
+      try {
+        setLoading(true);
+        setError(null);
+
+        // Fetch stats and recent audit entries in parallel
+        const [statsData, auditData] = await Promise.all([
+          api.get<ApiAdminStats>('/admin/stats', token),
+          api.get<{ items: ApiAuditEntry[] }>('/admin/audit-log?limit=5', token),
+        ]);
+
+        setStats(statsData);
+        setRecentActivity(auditData.items);
+      } catch (err) {
+        setError('Failed to load dashboard data');
+        console.error('Error fetching dashboard:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [token]);
+
+  const formatActivityDetail = (entry: ApiAuditEntry): string => {
+    const action = entry.action.charAt(0).toUpperCase() + entry.action.slice(1);
+    const resource = entry.resource_type.replace(/_/g, ' ');
+    return `${action} ${resource}`;
+  };
+
+  const getActivityStatus = (action: string): string => {
+    if (action === 'error') return 'error';
+    if (action === 'delete') return 'warning';
+    return 'success';
+  };
+
+  if (loading) {
+    return (
+      <div style={{ padding: 60, textAlign: 'center', color: 'var(--ink-mid)' }}>
+        Loading dashboard...
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div style={{ padding: 20, background: 'var(--critical-bg)', border: '1px solid var(--critical-border)', borderRadius: 8, color: '#DC2626', fontSize: 13 }}>
+        {error}
+      </div>
+    );
+  }
+
   return (
     <div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, marginBottom: 24 }}>
-        <MetricCard label="Total Patients Linked" value="2,725" sublabel="+34 this week" accent="#2563EB" />
-        <MetricCard label="Active FHIR Endpoints" value="3 / 5" sublabel="1 degraded" accent="#059669" />
-        <MetricCard label="Sync Queue" value={SYNC_QUEUE_STATS.pending} sublabel={`${SYNC_QUEUE_STATS.failed} failed`} accent="#D97706" />
-        <MetricCard label="Safety Alerts (24h)" value="1" sublabel="C-SSRS positive" accent="#DC2626" />
+        <MetricCard
+          label="Total Patients"
+          value={stats?.patients.total ?? 0}
+          sublabel={`${stats?.patients.active ?? 0} active`}
+          accent="#2563EB"
+        />
+        <MetricCard
+          label="Clinicians"
+          value={stats?.clinicians.total ?? 0}
+          sublabel={`${stats?.clinicians.admins ?? 0} admins`}
+          accent="#059669"
+        />
+        <MetricCard
+          label="Critical Alerts"
+          value={stats?.alerts.critical ?? 0}
+          sublabel={`${stats?.alerts.warning ?? 0} warnings`}
+          accent="#DC2626"
+        />
+        <MetricCard
+          label="Audit Events (24h)"
+          value={stats?.audit.total ?? 0}
+          sublabel={`${stats?.audit.phi_access ?? 0} PHI access`}
+          accent="#D97706"
+        />
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
         <div className="panel" style={{ padding: 20 }}>
           <h3 style={{ margin: '0 0 14px', fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>Recent Activity</h3>
-          {MOCK_AUDIT_LOG.slice(0, 5).map((log) => (
-            <div key={log.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--border1)' }}>
-              <div style={{
-                width: 8,
-                height: 8,
-                borderRadius: '50%',
-                background: log.status === 'success' ? '#059669' : log.status === 'error' || log.status === 'critical' ? '#DC2626' : '#D97706',
-                flexShrink: 0,
-              }} />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 13, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{log.detail}</div>
-                <div style={{ fontSize: 11, color: 'var(--ink-soft)' }}>{log.user} · {timeAgo(log.timestamp)}</div>
-              </div>
-              <StatusBadge status={log.status} />
+          {recentActivity.length === 0 ? (
+            <div style={{ padding: 20, textAlign: 'center', color: 'var(--ink-mid)', fontSize: 13 }}>
+              No recent activity
             </div>
-          ))}
+          ) : (
+            recentActivity.map((entry) => (
+              <div key={entry.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--border1)' }}>
+                <div style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: '50%',
+                  background: getActivityStatus(entry.action) === 'success' ? '#059669' : getActivityStatus(entry.action) === 'error' ? '#DC2626' : '#D97706',
+                  flexShrink: 0,
+                }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{formatActivityDetail(entry)}</div>
+                  <div style={{ fontSize: 11, color: 'var(--ink-soft)' }}>{entry.actor_email} · {timeAgo(entry.occurred_at)}</div>
+                </div>
+                <StatusBadge status={getActivityStatus(entry.action)} />
+              </div>
+            ))
+          )}
         </div>
         <div className="panel" style={{ padding: 20 }}>
-          <h3 style={{ margin: '0 0 14px', fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>FHIR Endpoint Health</h3>
-          {MOCK_FHIR_ENDPOINTS.map((ep) => (
-            <div key={ep.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: '1px solid var(--border1)' }}>
-              <div style={{
-                width: 32,
-                height: 32,
-                borderRadius: 8,
-                background: ep.type === 'epic' ? '#EFF6FF' : '#FFF7ED',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: 11,
+          <h3 style={{ margin: '0 0 14px', fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>System Status</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid var(--border1)' }}>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>Patients in Crisis</div>
+                <div style={{ fontSize: 11, color: 'var(--ink-soft)' }}>Require immediate attention</div>
+              </div>
+              <span style={{
+                fontSize: 18,
                 fontWeight: 700,
-                color: ep.type === 'epic' ? '#2563EB' : '#EA580C',
-                border: `1px solid ${ep.type === 'epic' ? '#BFDBFE' : '#FED7AA'}`,
+                color: (stats?.patients.crisis ?? 0) > 0 ? '#DC2626' : '#059669',
               }}>
-                {ep.type === 'epic' ? 'E' : 'OH'}
-              </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{ep.name}</div>
-                <div style={{ fontSize: 11, color: 'var(--ink-soft)' }}>{ep.patientsLinked} patients · Last sync {timeAgo(ep.lastSync)}</div>
-              </div>
-              <StatusBadge status={ep.status} />
+                {stats?.patients.crisis ?? 0}
+              </span>
             </div>
-          ))}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid var(--border1)' }}>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>Active Clinicians</div>
+                <div style={{ fontSize: 11, color: 'var(--ink-soft)' }}>Users with active accounts</div>
+              </div>
+              <span style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)' }}>
+                {stats?.clinicians.active ?? 0}
+              </span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid var(--border1)' }}>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>Alerts (24h)</div>
+                <div style={{ fontSize: 11, color: 'var(--ink-soft)' }}>Total alerts generated</div>
+              </div>
+              <span style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)' }}>
+                {stats?.alerts.total ?? 0}
+              </span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0' }}>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>Audit Errors (24h)</div>
+                <div style={{ fontSize: 11, color: 'var(--ink-soft)' }}>System error events</div>
+              </div>
+              <span style={{
+                fontSize: 18,
+                fontWeight: 700,
+                color: (stats?.audit.errors ?? 0) > 0 ? '#D97706' : '#059669',
+              }}>
+                {stats?.audit.errors ?? 0}
+              </span>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -350,6 +506,47 @@ function FhirEndpointsSection() {
 }
 
 function UsersSection() {
+  const token = useAuthStore((s) => s.accessToken);
+  const [users, setUsers] = useState<ApiAdminUser[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [pagination, setPagination] = useState({ page: 1, total: 0, hasNext: false });
+
+  const fetchUsers = useCallback(async (page = 1) => {
+    if (!token) return;
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await api.get<{
+        items: ApiAdminUser[];
+        total: number;
+        page: number;
+        has_next: boolean;
+      }>(`/admin/users?page=${page}&limit=20`, token);
+
+      setUsers(data.items);
+      setPagination({
+        page: data.page,
+        total: data.total,
+        hasNext: data.has_next,
+      });
+    } catch (err) {
+      setError('Failed to load users');
+      console.error('Error fetching users:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
+
+  const getRoleConfig = (role: string): RoleConfig => {
+    const defaultConfig: RoleConfig = { id: 'unknown', label: 'Unknown', color: '#6B7280', permissions: [], description: '' };
+    return ROLES_CONFIG.find(r => r.id === role) ?? ROLES_CONFIG.find(r => r.id === 'clinician') ?? ROLES_CONFIG[0] ?? defaultConfig;
+  };
+
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
@@ -362,75 +559,142 @@ function UsersSection() {
           <button style={{ padding: '8px 16px', background: 'var(--safe)', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>+ Add Manual User</button>
         </div>
       </div>
+
+      {error && (
+        <div style={{ padding: 16, background: 'var(--critical-bg)', border: '1px solid var(--critical-border)', borderRadius: 8, marginBottom: 16, color: '#DC2626', fontSize: 13 }}>
+          {error}
+        </div>
+      )}
+
       <div className="panel" style={{ overflow: 'hidden' }}>
-        <table className="patient-table" style={{ width: '100%' }}>
-          <thead>
-            <tr>
-              <th>User</th>
-              <th>Role</th>
-              <th>Source</th>
-              <th>Department</th>
-              <th>MFA</th>
-              <th>Patients</th>
-              <th>Last Login</th>
-              <th>Status</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {MOCK_USERS.map((u) => {
-              const role = ROLES_CONFIG.find(r => r.id === u.role);
-              return (
-                <tr key={u.id}>
-                  <td>
-                    <div style={{ fontWeight: 600, color: 'var(--ink)' }}>{u.name}</div>
-                    <div style={{ fontSize: 11, color: 'var(--ink-soft)' }}>{u.email}</div>
-                  </td>
-                  <td>
-                    <span style={{
-                      fontSize: 11,
-                      padding: '2px 10px',
-                      borderRadius: 20,
-                      background: `${role?.color}15`,
-                      color: role?.color,
-                      fontWeight: 600,
-                      border: `1px solid ${role?.color}30`,
-                    }}>{role?.label}</span>
-                  </td>
-                  <td>
-                    <span style={{
-                      fontSize: 11,
-                      padding: '2px 8px',
-                      borderRadius: 4,
-                      background: u.source === 'ldap' ? '#EFF6FF' : 'var(--glass-01)',
-                      color: u.source === 'ldap' ? '#2563EB' : 'var(--ink-mid)',
-                    }}>{u.source.toUpperCase()}</span>
-                  </td>
-                  <td style={{ fontSize: 12, color: 'var(--ink-mid)' }}>{u.department}</td>
-                  <td>
-                    {u.mfaEnabled ? (
-                      <span style={{ color: '#059669' }}>✓</span>
-                    ) : (
-                      <span style={{ fontSize: 11, color: '#DC2626', fontWeight: 600 }}>REQUIRED</span>
-                    )}
-                  </td>
-                  <td style={{ fontSize: 13, color: 'var(--ink)' }}>{u.patientsAssigned}</td>
-                  <td style={{ fontSize: 12, color: 'var(--ink-mid)' }}>{timeAgo(u.lastLogin)}</td>
-                  <td><StatusBadge status={u.status} /></td>
-                  <td>
-                    <button style={{ padding: '4px 10px', background: 'var(--glass-01)', border: '1px solid var(--border2)', borderRadius: 4, fontSize: 11, cursor: 'pointer', color: 'var(--ink-mid)' }}>Edit</button>
-                  </td>
+        {loading ? (
+          <div style={{ padding: 40, textAlign: 'center', color: 'var(--ink-mid)' }}>Loading users...</div>
+        ) : (
+          <>
+            <table className="patient-table" style={{ width: '100%' }}>
+              <thead>
+                <tr>
+                  <th>User</th>
+                  <th>Role</th>
+                  <th>Title</th>
+                  <th>NPI</th>
+                  <th>MFA</th>
+                  <th>Patients</th>
+                  <th>Last Login</th>
+                  <th>Status</th>
+                  <th>Actions</th>
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
+              </thead>
+              <tbody>
+                {users.map((u) => {
+                  const roleConfig = getRoleConfig(u.role);
+                  return (
+                    <tr key={u.id}>
+                      <td>
+                        <div style={{ fontWeight: 600, color: 'var(--ink)' }}>{u.first_name} {u.last_name}</div>
+                        <div style={{ fontSize: 11, color: 'var(--ink-soft)' }}>{u.email}</div>
+                      </td>
+                      <td>
+                        <span style={{
+                          fontSize: 11,
+                          padding: '2px 10px',
+                          borderRadius: 20,
+                          background: `${roleConfig.color}15`,
+                          color: roleConfig.color,
+                          fontWeight: 600,
+                          border: `1px solid ${roleConfig.color}30`,
+                        }}>{u.role}</span>
+                      </td>
+                      <td style={{ fontSize: 12, color: 'var(--ink-mid)' }}>{u.title ?? '—'}</td>
+                      <td style={{ fontSize: 11, color: 'var(--ink-mid)', fontFamily: 'monospace' }}>{u.npi ?? '—'}</td>
+                      <td>
+                        {u.mfa_enabled ? (
+                          <span style={{ color: '#059669' }}>✓</span>
+                        ) : (
+                          <span style={{ fontSize: 11, color: '#DC2626', fontWeight: 600 }}>REQUIRED</span>
+                        )}
+                      </td>
+                      <td style={{ fontSize: 13, color: 'var(--ink)' }}>{u.patients_assigned}</td>
+                      <td style={{ fontSize: 12, color: 'var(--ink-mid)' }}>{timeAgo(u.last_login_at)}</td>
+                      <td><StatusBadge status={u.is_active ? 'active' : 'suspended'} /></td>
+                      <td>
+                        <button style={{ padding: '4px 10px', background: 'var(--glass-01)', border: '1px solid var(--border2)', borderRadius: 4, fontSize: 11, cursor: 'pointer', color: 'var(--ink-mid)' }}>Edit</button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+
+            {/* Pagination */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', borderTop: '1px solid var(--border1)', fontSize: 12, color: 'var(--ink-mid)' }}>
+              <span>Showing {users.length} of {pagination.total} users</span>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  onClick={() => fetchUsers(pagination.page - 1)}
+                  disabled={pagination.page <= 1}
+                  style={{
+                    padding: '4px 12px',
+                    background: 'var(--glass-01)',
+                    border: '1px solid var(--border2)',
+                    borderRadius: 4,
+                    cursor: pagination.page <= 1 ? 'not-allowed' : 'pointer',
+                    opacity: pagination.page <= 1 ? 0.5 : 1,
+                  }}
+                >
+                  Previous
+                </button>
+                <button
+                  onClick={() => fetchUsers(pagination.page + 1)}
+                  disabled={!pagination.hasNext}
+                  style={{
+                    padding: '4px 12px',
+                    background: 'var(--glass-01)',
+                    border: '1px solid var(--border2)',
+                    borderRadius: 4,
+                    cursor: !pagination.hasNext ? 'not-allowed' : 'pointer',
+                    opacity: !pagination.hasNext ? 0.5 : 1,
+                  }}
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
 }
 
 function RolesSection() {
+  const token = useAuthStore((s) => s.accessToken);
+  const [userCounts, setUserCounts] = useState<Record<string, number>>({});
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchUserCounts = async () => {
+      if (!token) return;
+      try {
+        setLoading(true);
+        const data = await api.get<{ items: ApiAdminUser[] }>('/admin/users?limit=100', token);
+
+        // Count users per role
+        const counts: Record<string, number> = {};
+        for (const user of data.items) {
+          counts[user.role] = (counts[user.role] ?? 0) + 1;
+        }
+        setUserCounts(counts);
+      } catch (err) {
+        console.error('Error fetching user counts:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUserCounts();
+  }, [token]);
+
   return (
     <div>
       <h2 style={{ margin: '0 0 4px', fontSize: 18, fontWeight: 700, color: 'var(--ink)' }}>Role-Based Access Control (RBAC)</h2>
@@ -458,7 +722,9 @@ function RolesSection() {
               </div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: 12, color: 'var(--ink-mid)' }}>{MOCK_USERS.filter(u => u.role === role.id).length} users</span>
+              <span style={{ fontSize: 12, color: 'var(--ink-mid)' }}>
+                {loading ? '...' : `${userCounts[role.id] ?? 0} users`}
+              </span>
               <button style={{ padding: '4px 12px', background: 'var(--glass-01)', border: '1px solid var(--border2)', borderRadius: 6, fontSize: 11, cursor: 'pointer', color: 'var(--ink-mid)' }}>Edit</button>
             </div>
           </div>
@@ -482,12 +748,114 @@ function RolesSection() {
 }
 
 function AuditLogSection() {
-  const [filter, setFilter] = useState('all');
+  const token = useAuthStore((s) => s.accessToken);
+  const [entries, setEntries] = useState<ApiAuditEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
+  const [filter, setFilter] = useState<{ action?: string; resource_type?: string }>({});
+  const [pagination, setPagination] = useState({ page: 1, total: 0, hasNext: false });
 
-  const filtered = MOCK_AUDIT_LOG.filter(log => {
-    if (filter === 'all') return true;
-    return log.status === filter || log.action === filter;
-  });
+  const fetchAuditLog = useCallback(async (page = 1, filters: typeof filter = filter) => {
+    if (!token) return;
+    try {
+      setLoading(true);
+      setError(null);
+      const params = new URLSearchParams({ page: String(page), limit: '50' });
+      if (filters.action) params.set('action', filters.action);
+      if (filters.resource_type) params.set('resource_type', filters.resource_type);
+
+      const data = await api.get<{
+        items: ApiAuditEntry[];
+        total: number;
+        page: number;
+        has_next: boolean;
+      }>(`/admin/audit-log?${params.toString()}`, token);
+
+      setEntries(data.items);
+      setPagination({
+        page: data.page,
+        total: data.total,
+        hasNext: data.has_next,
+      });
+    } catch (err) {
+      setError('Failed to load audit log');
+      console.error('Error fetching audit log:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [filter, token]);
+
+  useEffect(() => {
+    fetchAuditLog();
+  }, [fetchAuditLog]);
+
+  const handleExportCsv = async () => {
+    if (!token) return;
+    try {
+      setExporting(true);
+      const params = new URLSearchParams();
+      if (filter.action) params.set('action', filter.action);
+      if (filter.resource_type) params.set('resource_type', filter.resource_type);
+
+      // Use fetch directly for CSV download since api service doesn't support blob
+      const response = await fetch(`/api/v1/admin/audit-log/export?${params.toString()}`, {
+        credentials: 'include',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Export failed');
+      }
+
+      // Download the CSV file
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `audit-log-${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Error exporting audit log:', err);
+      setError('Failed to export audit log');
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handleFilterChange = (newFilter: typeof filter) => {
+    setFilter(newFilter);
+    fetchAuditLog(1, newFilter);
+  };
+
+  const getActionStatus = (action: string): string => {
+    if (action === 'error') return 'error';
+    if (action === 'delete') return 'warning';
+    return 'success';
+  };
+
+  const formatDetail = (entry: ApiAuditEntry): string => {
+    const action = entry.action.charAt(0).toUpperCase() + entry.action.slice(1);
+    const resource = entry.resource_type.replace(/_/g, ' ');
+    if (entry.resource_id) {
+      return `${action} ${resource} (${entry.resource_id.slice(0, 8)}...)`;
+    }
+    return `${action} ${resource}`;
+  };
+
+  const filterOptions = [
+    { key: 'all', label: 'All' },
+    { key: 'read', label: 'Read' },
+    { key: 'create', label: 'Create' },
+    { key: 'update', label: 'Update' },
+    { key: 'delete', label: 'Delete' },
+    { key: 'export', label: 'Export' },
+  ];
 
   return (
     <div>
@@ -496,63 +864,129 @@ function AuditLogSection() {
           <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: 'var(--ink)' }}>Audit Log</h2>
           <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--ink-mid)' }}>HIPAA §164.312(b) compliant audit controls — immutable, 6-year retention, AES-256 encrypted</p>
         </div>
-        <button style={{ padding: '8px 16px', background: 'var(--glass-01)', border: '1px solid var(--border2)', borderRadius: 8, fontSize: 13, cursor: 'pointer', color: 'var(--ink-mid)' }}>Export CSV</button>
+        <button
+          onClick={handleExportCsv}
+          disabled={exporting}
+          style={{
+            padding: '8px 16px',
+            background: 'var(--glass-01)',
+            border: '1px solid var(--border2)',
+            borderRadius: 8,
+            fontSize: 13,
+            cursor: exporting ? 'not-allowed' : 'pointer',
+            color: 'var(--ink-mid)',
+            opacity: exporting ? 0.6 : 1,
+          }}
+        >
+          {exporting ? 'Exporting...' : 'Export CSV'}
+        </button>
       </div>
+
       <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
-        {['all', 'phi_access', 'fhir_sync', 'user_login', 'safety_alert', 'error'].map(f => (
+        {filterOptions.map(f => (
           <button
-            key={f}
-            onClick={() => setFilter(f)}
+            key={f.key}
+            onClick={() => handleFilterChange(f.key === 'all' ? {} : { action: f.key })}
             style={{
               padding: '6px 14px',
-              background: filter === f ? 'var(--safe)' : 'var(--glass-01)',
-              color: filter === f ? '#fff' : 'var(--ink-mid)',
-              border: `1px solid ${filter === f ? 'var(--safe)' : 'var(--border2)'}`,
+              background: (f.key === 'all' && !filter.action) || filter.action === f.key ? 'var(--safe)' : 'var(--glass-01)',
+              color: (f.key === 'all' && !filter.action) || filter.action === f.key ? '#fff' : 'var(--ink-mid)',
+              border: `1px solid ${(f.key === 'all' && !filter.action) || filter.action === f.key ? 'var(--safe)' : 'var(--border2)'}`,
               borderRadius: 20,
               fontSize: 12,
               cursor: 'pointer',
             }}
           >
-            {f === 'all' ? 'All' : f.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+            {f.label}
           </button>
         ))}
       </div>
+
+      {error && (
+        <div style={{ padding: 16, background: 'var(--critical-bg)', border: '1px solid var(--critical-border)', borderRadius: 8, marginBottom: 16, color: '#DC2626', fontSize: 13 }}>
+          {error}
+        </div>
+      )}
+
       <div className="panel" style={{ overflow: 'hidden' }}>
-        {filtered.map((log) => (
-          <div
-            key={log.id}
-            style={{
-              display: 'flex',
-              alignItems: 'flex-start',
-              gap: 12,
-              padding: '12px 18px',
-              borderBottom: '1px solid var(--border1)',
-              background: log.status === 'critical' ? 'rgba(220,38,38,0.05)' : 'transparent',
-            }}
-          >
-            <div style={{
-              width: 10,
-              height: 10,
-              borderRadius: '50%',
-              marginTop: 5,
-              flexShrink: 0,
-              background: log.status === 'success' ? '#059669' : log.status === 'error' || log.status === 'critical' ? '#DC2626' : '#D97706',
-            }} />
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{log.detail}</span>
-                <StatusBadge status={log.status} />
+        {loading ? (
+          <div style={{ padding: 40, textAlign: 'center', color: 'var(--ink-mid)' }}>Loading audit log...</div>
+        ) : entries.length === 0 ? (
+          <div style={{ padding: 40, textAlign: 'center', color: 'var(--ink-mid)' }}>No audit entries found</div>
+        ) : (
+          <>
+            {entries.map((entry) => (
+              <div
+                key={entry.id}
+                style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: 12,
+                  padding: '12px 18px',
+                  borderBottom: '1px solid var(--border1)',
+                  background: entry.action === 'error' ? 'rgba(220,38,38,0.05)' : 'transparent',
+                }}
+              >
+                <div style={{
+                  width: 10,
+                  height: 10,
+                  borderRadius: '50%',
+                  marginTop: 5,
+                  flexShrink: 0,
+                  background: getActionStatus(entry.action) === 'success' ? '#059669' : getActionStatus(entry.action) === 'error' ? '#DC2626' : '#D97706',
+                }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{formatDetail(entry)}</span>
+                    <StatusBadge status={getActionStatus(entry.action)} />
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--ink-soft)', marginTop: 3, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                    <span>User: <strong style={{ color: 'var(--ink-mid)' }}>{entry.actor_email}</strong></span>
+                    <span>Action: <strong style={{ color: 'var(--ink-mid)' }}>{entry.action}</strong></span>
+                    <span>Resource: <strong style={{ color: 'var(--ink-mid)' }}>{entry.resource_type}</strong></span>
+                    {entry.ip_address && <span>IP: <strong style={{ color: 'var(--ink-mid)' }}>{entry.ip_address}</strong></span>}
+                    <span>Time: <strong style={{ color: 'var(--ink-mid)' }}>{formatDateTime(entry.occurred_at)}</strong></span>
+                  </div>
+                </div>
               </div>
-              <div style={{ fontSize: 11, color: 'var(--ink-soft)', marginTop: 3, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                <span>User: <strong style={{ color: 'var(--ink-mid)' }}>{log.user}</strong></span>
-                <span>Action: <strong style={{ color: 'var(--ink-mid)' }}>{log.action}</strong></span>
-                <span>IP: <strong style={{ color: 'var(--ink-mid)' }}>{log.ip}</strong></span>
-                {log.ehrTarget && <span>EHR: <strong style={{ color: 'var(--ink-mid)' }}>{log.ehrTarget}</strong></span>}
-                <span>Time: <strong style={{ color: 'var(--ink-mid)' }}>{formatDateTime(log.timestamp)}</strong></span>
+            ))}
+
+            {/* Pagination */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', borderTop: '1px solid var(--border1)', fontSize: 12, color: 'var(--ink-mid)' }}>
+              <span>Showing {entries.length} of {pagination.total} entries</span>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  onClick={() => fetchAuditLog(pagination.page - 1)}
+                  disabled={pagination.page <= 1}
+                  style={{
+                    padding: '4px 12px',
+                    background: 'var(--glass-01)',
+                    border: '1px solid var(--border2)',
+                    borderRadius: 4,
+                    cursor: pagination.page <= 1 ? 'not-allowed' : 'pointer',
+                    opacity: pagination.page <= 1 ? 0.5 : 1,
+                  }}
+                >
+                  Previous
+                </button>
+                <button
+                  onClick={() => fetchAuditLog(pagination.page + 1)}
+                  disabled={!pagination.hasNext}
+                  style={{
+                    padding: '4px 12px',
+                    background: 'var(--glass-01)',
+                    border: '1px solid var(--border2)',
+                    borderRadius: 4,
+                    cursor: !pagination.hasNext ? 'not-allowed' : 'pointer',
+                    opacity: !pagination.hasNext ? 0.5 : 1,
+                  }}
+                >
+                  Next
+                </button>
               </div>
             </div>
-          </div>
-        ))}
+          </>
+        )}
       </div>
     </div>
   );
@@ -628,7 +1062,13 @@ function SecuritySection() {
 type AdminSection = 'dashboard' | 'fhir' | 'users' | 'roles' | 'audit' | 'security';
 
 export function AdminPage() {
+  const role = useAuthStore((s) => s.role);
   const [activeSection, setActiveSection] = useState<AdminSection>('dashboard');
+
+  // Check admin access
+  if (role !== 'admin') {
+    return <AccessDenied />;
+  }
 
   const renderSection = () => {
     switch (activeSection) {
@@ -650,9 +1090,9 @@ export function AdminPage() {
   };
 
   return (
-    <div className="view">
+    <div className="view" data-testid="admin-page">
       {/* Header */}
-      <div style={{ padding: '0 24px 16px', borderBottom: '1px solid var(--border1)' }}>
+      <div style={{ padding: '0 24px 16px', borderBottom: '1px solid var(--border1)' }} data-testid="admin-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
           <div style={{
             width: 40,
@@ -673,13 +1113,13 @@ export function AdminPage() {
             <div style={{ fontSize: 12, color: 'var(--ink-mid)' }}>HIPAA-Compliant Administration</div>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <NavTab label="Dashboard" active={activeSection === 'dashboard'} onClick={() => setActiveSection('dashboard')} />
-          <NavTab label="FHIR Endpoints" active={activeSection === 'fhir'} onClick={() => setActiveSection('fhir')} />
-          <NavTab label="Users" active={activeSection === 'users'} onClick={() => setActiveSection('users')} />
-          <NavTab label="Roles & RBAC" active={activeSection === 'roles'} onClick={() => setActiveSection('roles')} />
-          <NavTab label="Audit Log" active={activeSection === 'audit'} onClick={() => setActiveSection('audit')} />
-          <NavTab label="Security" active={activeSection === 'security'} onClick={() => setActiveSection('security')} />
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }} data-testid="admin-tabs">
+          <NavTab label="Dashboard" active={activeSection === 'dashboard'} onClick={() => setActiveSection('dashboard')} testId="admin-tab-dashboard" />
+          <NavTab label="FHIR Endpoints" active={activeSection === 'fhir'} onClick={() => setActiveSection('fhir')} testId="admin-tab-fhir" />
+          <NavTab label="Users" active={activeSection === 'users'} onClick={() => setActiveSection('users')} testId="admin-tab-users" />
+          <NavTab label="Roles & RBAC" active={activeSection === 'roles'} onClick={() => setActiveSection('roles')} testId="admin-tab-roles" />
+          <NavTab label="Audit Log" active={activeSection === 'audit'} onClick={() => setActiveSection('audit')} testId="admin-tab-audit" />
+          <NavTab label="Security" active={activeSection === 'security'} onClick={() => setActiveSection('security')} testId="admin-tab-security" />
         </div>
       </div>
 

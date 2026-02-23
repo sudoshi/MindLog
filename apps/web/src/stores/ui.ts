@@ -9,12 +9,15 @@ import { useState, useEffect } from 'react';
 interface UiState {
   /** Full name of the patient currently shown in PatientDetailPage, or null. */
   patientName: string | null;
+  /** UUID of the patient currently shown in PatientDetailPage, or null. */
+  patientId: string | null;
 }
 
 type Listener = () => void;
 
 let state: UiState = {
   patientName: null,
+  patientId: null,
 };
 
 const listeners = new Set<Listener>();
@@ -43,5 +46,8 @@ export function useUiStore<T>(selector: (s: UiState) => T): T {
 export const uiActions = {
   setPatientName(name: string | null): void {
     setState({ patientName: name });
+  },
+  setPatientId(id: string | null): void {
+    setState({ patientId: id });
   },
 };
