@@ -4,13 +4,28 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MindLog — UX Flow & Application Framework</title>
-<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,300;1,9..144,400&family=Figtree:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   MINDLOG DESIGN SYSTEM — UX FLOW DOCUMENTATION
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+   This is a UX flow diagram showcasing the application
+   architecture and user journeys.
+
+   Typography: Unified with MindLog brand
+   - Display: Fraunces (warm, humanist serif)
+   - Body: Figtree (friendly, clear sans-serif)
+
+   This document uses dark mode for presentation clarity.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
   :root {
     --bg: #0d0f14;
     --surface: #161923;
     --surface2: #1e2432;
     --border: #2a3147;
+    --primary: #2a9d8f;
     --accent: #6c8eff;
     --accent2: #ff7c5c;
     --accent3: #52d9b4;
@@ -18,14 +33,28 @@
     --text: #e8ecf4;
     --text-muted: #7a85a3;
     --text-dim: #434d6a;
-    --glow: rgba(108,142,255,0.15);
+    --glow: rgba(42,157,143,0.15);
     --glow2: rgba(255,124,92,0.12);
+    --font-display: 'Fraunces', Georgia, serif;
+    --font-body: 'Figtree', -apple-system, sans-serif;
+
+    /* Fluid typography scale */
+    --text-xs: clamp(0.75rem, 0.7rem + 0.25vw, 0.9rem);
+    --text-sm: clamp(0.875rem, 0.8rem + 0.3vw, 1.1rem);
+    --text-base: clamp(1rem, 0.9rem + 0.4vw, 1.25rem);
+    --text-lg: clamp(1.125rem, 1rem + 0.5vw, 1.5rem);
+    --text-xl: clamp(1.5rem, 1.2rem + 0.8vw, 2rem);
+    --text-2xl: clamp(1.75rem, 1.4rem + 1vw, 2.5rem);
+    --text-3xl: clamp(2.5rem, 2rem + 1.5vw, 3.5rem);
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
+  /* Fluid root font size */
+  html { font-size: clamp(16px, 14px + 0.4vw, 20px); }
+
   body {
-    font-family: 'DM Sans', sans-serif;
+    font-family: var(--font-body);
     background: var(--bg);
     color: var(--text);
     min-height: 100vh;
@@ -57,20 +86,20 @@
   }
 
   .logo {
-    font-family: 'DM Serif Display', serif;
-    font-size: 42px;
+    font-family: var(--font-display);
+    font-size: var(--text-3xl);
     letter-spacing: -1px;
     line-height: 1;
   }
 
-  .logo span { color: var(--accent); }
+  .logo span { color: var(--primary); }
 
   .header-meta {
     text-align: right;
   }
 
   .header-meta h2 {
-    font-size: 13px;
+    font-size: var(--text-sm);
     font-weight: 500;
     text-transform: uppercase;
     letter-spacing: 2px;
@@ -79,7 +108,7 @@
   }
 
   .header-meta p {
-    font-size: 28px;
+    font-size: var(--text-2xl);
     font-weight: 300;
     color: var(--text);
     line-height: 1.2;
@@ -111,8 +140,8 @@
   }
 
   .section-label h2 {
-    font-family: 'DM Serif Display', serif;
-    font-size: 30px;
+    font-family: var(--font-display);
+    font-size: var(--text-2xl);
     letter-spacing: -0.5px;
   }
 

@@ -19,6 +19,7 @@ const KEYS = {
   USER_ROLE: 'ml_user_role',
   ORG_ID: 'ml_org_id',
   MFA_PARTIAL_TOKEN: 'ml_mfa_partial_token',
+  INTAKE_COMPLETE: 'ml_intake_complete',
 } as const;
 
 export interface StoredUser {
@@ -71,10 +72,20 @@ export async function getStoredUser(): Promise<StoredUser | null> {
   return { id, email, role, org_id };
 }
 
+export async function getIntakeComplete(): Promise<boolean> {
+  const val = await SecureStore.getItemAsync(KEYS.INTAKE_COMPLETE);
+  return val === 'true';
+}
+
+export async function setIntakeComplete(complete: boolean): Promise<void> {
+  await SecureStore.setItemAsync(KEYS.INTAKE_COMPLETE, complete ? 'true' : 'false');
+}
+
 export async function storeSession(params: {
   access_token: string;
   refresh_token?: string;
   user: StoredUser;
+  intake_complete?: boolean;
 }): Promise<void> {
   await Promise.all([
     SecureStore.setItemAsync(KEYS.ACCESS_TOKEN, params.access_token),
@@ -85,6 +96,9 @@ export async function storeSession(params: {
     SecureStore.setItemAsync(KEYS.USER_EMAIL, params.user.email),
     SecureStore.setItemAsync(KEYS.USER_ROLE, params.user.role),
     SecureStore.setItemAsync(KEYS.ORG_ID, params.user.org_id),
+    params.intake_complete !== undefined
+      ? SecureStore.setItemAsync(KEYS.INTAKE_COMPLETE, params.intake_complete ? 'true' : 'false')
+      : Promise.resolve(),
   ]);
 }
 

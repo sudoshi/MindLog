@@ -11,6 +11,7 @@ import { useAlertSocket } from '../hooks/useAlertSocket.js';
 import { useAuthStore, authActions } from '../stores/auth.js';
 import { useUiStore } from '../stores/ui.js';
 import { API_PREFIX } from '@mindlog/shared';
+import { InvitePatientModal } from './InvitePatientModal.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -104,6 +105,8 @@ export function AppShell() {
   const [snapshot, setSnapshot] = useState<SnapshotCounts | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [criticalCount, setCriticalCount] = useState(0);
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [inviteToast, setInviteToast] = useState('');
 
   // Fetch clinician profile for sidebar badge
   useEffect(() => {
@@ -254,6 +257,18 @@ export function AppShell() {
           <NavItem icon="📄" label="Reports" path="/reports" onClick={() => navigate('/reports')} />
         </div>
 
+        {/* Nav: Actions */}
+        <div className="nav-section">
+          <div className="nav-section-label">Actions</div>
+          <div
+            className="nav-item action-btn"
+            onClick={() => setShowInviteModal(true)}
+          >
+            <span className="nav-icon">➕</span>
+            Invite Patient
+          </div>
+        </div>
+
         {/* Footer */}
         <div className="sidebar-footer">
           <button className="sidebar-footer-btn" onClick={() => void authActions.logout()}>
@@ -309,6 +324,39 @@ export function AppShell() {
           <Outlet />
         </div>
       </div>
+
+      {/* Invite Patient Modal */}
+      {showInviteModal && token && (
+        <InvitePatientModal
+          token={token}
+          onClose={() => setShowInviteModal(false)}
+          onSuccess={(email) => {
+            setShowInviteModal(false);
+            setInviteToast(`Invite sent to ${email}`);
+            setTimeout(() => setInviteToast(''), 4000);
+          }}
+        />
+      )}
+
+      {/* Invite success toast */}
+      {inviteToast && (
+        <div style={{
+          position: 'fixed',
+          bottom: 24,
+          right: 24,
+          background: 'var(--safe-bg)',
+          border: '1px solid var(--safe)',
+          color: 'var(--safe)',
+          padding: '12px 20px',
+          borderRadius: 10,
+          fontSize: 14,
+          fontWeight: 600,
+          zIndex: 1100,
+          boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
+        }}>
+          ✓ {inviteToast}
+        </div>
+      )}
     </div>
   );
 }

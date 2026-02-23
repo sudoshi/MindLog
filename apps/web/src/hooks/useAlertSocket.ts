@@ -99,11 +99,21 @@ export function useAlertSocket({ token, onAlert, enabled = true }: UseAlertSocke
 
   useEffect(() => {
     mountedRef.current = true;
-    connect();
+    // Small delay to avoid React StrictMode double-mount race condition
+    const connectTimer = setTimeout(() => {
+      if (mountedRef.current) connect();
+    }, 100);
     return () => {
       mountedRef.current = false;
+      clearTimeout(connectTimer);
       if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
-      wsRef.current?.close();
+      // Close silently — readyState 0 = CONNECTING, 1 = OPEN
+      const ws = wsRef.current;
+      if (ws && (ws.readyState === 0 || ws.readyState === 1)) {
+        ws.onclose = null; // Prevent reconnect attempts during cleanup
+        ws.onerror = null; // Suppress error logging during cleanup
+        ws.close();
+      }
     };
   }, [connect]);
 

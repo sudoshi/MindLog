@@ -6,6 +6,7 @@ import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-nati
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { DESIGN_TOKENS } from '@mindlog/shared';
+import { COLOR, FONTS } from '../../constants/DesignTokens';
 import { useState, useEffect, useCallback } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { apiFetch } from '../../services/auth';
@@ -97,11 +98,11 @@ export default function JournalScreen() {
   );
 }
 
-const BG = '#0c0f18';
-const CARD = '#161a27';
-const BORDER = '#1e2535';
-const TEXT = '#e2e8f0';
-const SUB = '#8b9cb0';
+const BG   = COLOR.BG;
+const CARD = COLOR.SURFACE_2;
+const BORDER = COLOR.SURFACE_3;
+const TEXT = COLOR.INK;
+const SUB  = COLOR.INK_SOFT;
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: BG },
@@ -109,27 +110,27 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     padding: 20, paddingBottom: 8,
   },
-  title: { color: TEXT, fontSize: 22, fontWeight: '700' },
-  newBtn: { backgroundColor: DESIGN_TOKENS.COLOR_PRIMARY, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 8 },
-  newBtnText: { color: '#fff', fontWeight: '700', fontSize: 13 },
-  scroll: { padding: 20, paddingTop: 8 },
-  errorCard: { backgroundColor: '#1a0a0a', borderRadius: 12, borderWidth: 1, borderColor: '#4a1010', padding: 20, alignItems: 'center' },
-  errorText: { color: '#fc8181', fontSize: 14, textAlign: 'center', marginBottom: 12 },
-  retryBtn: { backgroundColor: DESIGN_TOKENS.COLOR_PRIMARY, borderRadius: 8, paddingHorizontal: 20, paddingVertical: 8 },
-  retryText: { color: '#fff', fontWeight: '600' },
+  title:      { color: TEXT, fontFamily: FONTS.SERIF, fontSize: 22, fontWeight: '400' },
+  newBtn:     { backgroundColor: DESIGN_TOKENS.COLOR_PRIMARY, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 8 },
+  newBtnText: { color: COLOR.WHITE, fontFamily: FONTS.SANS_BOLD, fontSize: 13 },
+  scroll:     { padding: 20, paddingTop: 8 },
+  errorCard:  { backgroundColor: COLOR.DANGER_BG, borderRadius: 12, borderWidth: 1, borderColor: COLOR.DANGER_BORDER, padding: 20, alignItems: 'center' },
+  errorText:  { color: COLOR.DANGER, fontFamily: FONTS.SANS, fontSize: 14, textAlign: 'center', marginBottom: 12 },
+  retryBtn:   { backgroundColor: DESIGN_TOKENS.COLOR_PRIMARY, borderRadius: 8, paddingHorizontal: 20, paddingVertical: 8 },
+  retryText:  { color: COLOR.WHITE, fontFamily: FONTS.SANS_SEMIBOLD },
   emptyCard: {
     backgroundColor: CARD, borderRadius: 16, borderWidth: 1, borderColor: BORDER,
     padding: 32, alignItems: 'center',
   },
   emptyEmoji: { fontSize: 48, marginBottom: 12 },
-  emptyText: { color: TEXT, fontSize: 16, fontWeight: '600', marginBottom: 4 },
-  emptySub: { color: SUB, fontSize: 13, textAlign: 'center', marginBottom: 20 },
-  ctaBtn: { backgroundColor: DESIGN_TOKENS.COLOR_PRIMARY, borderRadius: 10, paddingHorizontal: 24, paddingVertical: 12 },
-  ctaBtnText: { color: '#fff', fontWeight: '700' },
+  emptyText:  { color: TEXT, fontFamily: FONTS.SANS_SEMIBOLD, fontSize: 16, marginBottom: 4 },
+  emptySub:   { color: SUB, fontFamily: FONTS.SANS, fontSize: 13, textAlign: 'center', marginBottom: 20 },
+  ctaBtn:     { backgroundColor: DESIGN_TOKENS.COLOR_PRIMARY, borderRadius: 10, paddingHorizontal: 24, paddingVertical: 12 },
+  ctaBtnText: { color: COLOR.WHITE, fontFamily: FONTS.SANS_BOLD },
   entryCard: {
     backgroundColor: CARD, borderRadius: 12, borderWidth: 1, borderColor: BORDER,
     padding: 16, marginBottom: 10,
   },
-  entryDate: { color: TEXT, fontSize: 15, fontWeight: '600', marginBottom: 4 },
-  entryMeta: { color: SUB, fontSize: 12 },
+  entryDate: { color: TEXT, fontFamily: FONTS.SANS_SEMIBOLD, fontSize: 15, marginBottom: 4 },
+  entryMeta: { color: SUB, fontFamily: FONTS.SANS, fontSize: 12 },
 });

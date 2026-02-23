@@ -5,6 +5,11 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { BrowserRouter } from 'react-router-dom';
 import { App } from './App.js';
+import { authActions } from './stores/auth.js';
+
+// Restore a persisted session before the first render so AuthGuard sees the
+// correct state immediately (avoids a flash-redirect to /login for returning users).
+authActions.initFromStorage();
 
 const queryClient = new QueryClient({
   defaultOptions: {

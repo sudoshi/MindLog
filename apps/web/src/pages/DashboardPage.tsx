@@ -8,6 +8,8 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api.js';
 import { useAlertSocket } from '../hooks/useAlertSocket.js';
 import { useAuthStore } from '../stores/auth.js';
+import { DrilldownModal } from '../components/DrilldownModal.js';
+import type { DrilldownConfig } from '../components/DrilldownModal.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -79,6 +81,202 @@ const AVATAR_COLORS = [
   '#e05a2a','#2a6db5','#9a5a8a','#4a8a3a','#c04060',
 ];
 
+const MOOD_COLORS = [
+  '#c0392b','#e05a2a','#d08020','#c9972a','#a0a030',
+  '#6a9a4a','#3a9a6a','#2a9d8a','#2a7ab5','#2a5ab5',
+];
+
+// ---------------------------------------------------------------------------
+// Drilldown Config Generators
+// ---------------------------------------------------------------------------
+
+function buildActiveTodayDrilldown(caseload: CaseloadRow[]): DrilldownConfig {
+  const logged = caseload.filter((r) => r.todays_submitted_at !== null);
+  const notLogged = caseload.filter((r) => r.todays_submitted_at === null);
+
+  return {
+    icon: '📊',
+    title: 'Active Today — Check-ins',
+    stats: [
+      { value: logged.length, label: 'Logged Today', color: 'var(--safe)' },
+      { value: notLogged.length, label: 'Not Yet Logged', color: 'var(--warning)' },
+      { value: caseload.length, label: 'Total Patients' },
+    ],
+    patients: logged.map((r, idx) => ({
+      id: r.patient_id,
+      name: `${r.last_name}, ${r.first_name}`,
+      initials: initials(r.first_name, r.last_name),
+      avatarColor: AVATAR_COLORS[idx % AVATAR_COLORS.length],
+      meta: `${r.mrn} · ${r.risk_level ?? 'unknown'} risk`,
+      moodDot: r.todays_mood ? {
+        value: Math.round(r.todays_mood),
+        color: MOOD_COLORS[Math.round(r.todays_mood) - 1] ?? '#666',
+      } : undefined,
+      valueSecondary: r.todays_submitted_at ? fmtRelative(r.todays_submitted_at) : undefined,
+    })),
+  };
+}
+
+function buildAvgMoodDrilldown(caseload: CaseloadRow[]): DrilldownConfig {
+  const logged = caseload.filter((r) => r.todays_mood !== null);
+  const sorted = [...logged].sort((a, b) => (a.todays_mood ?? 0) - (b.todays_mood ?? 0));
+
+  const lowMood = logged.filter((r) => (r.todays_mood ?? 0) <= 4);
+  const midMood = logged.filter((r) => (r.todays_mood ?? 0) > 4 && (r.todays_mood ?? 0) <= 7);
+  const highMood = logged.filter((r) => (r.todays_mood ?? 0) > 7);
+
+  const avgMood = logged.length > 0
+    ? (logged.reduce((s, r) => s + (r.todays_mood ?? 0), 0) / logged.length).toFixed(1)
+    : '—';
+
+  return {
+    icon: '😊',
+    title: `Average Mood — ${avgMood}`,
+    stats: [
+      { value: lowMood.length, label: 'Low (1-4)', color: 'var(--critical)' },
+      { value: midMood.length, label: 'Mid (5-7)', color: 'var(--warning)' },
+      { value: highMood.length, label: 'High (8-10)', color: 'var(--safe)' },
+    ],
+    patients: sorted.map((r, idx) => {
+      const mood = r.todays_mood ?? 0;
+      return {
+        id: r.patient_id,
+        name: `${r.last_name}, ${r.first_name}`,
+        initials: initials(r.first_name, r.last_name),
+        avatarColor: AVATAR_COLORS[idx % AVATAR_COLORS.length],
+        meta: r.risk_level ? `${r.risk_level} risk` : undefined,
+        moodDot: {
+          value: Math.round(mood),
+          color: MOOD_COLORS[Math.round(mood) - 1] ?? '#666',
+        },
+        valueSecondary: mood <= 4 ? 'Needs attention' : mood > 7 ? 'Doing well' : 'Moderate',
+      };
+    }),
+  };
+}
+
+function buildAvgSleepDrilldown(caseload: CaseloadRow[]): DrilldownConfig {
+  // Filter patients with sleep data
+  const withSleep = caseload
+    .filter((r) => r.todays_sleep_minutes != null)
+    .map((r) => ({
+      ...r,
+      sleepHrs: (r.todays_sleep_minutes ?? 0) / 60,
+    }))
+    .sort((a, b) => a.sleepHrs - b.sleepHrs);
+
+  const avgSleep = withSleep.length > 0
+    ? (withSleep.reduce((s, r) => s + r.sleepHrs, 0) / withSleep.length).toFixed(1)
+    : '—';
+
+  const poor = withSleep.filter((r) => r.sleepHrs < 6);
+  const ok = withSleep.filter((r) => r.sleepHrs >= 6 && r.sleepHrs < 8);
+  const good = withSleep.filter((r) => r.sleepHrs >= 8);
+
+  return {
+    icon: '😴',
+    title: `Average Sleep — ${avgSleep}h`,
+    stats: [
+      { value: poor.length, label: '< 6 hours', color: 'var(--critical)' },
+      { value: ok.length, label: '6-8 hours', color: 'var(--warning)' },
+      { value: good.length, label: '8+ hours', color: 'var(--safe)' },
+    ],
+    patients: withSleep.map((r, idx) => ({
+      id: r.patient_id,
+      name: `${r.last_name}, ${r.first_name}`,
+      initials: initials(r.first_name, r.last_name),
+      avatarColor: AVATAR_COLORS[idx % AVATAR_COLORS.length],
+      meta: r.risk_level ? `${r.risk_level} risk` : undefined,
+      value: `${r.sleepHrs.toFixed(1)}h`,
+      valueColor: r.sleepHrs < 6 ? 'var(--critical)' : r.sleepHrs >= 8 ? 'var(--safe)' : 'var(--warning)',
+      valueSecondary: r.sleepHrs < 6 ? 'Below target' : r.sleepHrs >= 8 ? 'Optimal' : 'Adequate',
+    })),
+    emptyMessage: 'No sleep data available. Extended snapshot required.',
+  };
+}
+
+function buildCheckInRateDrilldown(caseload: CaseloadRow[]): DrilldownConfig {
+  const logged = caseload.filter((r) => r.todays_submitted_at !== null);
+  const notLogged = caseload.filter((r) => r.todays_submitted_at === null);
+  const rate = caseload.length > 0 ? Math.round((logged.length / caseload.length) * 100) : 0;
+
+  // Show not-logged patients first (they need attention)
+  const sortedNotLogged = [...notLogged].sort((a, b) => {
+    // Sort by risk level (crisis/critical first)
+    const riskOrder: Record<string, number> = { critical: 0, high: 1, moderate: 2, low: 3 };
+    return (riskOrder[a.risk_level ?? 'low'] ?? 4) - (riskOrder[b.risk_level ?? 'low'] ?? 4);
+  });
+
+  return {
+    icon: '📈',
+    title: `Check-In Rate — ${rate}%`,
+    stats: [
+      { value: logged.length, label: 'Checked In', color: 'var(--safe)' },
+      { value: notLogged.length, label: 'Not Logged', color: 'var(--warning)' },
+      { value: `${rate}%`, label: 'Rate' },
+    ],
+    patients: sortedNotLogged.map((r, idx) => ({
+      id: r.patient_id,
+      name: `${r.last_name}, ${r.first_name}`,
+      initials: initials(r.first_name, r.last_name),
+      avatarColor: AVATAR_COLORS[idx % AVATAR_COLORS.length],
+      meta: `${r.mrn} · ${r.tracking_streak}d streak`,
+      value: 'Not logged',
+      valueColor: 'var(--warning)',
+      valueSecondary: r.risk_level ? `${r.risk_level} risk` : undefined,
+    })),
+    emptyMessage: 'All patients have checked in today!',
+  };
+}
+
+function buildMoodBucketDrilldown(
+  caseload: CaseloadRow[],
+  bucket: { label: string; min: number; max: number; color: string }
+): DrilldownConfig {
+  const logged = caseload.filter((r) => r.todays_mood !== null);
+  const inBucket = logged.filter(
+    (r) => (r.todays_mood ?? 0) >= bucket.min && (r.todays_mood ?? 0) <= bucket.max
+  );
+  const sorted = [...inBucket].sort((a, b) => (a.todays_mood ?? 0) - (b.todays_mood ?? 0));
+
+  // Determine icon based on bucket
+  const iconMap: Record<string, string> = {
+    'High (8–10)': '😊',
+    'Good (6–7)': '🙂',
+    'Moderate (4–5)': '😐',
+    'Low (1–3)': '😟',
+  };
+
+  return {
+    icon: iconMap[bucket.label] ?? '📊',
+    title: `${bucket.label} Mood — ${inBucket.length} patients`,
+    stats: [
+      { value: inBucket.length, label: 'In Range' },
+      { value: logged.length, label: 'Total Logged' },
+      {
+        value: logged.length > 0 ? `${Math.round((inBucket.length / logged.length) * 100)}%` : '—',
+        label: 'Of Logged',
+      },
+    ],
+    patients: sorted.map((r, idx) => {
+      const mood = r.todays_mood ?? 0;
+      return {
+        id: r.patient_id,
+        name: `${r.last_name}, ${r.first_name}`,
+        initials: initials(r.first_name, r.last_name),
+        avatarColor: AVATAR_COLORS[idx % AVATAR_COLORS.length],
+        meta: r.risk_level ? `${r.risk_level} risk` : undefined,
+        moodDot: {
+          value: Math.round(mood),
+          color: MOOD_COLORS[Math.round(mood) - 1] ?? '#666',
+        },
+        valueSecondary: r.todays_submitted_at ? fmtRelative(r.todays_submitted_at) : undefined,
+      };
+    }),
+    emptyMessage: `No patients with mood in ${bucket.label} range today.`,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Sub-components
 // ---------------------------------------------------------------------------
@@ -124,9 +322,9 @@ function CaseloadMoodPanel({ caseload }: { caseload: CaseloadRow[] }) {
       </div>
       <div style={{ padding: '12px 16px' }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-          {sorted.map((row) => (
+          {sorted.map((row, idx) => (
             <div
-              key={row.patient_id}
+              key={`${row.patient_id}-${idx}`}
               title={`${row.last_name}, ${row.first_name} — Mood: ${row.todays_mood ?? 'not logged'}`}
               onClick={() => navigate(`/patients/${row.patient_id}`)}
               style={{
@@ -155,15 +353,22 @@ function CaseloadMoodPanel({ caseload }: { caseload: CaseloadRow[] }) {
   );
 }
 
-function MoodDistributionPanel({ caseload }: { caseload: CaseloadRow[] }) {
+const MOOD_BUCKETS = [
+  { label: 'High (8–10)', min: 8, max: 10, color: 'var(--m9)' },
+  { label: 'Good (6–7)', min: 6, max: 7, color: 'var(--m7)' },
+  { label: 'Moderate (4–5)', min: 4, max: 5, color: 'var(--m4)' },
+  { label: 'Low (1–3)', min: 1, max: 3, color: 'var(--m2)' },
+];
+
+function MoodDistributionPanel({
+  caseload,
+  onBucketClick,
+}: {
+  caseload: CaseloadRow[];
+  onBucketClick?: (bucket: typeof MOOD_BUCKETS[number]) => void;
+}) {
   const logged = caseload.filter((r) => r.todays_mood !== null);
-  const buckets = [
-    { label: 'High (8–10)', min: 8, max: 10, color: 'var(--m9)' },
-    { label: 'Good (6–7)', min: 6, max: 7, color: 'var(--m7)' },
-    { label: 'Moderate (4–5)', min: 4, max: 5, color: 'var(--m4)' },
-    { label: 'Low (1–3)', min: 1, max: 3, color: 'var(--m2)' },
-  ];
-  const maxCount = Math.max(...buckets.map((b) =>
+  const maxCount = Math.max(...MOOD_BUCKETS.map((b) =>
     logged.filter((r) => (r.todays_mood ?? 0) >= b.min && (r.todays_mood ?? 0) <= b.max).length
   ), 1);
 
@@ -174,13 +379,18 @@ function MoodDistributionPanel({ caseload }: { caseload: CaseloadRow[] }) {
         <div className="panel-sub">Reported by {logged.length} patients</div>
       </div>
       <div style={{ padding: '8px 0' }}>
-        {buckets.map((b) => {
+        {MOOD_BUCKETS.map((b) => {
           const count = logged.filter((r) =>
             (r.todays_mood ?? 0) >= b.min && (r.todays_mood ?? 0) <= b.max
           ).length;
           const pct = Math.round((count / maxCount) * 100);
           return (
-            <div key={b.label} className="mini-bar-row">
+            <div
+              key={b.label}
+              className={`mini-bar-row${onBucketClick ? ' clickable' : ''}`}
+              onClick={() => onBucketClick?.(b)}
+              style={onBucketClick ? { cursor: 'pointer' } : undefined}
+            >
               <div className="mini-bar-label">{b.label}</div>
               <div className="mini-bar-track">
                 <div className="mini-bar-fill" style={{ width: `${pct}%`, background: b.color }} />
@@ -223,9 +433,9 @@ function ActiveAlertsPanel({ token, onViewAll }: { token: string | null; onViewA
           All patients are stable
         </div>
       ) : (
-        alerts.map((a) => (
+        alerts.map((a, idx) => (
           <div
-            key={a.id}
+            key={`${a.id}-${idx}`}
             className="alert-item"
             onClick={() => navigate(`/patients/${a.patient_id}`)}
           >
@@ -261,7 +471,7 @@ function CheckInActivityPanel({ caseload }: { caseload: CaseloadRow[] }) {
         <div style={{ paddingBottom: 8 }}>
           {loggedIn.map((row, idx) => (
             <div
-              key={row.patient_id}
+              key={`${row.patient_id}-${idx}`}
               className="checkin-item"
               style={{ cursor: 'pointer' }}
               onClick={() => navigate(`/patients/${row.patient_id}`)}
@@ -302,6 +512,7 @@ export function DashboardPage() {
   const [caseload, setCaseload] = useState<CaseloadRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [topCritical, setTopCritical] = useState<AlertItem | null>(null);
+  const [drilldown, setDrilldown] = useState<DrilldownConfig | null>(null);
 
   const fetchData = useCallback(async () => {
     if (!token) return;
@@ -364,6 +575,7 @@ export function DashboardPage() {
           delta={`of ${caseload.length} patients logged`}
           deltaDir={checkedInToday < caseload.length * 0.6 ? 'down' : 'flat'}
           {...(!loading && checkedInToday < caseload.length * 0.6 ? { variant: 'warning' as const } : {})}
+          onClick={() => !loading && setDrilldown(buildActiveTodayDrilldown(caseload))}
         />
         <MetricCard
           label="Avg Mood"
@@ -375,12 +587,14 @@ export function DashboardPage() {
             : {})}
           delta="Today's caseload"
           deltaDir="flat"
+          onClick={() => !loading && setDrilldown(buildAvgMoodDrilldown(caseload))}
         />
         <MetricCard
           label="Avg Sleep"
           value="—"
-          delta="Extended snapshot required"
+          delta="Click for sleep data"
           deltaDir="flat"
+          onClick={() => !loading && setDrilldown(buildAvgSleepDrilldown(caseload))}
         />
         <MetricCard
           label="Check-In Rate"
@@ -388,6 +602,7 @@ export function DashboardPage() {
           valueClass="safe"
           delta="Today"
           deltaDir="flat"
+          onClick={() => !loading && setDrilldown(buildCheckInRateDrilldown(caseload))}
         />
       </div>
 
@@ -429,7 +644,10 @@ export function DashboardPage() {
           {/* LEFT: Mood cells + Distribution */}
           <div>
             <CaseloadMoodPanel caseload={caseload} />
-            <MoodDistributionPanel caseload={caseload} />
+            <MoodDistributionPanel
+              caseload={caseload}
+              onBucketClick={(bucket) => setDrilldown(buildMoodBucketDrilldown(caseload, bucket))}
+            />
           </div>
           {/* RIGHT: Active alerts + Check-in activity */}
           <div>
@@ -446,14 +664,13 @@ export function DashboardPage() {
         </div>
       )}
 
-      {/* Crisis resource banner */}
-      <div style={{
-        background: 'rgba(255,77,109,.06)', border: '1px solid var(--critical-border)',
-        borderRadius: 'var(--r-sm)', padding: '8px 14px', marginTop: 16,
-        fontSize: 12, color: 'var(--critical)',
-      }}>
-        🚨 Patient in crisis? Call <strong>988</strong> · Text HOME to <strong>741741</strong> · Veterans: 988 press 1
-      </div>
+      {/* KPI Drilldown Modal */}
+      {drilldown && (
+        <DrilldownModal
+          config={drilldown}
+          onClose={() => setDrilldown(null)}
+        />
+      )}
     </div>
   );
 }

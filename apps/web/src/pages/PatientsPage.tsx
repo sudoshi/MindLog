@@ -277,9 +277,9 @@ export function PatientsPage() {
               </tr>
             </thead>
             <tbody>
-              {sorted.map((row) => (
+              {sorted.map((row, idx) => (
                 <tr
-                  key={row.patient_id}
+                  key={`${row.patient_id}-${idx}`}
                   className={row.status === 'crisis' ? 'crisis-row' : ''}
                   onClick={() => navigate(`/patients/${row.patient_id}`)}
                 >

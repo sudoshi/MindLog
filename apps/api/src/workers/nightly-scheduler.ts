@@ -196,7 +196,24 @@ export function startNightlyScheduler(): Worker {
       console.info(`[nightly] Enqueued ${patients.length} rule evaluation jobs`);
 
       // -----------------------------------------------------------------------
-      // Step 2: Generate population snapshots for all clinicians
+      // Step 2: Expire stale patient invites
+      // -----------------------------------------------------------------------
+      try {
+        const expired = await sql`
+          UPDATE patient_invites
+          SET status = 'expired'
+          WHERE status = 'pending'
+            AND expires_at < NOW()
+        `;
+        if (expired.count > 0) {
+          console.info(`[nightly] Expired ${expired.count} stale patient invite(s)`);
+        }
+      } catch (err) {
+        console.error('[nightly] Invite expiry failed:', err);
+      }
+
+      // -----------------------------------------------------------------------
+      // Step 3: Generate population snapshots for all clinicians
       // -----------------------------------------------------------------------
       try {
         await generatePopulationSnapshots(dateStr);

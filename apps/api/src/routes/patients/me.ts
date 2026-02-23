@@ -18,7 +18,7 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { sql } from '@mindlog/db';
-import { UuidSchema } from '@mindlog/shared';
+import { UuidSchema, IntakeSchema } from '@mindlog/shared';
 
 const PatchMeSchema = z.object({
   preferred_name: z.string().max(100).optional(),
@@ -85,6 +85,42 @@ export default async function patientMeRoutes(fastify: FastifyInstance): Promise
       WHERE id = ${request.user.sub}
         AND is_active = TRUE
       RETURNING id, preferred_name, timezone
+    `;
+
+    if (!updated) {
+      return reply.status(404).send({ success: false, error: { code: 'NOT_FOUND', message: 'Patient not found' } });
+    }
+
+    return reply.send({ success: true, data: updated });
+  });
+
+  // ---------------------------------------------------------------------------
+  // PATCH /patients/me/intake — update clinical intake fields
+  // Called during the post-registration onboarding wizard (Phase 7).
+  // ---------------------------------------------------------------------------
+  fastify.patch('/intake', auth, async (request, reply) => {
+    if (request.user.role !== 'patient') {
+      return reply.status(403).send({ success: false, error: { code: 'FORBIDDEN', message: 'Patient access only' } });
+    }
+
+    const updates = IntakeSchema.parse(request.body);
+
+    if (Object.keys(updates).length === 0) {
+      return reply.status(400).send({ success: false, error: { code: 'VALIDATION_ERROR', message: 'No fields to update' } });
+    }
+
+    const [updated] = await sql<{ id: string; intake_complete: boolean }[]>`
+      UPDATE patients
+      SET
+        primary_concern                = COALESCE(${updates.primary_concern ?? null}, primary_concern),
+        emergency_contact_name         = COALESCE(${updates.emergency_contact_name ?? null}, emergency_contact_name),
+        emergency_contact_phone        = COALESCE(${updates.emergency_contact_phone ?? null}, emergency_contact_phone),
+        emergency_contact_relationship = COALESCE(${updates.emergency_contact_relationship ?? null}, emergency_contact_relationship),
+        intake_complete                = CASE WHEN ${updates.mark_complete ?? false} THEN TRUE ELSE intake_complete END,
+        updated_at                     = NOW()
+      WHERE id = ${request.user.sub}
+        AND is_active = TRUE
+      RETURNING id, intake_complete
     `;
 
     if (!updated) {

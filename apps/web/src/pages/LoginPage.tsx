@@ -20,8 +20,24 @@ export function LoginPage() {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // Prompt browser to save credentials using Credential Management API
+  const saveCredentials = async (email: string, password: string) => {
+    if ('credentials' in navigator && 'PasswordCredential' in window) {
+      try {
+        const cred = new (window as unknown as { PasswordCredential: new (opts: { id: string; password: string }) => Credential }).PasswordCredential({
+          id: email,
+          password: password,
+        });
+        await navigator.credentials.store(cred);
+      } catch {
+        // Credential API not supported or user declined — ignore
+      }
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,8 +55,21 @@ export function LoginPage() {
       }
 
       if (data.access_token && data.clinician_id && data.org_id) {
-        authActions.login(data.access_token, data.clinician_id, data.org_id, data.refresh_token);
-        navigate('/dashboard');
+        // Prompt browser to save credentials
+        await saveCredentials(email, password);
+
+        authActions.login(
+          data.access_token,
+          data.clinician_id,
+          data.org_id,
+          data.refresh_token,
+          900,
+          rememberMe,
+        );
+
+        // Use full page navigation to trigger browser's "Save password?" prompt
+        // SPA navigation (navigate()) doesn't trigger this in most browsers
+        window.location.href = '/dashboard';
       } else {
         setError('Unexpected response from server. Please try again.');
       }
@@ -92,25 +121,33 @@ export function LoginPage() {
           Clinician Dashboard
         </p>
 
-        <form onSubmit={(e) => void handleSubmit(e)}>
-          <label style={{ display: 'block', color: 'var(--ink-mid)', fontSize: 12, fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: 6 }}>
+        <form
+          id="login-form"
+          method="post"
+          action="/dashboard"
+          onSubmit={(e) => void handleSubmit(e)}
+          autoComplete="on"
+        >
+          <label style={labelStyle}>
             Email
           </label>
           <input
             type="email"
+            name="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
             style={inputStyle}
-            autoComplete="email"
+            autoComplete="username"
             disabled={loading}
           />
 
-          <label style={{ display: 'block', color: 'var(--ink-mid)', fontSize: 12, fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: 6, marginTop: 18 }}>
+          <label style={{ ...labelStyle, marginTop: 18 }}>
             Password
           </label>
           <input
             type="password"
+            name="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
@@ -118,6 +155,33 @@ export function LoginPage() {
             autoComplete="current-password"
             disabled={loading}
           />
+
+          {/* Remember Me */}
+          <label
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              marginTop: 14,
+              cursor: 'pointer',
+              userSelect: 'none',
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={rememberMe}
+              onChange={(e) => setRememberMe(e.target.checked)}
+              style={{
+                width: 15,
+                height: 15,
+                accentColor: 'var(--safe)',
+                cursor: 'pointer',
+              }}
+            />
+            <span style={{ fontSize: 13, color: 'var(--ink-mid)' }}>
+              Remember me on this device
+            </span>
+          </label>
 
           {error && (
             <p style={{ color: 'var(--critical)', fontSize: 13, marginTop: 12 }}>
@@ -153,6 +217,16 @@ export function LoginPage() {
     </main>
   );
 }
+
+const labelStyle: React.CSSProperties = {
+  display: 'block',
+  color: 'var(--ink-mid)',
+  fontSize: 12,
+  fontWeight: 600,
+  letterSpacing: '0.5px',
+  textTransform: 'uppercase',
+  marginBottom: 6,
+};
 
 const inputStyle: React.CSSProperties = {
   display: 'block',

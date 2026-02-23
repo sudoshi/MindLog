@@ -16,6 +16,8 @@
     "preset": "jest-expo"
   },
   "dependencies": {
+    "@expo-google-fonts/figtree": "^0.4.1",
+    "@expo-google-fonts/fraunces": "^0.4.1",
     "@expo/vector-icons": "~14.0.4",
     "@mindlog/shared": "*",
     "@nozbe/watermelondb": "^0.27.1",

@@ -272,6 +272,44 @@ export const UpdateConsentSchema = z.object({
 export type UpdateConsentInput = z.infer<typeof UpdateConsentSchema>;
 
 // ---------------------------------------------------------------------------
+// Invites
+// ---------------------------------------------------------------------------
+
+export const CreateInviteSchema = z.object({
+  email: z.string().email(),
+  personal_message: z.string().max(500).optional(),
+});
+export type CreateInviteInput = z.infer<typeof CreateInviteSchema>;
+
+// ---------------------------------------------------------------------------
+// Patient self-registration (invite-only)
+// ---------------------------------------------------------------------------
+
+export const RegisterSchema = z.object({
+  invite_token:  z.string().min(1),
+  email:         z.string().email(),
+  password:      z.string().min(12).max(128),
+  first_name:    z.string().min(1).max(100),
+  last_name:     z.string().min(1).max(100),
+  date_of_birth: IsoDateSchema,
+  timezone:      z.string().max(100).default('America/New_York'),
+});
+export type RegisterInput = z.infer<typeof RegisterSchema>;
+
+// ---------------------------------------------------------------------------
+// Clinical intake (patient self-service, post-registration)
+// ---------------------------------------------------------------------------
+
+export const IntakeSchema = z.object({
+  primary_concern:                z.string().max(500).optional(),
+  emergency_contact_name:         z.string().max(200).optional(),
+  emergency_contact_phone:        z.string().max(30).optional(),
+  emergency_contact_relationship: z.string().max(100).optional(),
+  mark_complete:                  z.boolean().optional(),
+});
+export type IntakeInput = z.infer<typeof IntakeSchema>;
+
+// ---------------------------------------------------------------------------
 // Reports
 // ---------------------------------------------------------------------------
 

@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import NetInfo from '@react-native-community/netinfo';
 import { DESIGN_TOKENS, MOOD_COLORS, MOOD_LABELS, MOOD_EMOJIS, CRISIS_CONTACTS } from '@mindlog/shared';
+import { COLOR, FONTS, GRADIENT } from '../../constants/DesignTokens';
 import { useTodayEntry } from '../../hooks/useTodayEntry';
 import { apiFetch } from '../../services/auth';
 import * as Haptics from 'expo-haptics';
@@ -73,11 +74,11 @@ function StatCard({
 }
 
 const statStyles = StyleSheet.create({
-  card:       { flex: 1, backgroundColor: '#1a2040', borderRadius: 14, padding: 14, alignItems: 'center', margin: 4 },
+  card:       { flex: 1, backgroundColor: COLOR.CARD_ELEVATED, borderRadius: 14, padding: 14, alignItems: 'center', margin: 4 },
   iconCircle: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
   iconText:   { fontSize: 18 },
-  value:      { color: '#e2e8f0', fontSize: 20, fontWeight: '700' },
-  label:      { color: '#8b9cb0', fontSize: 11, marginTop: 2 },
+  value:      { color: COLOR.INK, fontFamily: FONTS.SANS_BOLD, fontSize: 20, fontWeight: '700' },
+  label:      { color: COLOR.INK_SOFT, fontFamily: FONTS.SANS, fontSize: 11, marginTop: 2 },
 });
 
 // ── Screen ────────────────────────────────────────────────────────────────────
@@ -191,8 +192,8 @@ export default function TodayScreen() {
 
   // Phase 11i — stat card derived values
   const moodColor = entry?.mood
-    ? ((MOOD_COLORS as Record<number, string>)[entry.mood] ?? '#48bb78')
-    : '#4a5568';
+    ? ((MOOD_COLORS as Record<number, string>)[entry.mood] ?? COLOR.SUCCESS)
+    : COLOR.INK_GHOST;
   const streak = profile?.tracking_streak ?? 0;
 
   return (
@@ -201,7 +202,7 @@ export default function TodayScreen() {
 
         {/* Phase 11b + 11i + 7b: gradient header with stat cards and offline chip */}
         <LinearGradient
-          colors={['#1a1f35', '#161a27']}
+          colors={GRADIENT.TODAY_HEADER}
           start={{ x: 0, y: 0 }}
           end={{ x: 0, y: 1 }}
           style={styles.gradientHeader}
@@ -250,7 +251,7 @@ export default function TodayScreen() {
               iconBg={entry?.submitted_at ? '#22c55e33' : '#4a556833'}
               label="Today"
               value={entry?.submitted_at ? 'Done' : 'Pending'}
-              valueColor={entry?.submitted_at ? '#22c55e' : '#8b9cb0'}
+              valueColor={entry?.submitted_at ? COLOR.SUCCESS : COLOR.INK_SOFT}
             />
           </View>
         </LinearGradient>
@@ -315,7 +316,7 @@ export default function TodayScreen() {
               <Text
                 style={[
                   styles.moodLabel,
-                  { color: (MOOD_COLORS as Record<number, string>)[entry.mood] ?? '#fff' },
+                  { color: (MOOD_COLORS as Record<number, string>)[entry.mood] ?? COLOR.WHITE },
                 ]}
               >
                 {(MOOD_LABELS as Record<number, string>)[entry.mood]} ({entry.mood}/10)
@@ -437,11 +438,11 @@ export default function TodayScreen() {
 
 // ── Styles ────────────────────────────────────────────────────────────────────
 
-const BG     = '#0c0f18';
-const CARD   = '#161a27';
-const BORDER = '#1e2535';
-const TEXT   = '#e2e8f0';
-const SUB    = '#8b9cb0';
+const BG     = COLOR.BG;
+const CARD   = COLOR.SURFACE_2;
+const BORDER = COLOR.SURFACE_3;
+const TEXT   = COLOR.INK;
+const SUB    = COLOR.INK_SOFT;
 
 const styles = StyleSheet.create({
   safe:   { flex: 1, backgroundColor: BG },
@@ -461,78 +462,78 @@ const styles = StyleSheet.create({
 
   // Phase 7b: greeting + offline chip
   greetingRow:    { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 20 },
-  greeting:       { color: '#f0f4ff', fontSize: 22, fontWeight: '700' },
-  dateText:       { color: '#8892a4', fontSize: 13, marginTop: 2 },
+  greeting:       { color: TEXT, fontFamily: FONTS.SERIF, fontSize: 22, fontWeight: '400' },
+  dateText:       { color: COLOR.INK_GHOST, fontFamily: FONTS.SANS, fontSize: 13, marginTop: 2 },
   netChip:        { borderRadius: 12, paddingHorizontal: 10, paddingVertical: 5, marginLeft: 8, marginTop: 2 },
-  netChipOnline:  { backgroundColor: '#0f2a1a' },
-  netChipOffline: { backgroundColor: '#2a1010' },
-  netChipText:    { fontSize: 11, fontWeight: '700' },
-  netChipTextOnline:  { color: '#22c55e' },
-  netChipTextOffline: { color: '#fc8181' },
+  netChipOnline:  { backgroundColor: COLOR.SUCCESS_BG },
+  netChipOffline: { backgroundColor: COLOR.DANGER_BG },
+  netChipText:    { fontFamily: FONTS.SANS_BOLD, fontSize: 11 },
+  netChipTextOnline:  { color: COLOR.SUCCESS },
+  netChipTextOffline: { color: COLOR.DANGER },
 
   // Phase 11i: stat grid
   statGrid: { flexDirection: 'row', marginHorizontal: -4 },
 
   // Check-in card
   card:      { backgroundColor: CARD, borderRadius: 16, padding: 20, borderWidth: 1, borderColor: BORDER, marginBottom: 16 },
-  cardTitle: { color: TEXT, fontSize: 18, fontWeight: '700', marginBottom: 4 },
-  cardSub:   { color: SUB, fontSize: 13, marginBottom: 16 },
+  cardTitle: { color: TEXT, fontFamily: FONTS.SANS_BOLD, fontSize: 18, fontWeight: '700', marginBottom: 4 },
+  cardSub:   { color: SUB, fontFamily: FONTS.SANS, fontSize: 13, marginBottom: 16 },
 
   // Quick-mood row
-  quickMoodRow: { flexDirection: 'row', justifyContent: 'space-around', marginBottom: 16, paddingHorizontal: 8 },
-  quickMoodBtn:  { alignItems: 'center', padding: 10, borderRadius: 14, borderWidth: 1, borderColor: BORDER, minWidth: 52 },
+  quickMoodRow:   { flexDirection: 'row', justifyContent: 'space-around', marginBottom: 16, paddingHorizontal: 8 },
+  quickMoodBtn:   { alignItems: 'center', padding: 10, borderRadius: 14, borderWidth: 1, borderColor: BORDER, minWidth: 52 },
   quickMoodEmoji: { fontSize: 26 },
-  quickMoodScore: { fontSize: 11, fontWeight: '700', marginTop: 2 },
+  quickMoodScore: { fontFamily: FONTS.SANS_BOLD, fontSize: 11, marginTop: 2 },
 
   // Mood pip row
-  moodRow:        { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
-  moodPip:        { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
-  moodPipSelected: { transform: [{ scale: 1.3 }], borderWidth: 2, borderColor: '#fff' },
-  moodPipText:    { color: '#fff', fontSize: 9, fontWeight: '700' },
-  moodLabel:      { textAlign: 'center', fontSize: 14, fontWeight: '600', marginBottom: 12 },
+  moodRow:         { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
+  moodPip:         { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  moodPipSelected: { transform: [{ scale: 1.3 }], borderWidth: 2, borderColor: COLOR.WHITE },
+  moodPipText:     { color: COLOR.WHITE, fontFamily: FONTS.SANS_BOLD, fontSize: 9 },
+  moodLabel:       { textAlign: 'center', fontFamily: FONTS.SANS_SEMIBOLD, fontSize: 14, marginBottom: 12 },
 
   // Progress
   progressBar:   { height: 6, backgroundColor: BORDER, borderRadius: 3, marginBottom: 6, overflow: 'hidden' },
   progressFill:  { height: 6, backgroundColor: DESIGN_TOKENS.COLOR_PRIMARY, borderRadius: 3 },
-  progressLabel: { color: SUB, fontSize: 11, textAlign: 'right', marginBottom: 16 },
+  progressLabel: { color: SUB, fontFamily: FONTS.SANS, fontSize: 11, textAlign: 'right', marginBottom: 16 },
 
   // CTA
   ctaBtn:         { backgroundColor: DESIGN_TOKENS.COLOR_PRIMARY, borderRadius: 10, padding: 14, alignItems: 'center' },
-  ctaBtnDone:     { backgroundColor: '#1a2a1a' },
-  ctaBtnText:     { color: '#fff', fontWeight: '700', fontSize: 15 },
-  ctaBtnTextDone: { color: DESIGN_TOKENS.COLOR_SUCCESS },
+  ctaBtnDone:     { backgroundColor: COLOR.SUCCESS_BG },
+  ctaBtnText:     { color: COLOR.WHITE, fontFamily: FONTS.SANS_BOLD, fontWeight: '700', fontSize: 15 },
+  ctaBtnTextDone: { color: COLOR.SUCCESS },
 
   // Section completion
   sections:       { backgroundColor: CARD, borderRadius: 16, borderWidth: 1, borderColor: BORDER, padding: 16, marginBottom: 16 },
   sectionRow:     { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: BORDER },
   sectionRowLast: { borderBottomWidth: 0 },
   sectionIcon:    { fontSize: 18, width: 28 },
-  sectionLabel:   { color: TEXT, fontSize: 14, flex: 1 },
+  sectionLabel:   { color: TEXT, fontFamily: FONTS.SANS, fontSize: 14, flex: 1 },
   sectionStatus:  { fontSize: 18, fontWeight: '700' },
   sectionDone:    { color: DESIGN_TOKENS.COLOR_PRIMARY },
   sectionPending: { color: BORDER },
 
   // Medication card
-  medCard:       { backgroundColor: CARD, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#1e3a2f', marginBottom: 16 },
+  medCard:       { backgroundColor: CARD, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: COLOR.SUCCESS_BORDER, marginBottom: 16 },
   medCardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
-  medCardTitle:  { color: TEXT, fontSize: 16, fontWeight: '700', flex: 1 },
+  medCardTitle:  { color: TEXT, fontFamily: FONTS.SANS_BOLD, fontSize: 16, fontWeight: '700', flex: 1 },
   medCardArrow:  { color: DESIGN_TOKENS.COLOR_PRIMARY, fontSize: 20, fontWeight: '300' },
-  medCardSub:    { color: SUB, fontSize: 12, marginBottom: 8 },
+  medCardSub:    { color: SUB, fontFamily: FONTS.SANS, fontSize: 12, marginBottom: 8 },
   medRow:        { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
   medDot:        { width: 6, height: 6, borderRadius: 3, backgroundColor: DESIGN_TOKENS.COLOR_PRIMARY, marginRight: 8 },
-  medRowText:    { color: TEXT, fontSize: 13 },
-  medMore:       { color: SUB, fontSize: 11, marginTop: 4, fontStyle: 'italic' },
-  medAllDone:    { color: '#48bb78', fontSize: 13, fontWeight: '600' },
+  medRowText:    { color: TEXT, fontFamily: FONTS.SANS, fontSize: 13 },
+  medMore:       { color: SUB, fontFamily: FONTS.SANS, fontSize: 11, marginTop: 4, fontStyle: 'italic' },
+  medAllDone:    { color: COLOR.SUCCESS, fontFamily: FONTS.SANS_SEMIBOLD, fontSize: 13 },
 
   // Assessment banner
-  assessmentBanner:      { backgroundColor: '#1a1f35', borderRadius: 14, borderWidth: 1, borderColor: '#2a3a6a', padding: 14, marginBottom: 10, flexDirection: 'row', alignItems: 'center' },
-  assessmentBannerTitle: { color: '#93c5fd', fontSize: 14, fontWeight: '700' },
-  assessmentBannerSub:   { color: '#4a6a9a', fontSize: 11, marginTop: 2 },
-  assessmentBannerArrow: { color: '#93c5fd', fontSize: 22, fontWeight: '300' },
+  assessmentBanner:      { backgroundColor: COLOR.CARD_INPUT, borderRadius: 14, borderWidth: 1, borderColor: COLOR.INSIGHT_BORDER, padding: 14, marginBottom: 10, flexDirection: 'row', alignItems: 'center' },
+  assessmentBannerTitle: { color: COLOR.INSIGHT, fontFamily: FONTS.SANS_BOLD, fontSize: 14 },
+  assessmentBannerSub:   { color: COLOR.INSIGHT_MUTED, fontFamily: FONTS.SANS, fontSize: 11, marginTop: 2 },
+  assessmentBannerArrow: { color: COLOR.INSIGHT, fontSize: 22, fontWeight: '300' },
 
   // Safety card
-  safetyCard:      { backgroundColor: '#1a0a0a', borderRadius: 16, borderWidth: 1, borderColor: '#4a1010', padding: 16, marginBottom: 16 },
-  safetyTitle:     { color: '#fc8181', fontSize: 13, fontWeight: '700', marginBottom: 8 },
-  safetyLine:      { color: SUB, fontSize: 12, marginBottom: 2 },
-  safetyHighlight: { color: '#fc8181', fontSize: 14, fontWeight: '700', marginBottom: 8 },
+  safetyCard:      { backgroundColor: COLOR.DANGER_BG, borderRadius: 16, borderWidth: 1, borderColor: COLOR.DANGER_BORDER, padding: 16, marginBottom: 16 },
+  safetyTitle:     { color: COLOR.DANGER, fontFamily: FONTS.SANS_SEMIBOLD, fontSize: 13, marginBottom: 8 },
+  safetyLine:      { color: SUB, fontFamily: FONTS.SANS, fontSize: 12, marginBottom: 2 },
+  safetyHighlight: { color: COLOR.DANGER, fontFamily: FONTS.SANS_BOLD, fontSize: 14, marginBottom: 8 },
 });

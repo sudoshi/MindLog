@@ -43,6 +43,17 @@ interface Patient {
   onboarding_complete: boolean;
   app_installed: boolean;
   created_at: string;
+  invite_id: string | null;
+}
+
+interface PatientInvite {
+  id: string;
+  email: string;
+  status: 'pending' | 'accepted' | 'expired' | 'cancelled';
+  expires_at: string;
+  accepted_at: string | null;
+  created_at: string;
+  resend_count: number;
 }
 
 interface CareTeamMember {
@@ -242,12 +253,15 @@ function PaginationBar({
 // ---------------------------------------------------------------------------
 
 function OverviewTab({
-  patient, careTeam, patientId, navigate,
+  patient, careTeam, patientId, navigate, invite, token, onInviteAction,
 }: {
   patient: Patient;
   careTeam: CareTeamMember[];
   patientId: string;
   navigate: ReturnType<typeof useNavigate>;
+  invite: PatientInvite | null;
+  token: string | null;
+  onInviteAction: () => void;
 }) {
   const age = differenceInYears(new Date(), parseISO(patient.date_of_birth));
   const statusColor = STATUS_COLOR[patient.status] ?? '#4a5568';
@@ -317,6 +331,65 @@ function OverviewTab({
           Generate Clinical Report
         </button>
       </div>
+
+      {/* Invite Status card — only shown if invite exists */}
+      {invite && (
+        <div className="tab-card span-full">
+          <h3 className="tab-section-title">Invite Status</h3>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+            <div>
+              <div style={{ fontSize: 11, color: SUB, marginBottom: 2 }}>Status</div>
+              <span style={{
+                fontSize: 12, fontWeight: 700, padding: '3px 10px', borderRadius: 6,
+                background:
+                  invite.status === 'accepted' ? 'var(--safe-bg)' :
+                  invite.status === 'pending' ? 'var(--warning-bg)' : 'var(--glass-02)',
+                color:
+                  invite.status === 'accepted' ? 'var(--safe)' :
+                  invite.status === 'pending' ? 'var(--warning)' : 'var(--ink-soft)',
+              }}>
+                {invite.status === 'pending' ? '⏳ Pending' :
+                 invite.status === 'accepted' ? '✓ Accepted' :
+                 invite.status === 'expired' ? 'Expired' : 'Cancelled'}
+              </span>
+            </div>
+            <div>
+              <div style={{ fontSize: 11, color: SUB, marginBottom: 2 }}>Sent to</div>
+              <div style={{ fontSize: 13, color: TEXT }}>{invite.email}</div>
+            </div>
+            {invite.status === 'accepted' && invite.accepted_at ? (
+              <div>
+                <div style={{ fontSize: 11, color: SUB, marginBottom: 2 }}>Accepted</div>
+                <div style={{ fontSize: 13, color: TEXT }}>
+                  {format(parseISO(invite.accepted_at), 'MMM d, yyyy')}
+                </div>
+              </div>
+            ) : (
+              <div>
+                <div style={{ fontSize: 11, color: SUB, marginBottom: 2 }}>Expires</div>
+                <div style={{ fontSize: 13, color: TEXT }}>
+                  {format(parseISO(invite.expires_at), 'MMM d, yyyy')}
+                </div>
+              </div>
+            )}
+            {(invite.status === 'pending' || invite.status === 'expired') && (
+              <button
+                className="detail-actions-btn"
+                style={{ marginLeft: 'auto' }}
+                onClick={async () => {
+                  if (!token) return;
+                  try {
+                    await api.post(`/invites/${invite.id}/resend`, {}, token);
+                    onInviteAction();
+                  } catch { /* non-fatal */ }
+                }}
+              >
+                Resend Invite
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Care team — full width */}
       <div className="tab-card span-full">
@@ -741,34 +814,14 @@ function AlertsTab({
 // ---------------------------------------------------------------------------
 
 function MedicationsTab({
-  medications, loading, showDiscontinued, onToggleDiscontinued,
-  medName, setMedName, medDose, setMedDose, medDoseUnit, setMedDoseUnit,
-  medFreq, setMedFreq, medInstructions, setMedInstructions,
-  medPrescribedAt, setMedPrescribedAt,
-  medSubmitting, onSubmitMed, onDiscontinue,
+  medications, loading, showDiscontinued, onToggleDiscontinued, onDiscontinue,
 }: {
   medications: PatientMedication[];
   loading: boolean;
   showDiscontinued: boolean;
   onToggleDiscontinued: () => void;
-  medName: string; setMedName: (v: string) => void;
-  medDose: string; setMedDose: (v: string) => void;
-  medDoseUnit: string; setMedDoseUnit: (v: string) => void;
-  medFreq: MedicationFrequency; setMedFreq: (v: MedicationFrequency) => void;
-  medInstructions: string; setMedInstructions: (v: string) => void;
-  medPrescribedAt: string; setMedPrescribedAt: (v: string) => void;
-  medSubmitting: boolean;
-  onSubmitMed: () => void;
   onDiscontinue: (id: string) => void;
 }) {
-  const inputStyle: CSSProperties = {
-    background: BG, border: `1px solid ${BORDER}`, borderRadius: 6,
-    color: TEXT, padding: '7px 10px', fontSize: 13, width: '100%', boxSizing: 'border-box',
-    fontFamily: 'Figtree, system-ui, sans-serif',
-  };
-  const labelStyle: CSSProperties = {
-    fontSize: 11, color: SUB, marginBottom: 4, display: 'block',
-  };
 
   const adherenceRate = (med: PatientMedication) =>
     med.total_logged === 0
@@ -777,94 +830,6 @@ function MedicationsTab({
 
   return (
     <div>
-      {/* Add medication form */}
-      <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 12, padding: 24, marginBottom: 20 }}>
-        <h3 style={{ fontSize: 13, color: SUB, fontWeight: 600, margin: '0 0 16px', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-          Prescribe Medication
-        </h3>
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 12, marginBottom: 12 }}>
-          <div>
-            <label style={labelStyle}>Medication name *</label>
-            <input
-              type="text"
-              value={medName}
-              onChange={(e) => setMedName(e.target.value)}
-              placeholder="e.g. Sertraline"
-              style={inputStyle}
-            />
-          </div>
-          <div>
-            <label style={labelStyle}>Dose</label>
-            <input
-              type="number"
-              value={medDose}
-              onChange={(e) => setMedDose(e.target.value)}
-              placeholder="50"
-              step="any"
-              min="0"
-              style={inputStyle}
-            />
-          </div>
-          <div>
-            <label style={labelStyle}>Unit</label>
-            <input
-              type="text"
-              value={medDoseUnit}
-              onChange={(e) => setMedDoseUnit(e.target.value)}
-              placeholder="mg"
-              style={inputStyle}
-            />
-          </div>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 12, marginBottom: 12 }}>
-          <div>
-            <label style={labelStyle}>Frequency</label>
-            <select
-              value={medFreq}
-              onChange={(e) => setMedFreq(e.target.value as MedicationFrequency)}
-              style={{ ...inputStyle, cursor: 'pointer' }}
-            >
-              {(Object.entries(MEDICATION_FREQUENCY_LABELS) as [MedicationFrequency, string][]).map(([k, v]) => (
-                <option key={k} value={k}>{v}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label style={labelStyle}>Prescribed date</label>
-            <input
-              type="date"
-              value={medPrescribedAt}
-              onChange={(e) => setMedPrescribedAt(e.target.value)}
-              style={inputStyle}
-            />
-          </div>
-        </div>
-        <div style={{ marginBottom: 14 }}>
-          <label style={labelStyle}>Instructions (optional)</label>
-          <input
-            type="text"
-            value={medInstructions}
-            onChange={(e) => setMedInstructions(e.target.value)}
-            placeholder="e.g. Take with food in the morning"
-            style={inputStyle}
-          />
-        </div>
-        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-          <button
-            onClick={onSubmitMed}
-            disabled={medSubmitting || !medName.trim()}
-            style={{
-              background: PRIMARY, border: 'none', borderRadius: 8,
-              color: '#fff', padding: '8px 20px', fontSize: 13, fontWeight: 600,
-              cursor: medSubmitting || !medName.trim() ? 'not-allowed' : 'pointer',
-              opacity: medSubmitting || !medName.trim() ? 0.6 : 1,
-            }}
-          >
-            {medSubmitting ? 'Saving…' : 'Add Medication'}
-          </button>
-        </div>
-      </div>
-
       {/* Medication list header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
         <h3 style={{ fontSize: 13, color: SUB, fontWeight: 600, margin: 0, textTransform: 'uppercase', letterSpacing: 0.5 }}>
@@ -995,6 +960,7 @@ export function PatientDetailPage() {
   const [patient, setPatient] = useState<Patient | null>(null);
   const [careTeam, setCareTeam] = useState<CareTeamMember[]>([]);
   const [patientLoading, setPatientLoading] = useState(true);
+  const [invite, setInvite] = useState<PatientInvite | null>(null);
 
   // Tab: Mood Trends
   const [heatmap, setHeatmap] = useState<HeatmapEntry[]>([]);
@@ -1026,15 +992,6 @@ export function PatientDetailPage() {
   const [medications, setMedications] = useState<PatientMedication[]>([]);
   const [medsLoading, setMedsLoading] = useState(false);
   const [showDiscontinued, setShowDiscontinued] = useState(false);
-  // Add medication form state
-  const [medName, setMedName] = useState('');
-  const [medDose, setMedDose] = useState('');
-  const [medDoseUnit, setMedDoseUnit] = useState('mg');
-  const [medFreq, setMedFreq] = useState<MedicationFrequency>('once_daily_morning');
-  const [medInstructions, setMedInstructions] = useState('');
-  const [medPrescribedAt, setMedPrescribedAt] = useState('');
-  const [medSubmitting, setMedSubmitting] = useState(false);
-
   // Header: inline status/risk edit
   const [editStatus, setEditStatus] = useState('');
   const [editRisk, setEditRisk] = useState('');
@@ -1060,7 +1017,18 @@ export function PatientDetailPage() {
     } catch { /* care-team endpoint may not be available */ }
   }, [token, patientId]);
 
+  const fetchInvite = useCallback(async (p: Patient) => {
+    if (!token || !p.invite_id) return;
+    try {
+      // Fetch all invites and find the one matching this patient
+      const invites = await api.get<PatientInvite[]>('/invites', token);
+      const found = invites.find((inv) => inv.id === p.invite_id);
+      setInvite(found ?? null);
+    } catch { /* non-fatal */ }
+  }, [token]);
+
   useEffect(() => { void fetchPatient(); }, [fetchPatient]);
+  useEffect(() => { if (patient) void fetchInvite(patient); }, [patient, fetchInvite]);
 
   // Sync edit selects whenever the patient object updates
   useEffect(() => {
@@ -1162,33 +1130,6 @@ export function PatientDetailPage() {
       setNoteSubmitting(false);
     }
   }, [token, patientId, noteBody, noteType, notePrivate, fetchNotes]);
-
-  const submitMedication = useCallback(async () => {
-    if (!token || !patientId || !medName.trim()) return;
-    setMedSubmitting(true);
-    try {
-      await api.post(`/medications?patient_id=${patientId}`, {
-        medication_name: medName.trim(),
-        dose: medDose ? parseFloat(medDose) : undefined,
-        dose_unit: medDoseUnit || 'mg',
-        frequency: medFreq,
-        instructions: medInstructions.trim() || undefined,
-        prescribed_at: medPrescribedAt || undefined,
-        show_in_app: true,
-      }, token);
-      setMedName('');
-      setMedDose('');
-      setMedDoseUnit('mg');
-      setMedFreq('once_daily_morning');
-      setMedInstructions('');
-      setMedPrescribedAt('');
-      void fetchMedications();
-    } catch (e) {
-      console.error('[medications] submit error', e);
-    } finally {
-      setMedSubmitting(false);
-    }
-  }, [token, patientId, medName, medDose, medDoseUnit, medFreq, medInstructions, medPrescribedAt, fetchMedications]);
 
   const discontinueMedication = useCallback(async (medId: string) => {
     if (!token) return;
@@ -1348,14 +1289,6 @@ export function PatientDetailPage() {
         ))}
       </div>
 
-      {/* ── Crisis banner ── */}
-      <div style={{
-        background: 'rgba(255,77,109,.06)', borderBottom: '1px solid var(--critical-border)',
-        padding: '6px 24px', fontSize: 11, color: 'var(--critical)', flexShrink: 0,
-      }}>
-        🚨 Crisis? Call <strong>988</strong> · Text HOME to <strong>741741</strong> · Veterans: 988 press 1
-      </div>
-
       {/* ── Tab content ── */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '24px' }}>
         {!patient && !patientLoading ? (
@@ -1368,6 +1301,9 @@ export function PatientDetailPage() {
             careTeam={careTeam}
             patientId={patientId!}
             navigate={navigate}
+            invite={invite}
+            token={token}
+            onInviteAction={() => void fetchInvite(patient)}
           />
         ) : tab === 'trends' ? (
           <MoodTrendsTab heatmap={heatmap} loading={heatmapLoading} />
@@ -1397,14 +1333,6 @@ export function PatientDetailPage() {
             loading={medsLoading}
             showDiscontinued={showDiscontinued}
             onToggleDiscontinued={() => setShowDiscontinued((v) => !v)}
-            medName={medName} setMedName={setMedName}
-            medDose={medDose} setMedDose={setMedDose}
-            medDoseUnit={medDoseUnit} setMedDoseUnit={setMedDoseUnit}
-            medFreq={medFreq} setMedFreq={setMedFreq}
-            medInstructions={medInstructions} setMedInstructions={setMedInstructions}
-            medPrescribedAt={medPrescribedAt} setMedPrescribedAt={setMedPrescribedAt}
-            medSubmitting={medSubmitting}
-            onSubmitMed={() => void submitMedication()}
             onDiscontinue={(id) => void discontinueMedication(id)}
           />
         ) : null}

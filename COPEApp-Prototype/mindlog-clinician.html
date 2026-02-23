@@ -6,6 +6,29 @@
 <title>MindLog Clinical — Population Dashboard</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,300;1,9..40,400&display=swap" rel="stylesheet">
 <style>
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   MINDLOG DESIGN SYSTEM — CLINICIAN DASHBOARD
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+   This is the clinician-facing web dashboard, which uses
+   a dark professional theme distinct from the patient app.
+
+   Typography:
+   - Display: DM Serif Display (professional, clinical)
+   - Body: DM Sans (clear, readable)
+
+   Color Philosophy:
+   - Dark mode for reduced eye strain during long sessions
+   - Semantic colors for alerts (critical red, warning amber, safe green)
+   - Brand teal (#2a9d8f) used for mood scale alignment
+   - Blue accents (#6ea8fe) for interactive elements
+
+   Mood Scale: Consistent across all MindLog products
+   1-2: Red (crisis) → 3-4: Orange → 5: Yellow/Amber →
+   6-7: Green → 8: Teal → 9-10: Blue (thriving)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
    DATA MODEL (documented as types in comments)
    
@@ -103,8 +126,12 @@
   --info: #6ea8fe;
   --info-bg: rgba(110,168,254,.1);
   --info-border: rgba(110,168,254,.2);
-  
-  /* Mood scale */
+
+  /* Brand primary (shared across all MindLog products) */
+  --primary: #2a9d8f;
+  --primary-light: rgba(42,157,143,.15);
+
+  /* Mood scale (unified across patient app and clinician dashboard) */
   --m1: #c0392b; --m2: #e05a2a; --m3: #d08020;
   --m4: #c9972a; --m5: #a0a030;
   --m6: #6a9a4a; --m7: #3a9a6a; --m8: #2a9d8a;
@@ -113,9 +140,20 @@
   --font-display: 'DM Serif Display', Georgia, serif;
   --font-body: 'DM Sans', -apple-system, sans-serif;
   --r-xs: 4px; --r-sm: 8px; --r-md: 12px; --r-lg: 16px; --r-xl: 20px;
+
+  /* Fluid typography scale - scales with viewport */
+  --text-xs: clamp(0.7rem, 0.65rem + 0.25vw, 0.85rem);
+  --text-sm: clamp(0.8rem, 0.75rem + 0.3vw, 1rem);
+  --text-base: clamp(0.9rem, 0.85rem + 0.35vw, 1.15rem);
+  --text-md: clamp(1rem, 0.9rem + 0.4vw, 1.3rem);
+  --text-lg: clamp(1.1rem, 1rem + 0.5vw, 1.5rem);
+  --text-xl: clamp(1.3rem, 1.1rem + 0.6vw, 1.8rem);
+  --text-2xl: clamp(1.6rem, 1.3rem + 0.8vw, 2.2rem);
+  --text-3xl: clamp(2rem, 1.6rem + 1vw, 2.8rem);
 }
 
-html { font-size: 14px; }
+/* Fluid root font size: 16px at 1280px, scales up to 20px at 1920px+ */
+html { font-size: clamp(16px, 14px + 0.4vw, 20px); }
 body {
   font-family: var(--font-body);
   background: var(--bg);
@@ -140,7 +178,7 @@ body::before {
 
 /* ── SIDEBAR ── */
 .sidebar {
-  width: 220px;
+  width: clamp(220px, 15vw, 280px);
   min-width: 220px;
   background: var(--surface);
   border-right: 1px solid var(--border);
@@ -155,7 +193,7 @@ body::before {
 }
 .brand-name {
   font-family: var(--font-display);
-  font-size: 20px;
+  font-size: var(--text-xl);
   font-weight: 400;
   color: var(--ink);
   letter-spacing: -.3px;
@@ -163,7 +201,7 @@ body::before {
 }
 .brand-name em { font-style: italic; color: #6ea8fe; }
 .brand-role {
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: var(--ink-soft);
   margin-top: 5px;
   letter-spacing: .3px;
@@ -192,12 +230,12 @@ body::before {
   color: white;
   flex-shrink: 0;
 }
-.clinician-name { font-size: 12px; font-weight: 600; color: var(--ink); }
-.clinician-dept { font-size: 10px; color: var(--ink-soft); margin-top: 1px; }
+.clinician-name { font-size: var(--text-sm); font-weight: 600; color: var(--ink); }
+.clinician-dept { font-size: var(--text-xs); color: var(--ink-soft); margin-top: 1px; }
 
 .nav-section { padding: 8px 10px 4px; }
 .nav-section-label {
-  font-size: 9px;
+  font-size: var(--text-xs);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 1.2px;
@@ -213,20 +251,20 @@ body::before {
   border-radius: var(--r-sm);
   cursor: pointer;
   color: var(--ink-mid);
-  font-size: 13px;
+  font-size: var(--text-base);
   font-weight: 500;
   transition: all .15s;
   position: relative;
 }
 .nav-item:hover { background: var(--surface2); color: var(--ink); }
 .nav-item.active { background: rgba(110,168,254,.12); color: #6ea8fe; }
-.nav-icon { font-size: 15px; width: 20px; text-align: center; }
+.nav-icon { font-size: var(--text-md); width: 22px; text-align: center; }
 .nav-badge {
   margin-left: auto;
-  min-width: 18px;
-  height: 18px;
-  border-radius: 9px;
-  font-size: 10px;
+  min-width: 20px;
+  height: 20px;
+  border-radius: 10px;
+  font-size: var(--text-xs);
   font-weight: 700;
   display: flex;
   align-items: center;
@@ -268,8 +306,8 @@ body::before {
   gap: 16px;
   flex-shrink: 0;
 }
-.topbar-title { font-size: 16px; font-weight: 600; color: var(--ink); }
-.topbar-subtitle { font-size: 12px; color: var(--ink-soft); margin-left: 2px; }
+.topbar-title { font-size: var(--text-lg); font-weight: 600; color: var(--ink); }
+.topbar-subtitle { font-size: var(--text-sm); color: var(--ink-soft); margin-left: 2px; }
 .topbar-spacer { flex: 1; }
 .search-bar {
   display: flex;
@@ -286,19 +324,19 @@ body::before {
   border: none;
   outline: none;
   font-family: var(--font-body);
-  font-size: 13px;
+  font-size: var(--text-base);
   color: var(--ink);
   width: 100%;
 }
 .search-bar input::placeholder { color: var(--ink-soft); }
-.search-icon { font-size: 14px; color: var(--ink-soft); }
+.search-icon { font-size: var(--text-base); color: var(--ink-soft); }
 .topbar-btn {
   display: flex;
   align-items: center;
   gap: 6px;
   padding: 7px 12px;
   border-radius: var(--r-sm);
-  font-size: 12px;
+  font-size: var(--text-sm);
   font-weight: 600;
   cursor: pointer;
   transition: all .15s;
@@ -352,10 +390,19 @@ body::before {
   transition: border-color .2s;
 }
 .metric-card:hover { border-color: var(--border2); }
+.metric-card.clickable { transition: border-color .2s, transform .15s, box-shadow .15s; }
+.metric-card.clickable:hover {
+  border-color: rgba(110,168,254,.4);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0,0,0,.2);
+}
+.metric-card.clickable:active { transform: translateY(0); }
 .metric-card.critical { border-color: var(--critical-border); }
+.metric-card.critical:hover { border-color: var(--critical); }
 .metric-card.warning { border-color: var(--warning-border); }
+.metric-card.warning:hover { border-color: var(--warning); }
 .metric-label {
-  font-size: 10px;
+  font-size: var(--text-xs);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: .8px;
@@ -364,7 +411,7 @@ body::before {
 }
 .metric-value {
   font-family: var(--font-display);
-  font-size: 30px;
+  font-size: var(--text-2xl);
   font-weight: 400;
   line-height: 1;
   color: var(--ink);
@@ -372,7 +419,7 @@ body::before {
   margin-bottom: 4px;
 }
 .metric-delta {
-  font-size: 11px;
+  font-size: var(--text-sm);
   display: flex;
   align-items: center;
   gap: 3px;
@@ -401,11 +448,11 @@ body::before {
   transition: background .15s;
 }
 .alert-strip:hover { background: rgba(255,77,109,.18); }
-.alert-strip-icon { font-size: 18px; }
+.alert-strip-icon { font-size: var(--text-lg); }
 .alert-strip-text { flex: 1; }
-.alert-strip-title { font-size: 13px; font-weight: 700; color: var(--critical); }
-.alert-strip-body { font-size: 12px; color: rgba(255,77,109,.7); margin-top: 1px; }
-.alert-strip-action { font-size: 12px; font-weight: 700; color: var(--critical); white-space: nowrap; }
+.alert-strip-title { font-size: var(--text-base); font-weight: 700; color: var(--critical); }
+.alert-strip-body { font-size: var(--text-sm); color: rgba(255,77,109,.7); margin-top: 2px; }
+.alert-strip-action { font-size: var(--text-sm); font-weight: 700; color: var(--critical); white-space: nowrap; }
 
 /* Two-column layout */
 .two-col { display: grid; grid-template-columns: 1fr 340px; gap: 16px; align-items: start; }
@@ -426,10 +473,10 @@ body::before {
   padding: 14px 18px;
   border-bottom: 1px solid var(--border);
 }
-.panel-title { font-size: 13px; font-weight: 700; color: var(--ink); }
-.panel-sub { font-size: 11px; color: var(--ink-soft); margin-top: 1px; }
+.panel-title { font-size: var(--text-base); font-weight: 700; color: var(--ink); }
+.panel-sub { font-size: var(--text-sm); color: var(--ink-soft); margin-top: 1px; }
 .panel-action {
-  font-size: 11px;
+  font-size: var(--text-sm);
   font-weight: 600;
   color: #6ea8fe;
   cursor: pointer;
@@ -438,6 +485,385 @@ body::before {
   transition: background .1s;
 }
 .panel-action:hover { background: var(--info-bg); }
+
+/* ── REPORTS ── */
+.report-card {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 18px;
+  cursor: pointer;
+  transition: border-color .2s, transform .15s, box-shadow .15s;
+}
+.report-card:hover {
+  border-color: rgba(110,168,254,.4);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0,0,0,.3);
+}
+.report-card:active { transform: translateY(0); }
+.report-card-action {
+  margin-top: 14px;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: #6ea8fe;
+}
+.report-range-btn {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--ink-mid);
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all .15s;
+}
+.report-range-btn:hover { border-color: var(--border2); color: var(--ink); }
+.report-range-btn.active {
+  background: linear-gradient(135deg, #6ea8fe, #5a98ee);
+  border-color: transparent;
+  color: white;
+}
+.report-history-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.report-history-table th {
+  text-align: left;
+  padding: 12px 16px;
+  font-size: var(--text-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  color: var(--ink-soft);
+  border-bottom: 1px solid var(--border);
+}
+.report-history-table td {
+  padding: 14px 16px;
+  font-size: var(--text-base);
+  color: var(--ink-mid);
+  border-bottom: 1px solid var(--border);
+}
+.report-history-table tr:hover td { background: var(--surface2); }
+.report-history-table .report-name {
+  font-weight: 600;
+  color: var(--ink);
+}
+.report-type-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 5px;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+}
+.report-type-badge.individual { background: rgba(110,168,254,.15); color: #6ea8fe; }
+.report-type-badge.population { background: rgba(16,185,129,.15); color: #10b981; }
+.report-type-badge.handover { background: rgba(245,158,11,.15); color: #f59e0b; }
+.report-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--text-sm);
+}
+.report-status.ready { color: #10b981; }
+.report-status.ready::before { content: '✓'; }
+.report-status.generating { color: #f59e0b; }
+.report-status.generating::before { content: '⟳'; animation: spin 1s linear infinite; }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+.btn-download {
+  background: var(--surface3);
+  border: 1px solid var(--border);
+  color: var(--ink-mid);
+  padding: 6px 12px;
+  border-radius: 5px;
+  font-size: var(--text-sm);
+  cursor: pointer;
+  transition: all .15s;
+}
+.btn-download:hover { background: var(--info-bg); color: #6ea8fe; border-color: rgba(110,168,254,.3); }
+.scheduled-report-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+}
+.scheduled-report-row:last-child { border-bottom: none; }
+.scheduled-report-name { font-size: var(--text-base); font-weight: 600; color: var(--ink); }
+.scheduled-report-meta { font-size: var(--text-sm); color: var(--ink-soft); margin-top: 2px; }
+.scheduled-report-actions { display: flex; align-items: center; gap: 10px; }
+.scheduled-status {
+  padding: 4px 12px;
+  border-radius: 5px;
+  font-size: var(--text-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.scheduled-status.active { background: rgba(16,185,129,.15); color: #10b981; }
+.scheduled-status.paused { background: var(--surface3); color: var(--ink-soft); }
+.btn-icon {
+  background: transparent;
+  border: none;
+  font-size: var(--text-md);
+  cursor: pointer;
+  padding: 6px;
+  opacity: .6;
+  transition: opacity .15s;
+}
+.btn-icon:hover { opacity: 1; }
+.btn-add-schedule {
+  background: transparent;
+  border: 1px dashed var(--border2);
+  color: var(--ink-mid);
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all .15s;
+}
+.btn-add-schedule:hover { border-color: #6ea8fe; color: #6ea8fe; }
+
+/* Toast notification */
+.toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(100px);
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  color: var(--ink);
+  padding: 14px 24px;
+  border-radius: 10px;
+  font-size: var(--text-base);
+  font-weight: 500;
+  box-shadow: 0 10px 40px rgba(0,0,0,.4);
+  z-index: 9999;
+  opacity: 0;
+  transition: transform .3s ease, opacity .3s ease;
+}
+.toast.show {
+  transform: translateX(-50%) translateY(0);
+  opacity: 1;
+}
+
+/* ── DRILLDOWN MODAL ── */
+.drilldown-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.6);
+  backdrop-filter: blur(4px);
+  z-index: 8000;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity .25s ease, visibility .25s ease;
+}
+.drilldown-overlay.show {
+  opacity: 1;
+  visibility: visible;
+}
+.drilldown-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0.95);
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-radius: var(--r-lg);
+  width: min(90vw, 600px);
+  max-height: 80vh;
+  overflow: hidden;
+  z-index: 8001;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity .25s ease, transform .25s ease, visibility .25s ease;
+  box-shadow: 0 25px 80px rgba(0,0,0,.5);
+}
+.drilldown-modal.show {
+  opacity: 1;
+  visibility: visible;
+  transform: translate(-50%, -50%) scale(1);
+}
+.drilldown-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface2);
+}
+.drilldown-title {
+  font-size: var(--text-lg);
+  font-weight: 700;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.drilldown-title-icon {
+  font-size: var(--text-xl);
+}
+.drilldown-close {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: none;
+  background: var(--surface3);
+  color: var(--ink-mid);
+  font-size: var(--text-lg);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all .15s;
+}
+.drilldown-close:hover {
+  background: var(--critical-bg);
+  color: var(--critical);
+}
+.drilldown-summary {
+  display: flex;
+  gap: 16px;
+  padding: 16px 20px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.drilldown-stat {
+  flex: 1;
+  text-align: center;
+  padding: 12px;
+  background: var(--surface2);
+  border-radius: var(--r-sm);
+}
+.drilldown-stat-value {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 400;
+  color: var(--ink);
+  line-height: 1;
+}
+.drilldown-stat-label {
+  font-size: var(--text-xs);
+  color: var(--ink-soft);
+  margin-top: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.drilldown-content {
+  max-height: 400px;
+  overflow-y: auto;
+  padding: 0;
+}
+.drilldown-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.drilldown-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background .1s;
+}
+.drilldown-item:hover {
+  background: var(--surface2);
+}
+.drilldown-item:last-child {
+  border-bottom: none;
+}
+.drilldown-item-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: white;
+  flex-shrink: 0;
+}
+.drilldown-item-info {
+  flex: 1;
+  min-width: 0;
+}
+.drilldown-item-name {
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--ink);
+}
+.drilldown-item-meta {
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+  margin-top: 2px;
+}
+.drilldown-item-value {
+  text-align: right;
+}
+.drilldown-item-primary {
+  font-size: var(--text-base);
+  font-weight: 700;
+  color: var(--ink);
+}
+.drilldown-item-secondary {
+  font-size: var(--text-xs);
+  color: var(--ink-soft);
+  margin-top: 2px;
+}
+.drilldown-empty {
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--ink-soft);
+  font-size: var(--text-base);
+}
+.drilldown-footer {
+  padding: 12px 20px;
+  border-top: 1px solid var(--border);
+  background: var(--surface2);
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.drilldown-btn {
+  padding: 8px 16px;
+  border-radius: var(--r-sm);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid var(--border2);
+  background: var(--surface3);
+  color: var(--ink-mid);
+  transition: all .15s;
+}
+.drilldown-btn:hover {
+  color: var(--ink);
+  background: var(--surface);
+}
+.drilldown-btn.primary {
+  background: rgba(110,168,254,.15);
+  border-color: rgba(110,168,254,.3);
+  color: #6ea8fe;
+}
+.drilldown-btn.primary:hover {
+  background: rgba(110,168,254,.25);
+}
+
+/* Mood dot in drilldown */
+.drilldown-mood-dot {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: white;
+}
 
 /* ── HEATMAP ── */
 .heatmap-container { padding: 12px 16px 16px; overflow-x: auto; }
@@ -523,13 +949,13 @@ body::before {
 .alert-item-icon.warning { background: var(--warning-bg); }
 .alert-item-icon.info { background: var(--info-bg); }
 .alert-item-content { flex: 1; min-width: 0; }
-.alert-item-patient { font-size: 12px; font-weight: 700; color: var(--ink); }
-.alert-item-title { font-size: 12px; color: var(--ink-mid); margin-top: 1px; line-height: 1.4; }
-.alert-item-time { font-size: 10px; color: var(--ink-soft); margin-top: 3px; }
+.alert-item-patient { font-size: var(--text-sm); font-weight: 700; color: var(--ink); }
+.alert-item-title { font-size: var(--text-sm); color: var(--ink-mid); margin-top: 1px; line-height: 1.4; }
+.alert-item-time { font-size: var(--text-xs); color: var(--ink-soft); margin-top: 3px; }
 .alert-item-tag {
-  font-size: 9px;
+  font-size: var(--text-xs);
   font-weight: 700;
-  padding: 2px 7px;
+  padding: 3px 8px;
   border-radius: var(--r-full, 999px);
   white-space: nowrap;
   align-self: flex-start;
@@ -542,15 +968,32 @@ body::before {
 /* Mini bar chart */
 .mini-bar-chart { padding: 12px 18px; }
 .mini-bar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
-.mini-bar-label { font-size: 11px; color: var(--ink-mid); width: 80px; flex-shrink: 0; }
+.mini-bar-row.clickable-row {
+  cursor: pointer;
+  padding: 6px 8px;
+  margin: 0 -8px 6px;
+  border-radius: var(--r-sm);
+  transition: background .15s;
+}
+.mini-bar-row.clickable-row:hover {
+  background: var(--surface2);
+}
+.mini-bar-row.clickable-row:hover .mini-bar-label {
+  color: var(--ink);
+}
+.mini-bar-row.clickable-row:hover .mini-bar-fill {
+  filter: brightness(1.15);
+}
+.mini-bar-label { font-size: 11px; color: var(--ink-mid); width: 80px; flex-shrink: 0; transition: color .15s; }
 .mini-bar-track { flex: 1; height: 8px; background: var(--surface3); border-radius: 4px; overflow: hidden; }
-.mini-bar-fill { height: 100%; border-radius: 4px; transition: width .8s cubic-bezier(.34,1.56,.64,1); }
+.mini-bar-fill { height: 100%; border-radius: 4px; transition: width .8s cubic-bezier(.34,1.56,.64,1), filter .15s; }
 .mini-bar-val { font-size: 11px; font-weight: 600; color: var(--ink-mid); width: 28px; text-align: right; }
 
 /* Mood distribution chart */
 .dist-chart { padding: 12px 18px; display: flex; gap: 2px; align-items: flex-end; height: 80px; }
 .dist-bar-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; }
-.dist-bar { width: 100%; border-radius: 2px 2px 0 0; transition: height .6s ease; cursor: pointer; }
+.dist-bar { width: 100%; border-radius: 2px 2px 0 0; transition: height .6s ease, transform .15s, box-shadow .15s; cursor: pointer; }
+.dist-bar.clickable-bar:hover { transform: scaleY(1.1) scaleX(1.15); box-shadow: 0 4px 12px rgba(0,0,0,.3); z-index: 5; }
 .dist-bar-lbl { font-size: 8px; color: var(--ink-soft); }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -559,12 +1002,12 @@ body::before {
 .patient-table { width: 100%; border-collapse: collapse; }
 .patient-table th {
   text-align: left;
-  font-size: 10px;
+  font-size: var(--text-xs);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: .8px;
   color: var(--ink-soft);
-  padding: 10px 16px;
+  padding: 12px 16px;
   border-bottom: 1px solid var(--border2);
   white-space: nowrap;
   cursor: pointer;
@@ -578,14 +1021,14 @@ body::before {
 }
 .patient-table tbody tr:hover { background: var(--surface2); }
 .patient-table tbody tr.selected { background: rgba(110,168,254,.08); }
-.patient-table td { padding: 11px 16px; font-size: 13px; color: var(--ink-mid); vertical-align: middle; }
-.patient-name { font-weight: 600; color: var(--ink); }
-.patient-mrn { font-size: 11px; color: var(--ink-soft); margin-top: 1px; }
+.patient-table td { padding: 14px 16px; font-size: var(--text-base); color: var(--ink-mid); vertical-align: middle; }
+.patient-name { font-weight: 600; color: var(--ink); font-size: var(--text-base); }
+.patient-mrn { font-size: var(--text-sm); color: var(--ink-soft); margin-top: 2px; }
 .risk-badge {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  font-size: 11px;
+  font-size: var(--text-sm);
   font-weight: 700;
   padding: 3px 9px;
   border-radius: 999px;
@@ -619,9 +1062,9 @@ body::before {
   margin-bottom: 0;
 }
 .filter-chip {
-  padding: 5px 12px;
+  padding: 6px 14px;
   border-radius: 999px;
-  font-size: 12px;
+  font-size: var(--text-sm);
   font-weight: 600;
   cursor: pointer;
   border: 1px solid var(--border2);
@@ -638,9 +1081,9 @@ body::before {
   background: var(--surface2);
   border: 1px solid var(--border2);
   border-radius: var(--r-sm);
-  padding: 5px 10px;
+  padding: 6px 12px;
   font-family: var(--font-body);
-  font-size: 12px;
+  font-size: var(--text-sm);
   color: var(--ink-mid);
   outline: none;
   cursor: pointer;
@@ -658,31 +1101,31 @@ body::before {
   gap: 16px;
 }
 .patient-avatar-large {
-  width: 52px; height: 52px;
+  width: 56px; height: 56px;
   border-radius: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
   font-family: var(--font-display);
-  font-size: 20px;
+  font-size: var(--text-xl);
   color: white;
   flex-shrink: 0;
 }
-.patient-detail-name { font-size: 20px; font-weight: 700; color: var(--ink); line-height: 1; margin-bottom: 4px; }
-.patient-detail-meta { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 6px; }
+.patient-detail-name { font-size: var(--text-xl); font-weight: 700; color: var(--ink); line-height: 1; margin-bottom: 4px; }
+.patient-detail-meta { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; }
 .meta-chip {
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: var(--ink-soft);
   background: var(--surface2);
-  padding: 3px 8px;
-  border-radius: 4px;
+  padding: 4px 10px;
+  border-radius: 5px;
   border: 1px solid var(--border);
 }
 .detail-header-right { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
 .detail-action-btn {
-  padding: 7px 14px;
+  padding: 8px 16px;
   border-radius: var(--r-sm);
-  font-size: 12px;
+  font-size: var(--text-sm);
   font-weight: 600;
   cursor: pointer;
   border: 1px solid var(--border2);
@@ -703,8 +1146,8 @@ body::before {
   overflow-x: auto;
 }
 .detail-tab {
-  padding: 8px 14px;
-  font-size: 12px;
+  padding: 10px 16px;
+  font-size: var(--text-sm);
   font-weight: 600;
   color: var(--ink-soft);
   cursor: pointer;
@@ -719,18 +1162,18 @@ body::before {
 /* Recent entries table */
 .entry-row {
   display: grid;
-  grid-template-columns: 80px 70px 70px 80px 80px 60px 1fr;
+  grid-template-columns: 90px 80px 80px 90px 90px 70px 1fr;
   align-items: center;
   gap: 0;
-  padding: 9px 18px;
+  padding: 12px 18px;
   border-bottom: 1px solid var(--border);
-  font-size: 12px;
+  font-size: var(--text-sm);
   cursor: pointer;
   transition: background .1s;
 }
 .entry-row:hover { background: var(--surface2); }
 .entry-row.header {
-  font-size: 10px;
+  font-size: var(--text-xs);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: .8px;
@@ -742,6 +1185,84 @@ body::before {
   z-index: 5;
 }
 .entry-row.header:hover { background: var(--surface); }
+.entry-row.expandable {
+  cursor: pointer;
+}
+.entry-row.expandable:hover {
+  background: var(--surface2);
+}
+.expand-icon {
+  font-size: 10px;
+  color: var(--ink-soft);
+  transition: transform .2s;
+  display: inline-block;
+}
+.entry-expand {
+  max-height: 0;
+  overflow: hidden;
+  background: var(--surface2);
+  border-bottom: 1px solid var(--border);
+  transition: max-height .3s ease, padding .3s ease;
+}
+.entry-expand.show {
+  max-height: 400px;
+  padding: 16px 18px;
+}
+.entry-expand-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+.entry-expand-section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  padding: 12px;
+}
+.entry-expand-label {
+  font-size: var(--text-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--ink-soft);
+  margin-bottom: 10px;
+}
+.entry-expand-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--text-sm);
+  color: var(--ink-mid);
+  margin-bottom: 6px;
+}
+.entry-expand-row:last-child {
+  margin-bottom: 0;
+}
+.entry-expand-tag {
+  display: inline-block;
+  font-size: var(--text-xs);
+  padding: 4px 8px;
+  border-radius: 4px;
+  margin: 2px 4px 2px 0;
+}
+.entry-expand-tag.trigger {
+  background: var(--warning-bg);
+  color: var(--warning);
+  border: 1px solid var(--warning-border);
+}
+.entry-expand-tag.symptom {
+  background: var(--info-bg);
+  color: var(--info);
+  border: 1px solid var(--info-border);
+}
+.entry-expand-alert {
+  margin-top: 12px;
+  padding: 10px 14px;
+  background: var(--critical-bg);
+  border: 1px solid var(--critical-border);
+  border-radius: var(--r-sm);
+  color: var(--critical);
+  font-size: var(--text-sm);
+}
 .mood-dot {
   width: 22px; height: 22px;
   border-radius: 50%;
@@ -1013,22 +1534,22 @@ body::before {
               <div class="metric-value" style="color:var(--critical);">3</div>
               <div class="metric-delta down">↑ 2 since yesterday</div>
             </div>
-            <div class="metric-card warning">
+            <div class="metric-card warning clickable" onclick="drilldownActiveToday()">
               <div class="metric-label">Active Today</div>
               <div class="metric-value">18</div>
               <div class="metric-delta flat">of 24 patients logged</div>
             </div>
-            <div class="metric-card">
+            <div class="metric-card clickable" onclick="drilldownAvgMood()">
               <div class="metric-label">Avg Mood</div>
               <div class="metric-value" style="color:#2a9d7e;">6.4</div>
               <div class="metric-delta up">↑ 0.3 vs last week</div>
             </div>
-            <div class="metric-card">
+            <div class="metric-card clickable" onclick="drilldownAvgSleep()">
               <div class="metric-label">Avg Sleep</div>
               <div class="metric-value" style="color:#7c6fa0;">6.8h</div>
               <div class="metric-delta down">↓ 0.2h vs last week</div>
             </div>
-            <div class="metric-card">
+            <div class="metric-card clickable" onclick="drilldownMedAdherence()">
               <div class="metric-label">Med Adherence</div>
               <div class="metric-value" style="color:var(--safe);">84%</div>
               <div class="metric-delta up">↑ 3% this month</div>
@@ -1231,27 +1752,96 @@ body::before {
       <!-- ── REPORTS VIEW ── -->
       <div class="view" id="v-reports">
         <div class="view-pad">
+          <!-- Generate Reports Panel -->
           <div class="panel">
             <div class="panel-header"><div class="panel-title">Generate Clinical Reports</div></div>
             <div style="padding:20px 20px;">
+              <!-- Date Range Selector -->
+              <div style="display:flex;gap:12px;margin-bottom:18px;align-items:center;">
+                <div style="font-size:12px;color:var(--ink-soft);font-weight:600;">Date Range:</div>
+                <div style="display:flex;gap:6px;">
+                  <button class="report-range-btn active" onclick="setReportRange(this,'7d')">7 Days</button>
+                  <button class="report-range-btn" onclick="setReportRange(this,'30d')">30 Days</button>
+                  <button class="report-range-btn" onclick="setReportRange(this,'90d')">90 Days</button>
+                  <button class="report-range-btn" onclick="setReportRange(this,'custom')">Custom</button>
+                </div>
+              </div>
+              <!-- Report Type Cards -->
               <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
-                <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-lg);padding:18px;cursor:pointer;transition:border-color .2s;" onmouseover="this.style.borderColor='rgba(110,168,254,.4)'" onmouseout="this.style.borderColor='var(--border)'">
+                <div class="report-card" onclick="generateReport('individual')">
                   <div style="font-size:28px;margin-bottom:10px;">📄</div>
                   <div style="font-size:14px;font-weight:700;color:var(--ink);margin-bottom:4px;">Individual Patient</div>
                   <div style="font-size:12px;color:var(--ink-soft);">30-day mood, triggers, symptoms. Export as PDF for clinical handoff.</div>
-                  <div style="margin-top:14px;font-size:12px;font-weight:600;color:#6ea8fe;">Generate →</div>
+                  <div class="report-card-action">Generate →</div>
                 </div>
-                <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-lg);padding:18px;cursor:pointer;transition:border-color .2s;" onmouseover="this.style.borderColor='rgba(110,168,254,.4)'" onmouseout="this.style.borderColor='var(--border)'">
+                <div class="report-card" onclick="generateReport('population')">
                   <div style="font-size:28px;margin-bottom:10px;">👥</div>
                   <div style="font-size:14px;font-weight:700;color:var(--ink);margin-bottom:4px;">Population Summary</div>
                   <div style="font-size:12px;color:var(--ink-soft);">Aggregate outcomes across your caseload. Suitable for department review.</div>
-                  <div style="margin-top:14px;font-size:12px;font-weight:600;color:#6ea8fe;">Generate →</div>
+                  <div class="report-card-action">Generate →</div>
                 </div>
-                <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-lg);padding:18px;cursor:pointer;transition:border-color .2s;" onmouseover="this.style.borderColor='rgba(110,168,254,.4)'" onmouseout="this.style.borderColor='var(--border)'">
+                <div class="report-card" onclick="generateReport('handover')">
                   <div style="font-size:28px;margin-bottom:10px;">🔄</div>
                   <div style="font-size:14px;font-weight:700;color:var(--ink);margin-bottom:4px;">Handover Report</div>
                   <div style="font-size:12px;color:var(--ink-soft);">Flagged patients, active alerts, and outstanding actions for cover clinician.</div>
-                  <div style="margin-top:14px;font-size:12px;font-weight:600;color:#6ea8fe;">Generate →</div>
+                  <div class="report-card-action">Generate →</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Recent Reports Panel -->
+          <div class="panel" style="margin-top:18px;">
+            <div class="panel-header">
+              <div class="panel-title">Recent Reports</div>
+              <div style="font-size:11px;color:var(--ink-soft);">Last 30 days</div>
+            </div>
+            <div style="padding:0;">
+              <table class="report-history-table">
+                <thead>
+                  <tr>
+                    <th>Report</th>
+                    <th>Type</th>
+                    <th>Date Range</th>
+                    <th>Generated</th>
+                    <th>Status</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="recentReportsBody">
+                  <!-- Populated by JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Scheduled Reports Panel -->
+          <div class="panel" style="margin-top:18px;">
+            <div class="panel-header">
+              <div class="panel-title">Scheduled Reports</div>
+              <button class="btn-add-schedule" onclick="showToast('⚙️ Schedule configuration coming soon')">+ Add Schedule</button>
+            </div>
+            <div style="padding:16px 20px;">
+              <div class="scheduled-report-row">
+                <div class="scheduled-report-info">
+                  <div class="scheduled-report-name">📊 Weekly Population Summary</div>
+                  <div class="scheduled-report-meta">Every Monday at 8:00 AM · Emailed to dr.kim@mindlogdemo.com</div>
+                </div>
+                <div class="scheduled-report-actions">
+                  <span class="scheduled-status active">Active</span>
+                  <button class="btn-icon" onclick="showToast('⏸️ Schedule paused')">⏸️</button>
+                  <button class="btn-icon" onclick="showToast('🗑️ Schedule removed')">🗑️</button>
+                </div>
+              </div>
+              <div class="scheduled-report-row">
+                <div class="scheduled-report-info">
+                  <div class="scheduled-report-name">🔄 Daily Handover Report</div>
+                  <div class="scheduled-report-meta">Daily at 5:00 PM · Saved to Documents</div>
+                </div>
+                <div class="scheduled-report-actions">
+                  <span class="scheduled-status paused">Paused</span>
+                  <button class="btn-icon" onclick="showToast('▶️ Schedule resumed')">▶️</button>
+                  <button class="btn-icon" onclick="showToast('🗑️ Schedule removed')">🗑️</button>
                 </div>
               </div>
             </div>
@@ -1265,6 +1855,30 @@ body::before {
 
 <!-- Tooltip -->
 <div class="tooltip" id="tooltip"></div>
+<!-- Toast notification -->
+<div class="toast" id="toast"></div>
+
+<!-- Drilldown Modal -->
+<div class="drilldown-overlay" id="drilldownOverlay" onclick="closeDrilldown()"></div>
+<div class="drilldown-modal" id="drilldownModal">
+  <div class="drilldown-header">
+    <div class="drilldown-title">
+      <span class="drilldown-title-icon" id="drilldownIcon">📊</span>
+      <span id="drilldownTitle">Drilldown</span>
+    </div>
+    <button class="drilldown-close" onclick="closeDrilldown()">✕</button>
+  </div>
+  <div class="drilldown-summary" id="drilldownSummary">
+    <!-- Dynamic summary stats -->
+  </div>
+  <div class="drilldown-content" id="drilldownContent">
+    <!-- Dynamic patient list -->
+  </div>
+  <div class="drilldown-footer">
+    <button class="drilldown-btn" onclick="closeDrilldown()">Close</button>
+    <button class="drilldown-btn primary" onclick="exportDrilldown()">Export List</button>
+  </div>
+</div>
 
 <script>
 // ═══════════════════════════════════════════════════
@@ -1432,8 +2046,9 @@ function buildDistribution(){
   const max=Math.max(...buckets,1);
   el.innerHTML=buckets.map((count,i)=>`
     <div class="dist-bar-wrap">
-      <div class="dist-bar" style="height:${Math.max(4,(count/max)*56)}px;background:${MOOD_COLORS[i]};" 
-        onmouseenter="showTip(event,'Mood ${i+1}: ${count} patient${count!==1?'s':''}')"
+      <div class="dist-bar clickable-bar" style="height:${Math.max(4,(count/max)*56)}px;background:${MOOD_COLORS[i]};"
+        onclick="drilldownMoodLevel(${i+1})"
+        onmouseenter="showTip(event,'Mood ${i+1}: ${count} patient${count!==1?'s':''} — Click to view')"
         onmouseleave="hideTip()"></div>
       <div class="dist-bar-lbl">${i+1}</div>
     </div>`).join('');
@@ -1448,7 +2063,7 @@ function buildTriggerBars(elId){
   const counts=TRIGGER_NAMES.map(t=>({name:t,count:randInt(2,14)})).sort((a,b)=>b.count-a.count).slice(0,6);
   const max=counts[0].count;
   el.innerHTML=counts.map((t,i)=>`
-    <div class="mini-bar-row">
+    <div class="mini-bar-row clickable-row" onclick="drilldownTrigger('${t.name}')">
       <div class="mini-bar-label">${t.name}</div>
       <div class="mini-bar-track"><div class="mini-bar-fill" style="width:${(t.count/max)*100}%;background:linear-gradient(to right,#f59e0b88,#f59e0b);animation-delay:${i*.06}s;"></div></div>
       <div class="mini-bar-val">${t.count}</div>
@@ -1665,7 +2280,8 @@ function buildDetailEntries(p){
   let html=`<div class="entry-row header">
     <div>Date</div><div>Mood</div><div>Coping</div><div>Sleep</div><div>Exercise</div><div>Meds</div><div>Flags</div>
   </div>`;
-  p.history.forEach(d=>{
+  p.history.forEach((d,idx)=>{
+    const entryId=`entry_${p.id}_${idx}`;
     if(!d.logged){
       html+=`<div class="entry-row" style="opacity:.35;">
         <div style="font-size:11px;">${d.dayOffset===0?'Today':d.dayOffset===1?'Yesterday':formatDayOffset(d.dayOffset)}</div>
@@ -1673,22 +2289,63 @@ function buildDetailEntries(p){
       </div>`;return;
     }
     const moodCol=d.mood?MOOD_COLORS[Math.round(d.mood)-1]:'#666';
-    html+=`<div class="entry-row">
-      <div style="font-size:11px;color:var(--ink-mid);">${d.dayOffset===0?'Today':d.dayOffset===1?'Yesterday':formatDayOffset(d.dayOffset)}</div>
+    const copingVal=d.mood?Math.max(1,Math.min(10,Math.round(d.mood)+randInt(-1,1))):null;
+    const copingCol=copingVal?MOOD_COLORS[copingVal-1]:'#666';
+    // Generate some mock trigger/symptom details
+    const mockTriggers=d.hasTrigger?TRIGGER_NAMES.slice(0,randInt(1,3)):[];
+    const mockSymptoms=d.hasSymptom?SYMPTOM_NAMES.slice(0,randInt(1,3)):[];
+    html+=`<div class="entry-row expandable" onclick="toggleEntryExpand('${entryId}')">
+      <div style="font-size:var(--text-sm);color:var(--ink-mid);display:flex;align-items:center;gap:6px;">
+        <span class="expand-icon" id="icon_${entryId}">▶</span>
+        ${d.dayOffset===0?'Today':d.dayOffset===1?'Yesterday':formatDayOffset(d.dayOffset)}
+      </div>
       <div>${d.mood?`<div class="mood-dot" style="background:${moodCol};">${Math.round(d.mood)}</div>`:'—'}</div>
-      <div>${d.mood?`<div class="mood-dot" style="background:${MOOD_COLORS[Math.max(0,Math.round(d.mood)-1+randInt(-1,1))]};">${Math.max(1,Math.min(10,Math.round(d.mood)+randInt(-1,1)))}</div>`:'—'}</div>
-      <div style="font-size:11px;">${d.sleep?d.sleep.toFixed(1)+'h':'—'}</div>
-      <div style="font-size:11px;">${d.exercise?d.exercise+'m':'—'}</div>
-      <div style="font-size:11px;">${d.medTaken?'✓':'✗'}</div>
+      <div>${copingVal?`<div class="mood-dot" style="background:${copingCol};">${copingVal}</div>`:'—'}</div>
+      <div style="font-size:var(--text-sm);">${d.sleep?d.sleep.toFixed(1)+'h':'—'}</div>
+      <div style="font-size:var(--text-sm);">${d.exercise?d.exercise+'m':'—'}</div>
+      <div style="font-size:var(--text-sm);">${d.medTaken?'<span style="color:var(--safe)">✓</span>':'<span style="color:var(--critical)">✗</span>'}</div>
       <div class="flags">
         ${d.safetyFlag?'<div class="flag safety" title="Safety flag">⚠</div>':''}
         ${d.hasTrigger?'<div class="flag trigger" title="Triggers active">⚡</div>':''}
         ${d.hasSymptom?'<div class="flag symptom" title="Symptoms present">💭</div>':''}
         ${!d.medTaken?'<div class="flag missed-med" title="Missed medication">💊</div>':''}
       </div>
+    </div>
+    <div class="entry-expand" id="${entryId}">
+      <div class="entry-expand-grid">
+        <div class="entry-expand-section">
+          <div class="entry-expand-label">Mood Details</div>
+          <div class="entry-expand-row"><span>Overall Mood:</span><span style="font-weight:600;color:${moodCol}">${d.mood?Math.round(d.mood)+'/10':'—'}</span></div>
+          <div class="entry-expand-row"><span>Coping:</span><span style="font-weight:600;color:${copingCol}">${copingVal?copingVal+'/10':'—'}</span></div>
+          <div class="entry-expand-row"><span>Energy Level:</span><span>${randInt(3,8)}/10</span></div>
+        </div>
+        <div class="entry-expand-section">
+          <div class="entry-expand-label">Sleep & Activity</div>
+          <div class="entry-expand-row"><span>Hours Slept:</span><span>${d.sleep?d.sleep.toFixed(1)+'h':'—'}</span></div>
+          <div class="entry-expand-row"><span>Sleep Quality:</span><span>${d.sleep?['Poor','Fair','Good','Very Good'][randInt(0,3)]:'—'}</span></div>
+          <div class="entry-expand-row"><span>Exercise:</span><span>${d.exercise?d.exercise+' min':'None'}</span></div>
+        </div>
+        <div class="entry-expand-section">
+          <div class="entry-expand-label">Triggers ${d.hasTrigger?'('+mockTriggers.length+')':''}</div>
+          ${mockTriggers.length?mockTriggers.map(t=>`<div class="entry-expand-tag trigger">⚡ ${t}</div>`).join(''):'<div style="color:var(--ink-soft);font-size:var(--text-sm);">None reported</div>'}
+        </div>
+        <div class="entry-expand-section">
+          <div class="entry-expand-label">Symptoms ${d.hasSymptom?'('+mockSymptoms.length+')':''}</div>
+          ${mockSymptoms.length?mockSymptoms.map(s=>`<div class="entry-expand-tag symptom">💭 ${s}</div>`).join(''):'<div style="color:var(--ink-soft);font-size:var(--text-sm);">None reported</div>'}
+        </div>
+      </div>
+      ${d.safetyFlag?`<div class="entry-expand-alert">⚠️ <strong>Safety Flag:</strong> Patient reported suicidal ideation. Crisis protocol was activated.</div>`:''}
     </div>`;
   });
   return html;
+}
+
+function toggleEntryExpand(id){
+  const el=document.getElementById(id);
+  const icon=document.getElementById('icon_'+id);
+  if(!el)return;
+  el.classList.toggle('show');
+  if(icon)icon.textContent=el.classList.contains('show')?'▼':'▶';
 }
 
 function buildDetailCharts(p){
@@ -1992,6 +2649,318 @@ function formatDayOffset(d){
 }
 
 // ═══════════════════════════════════════════════════
+// DRILLDOWN MODAL SYSTEM
+// ═══════════════════════════════════════════════════
+
+function openDrilldown(config){
+  const overlay=document.getElementById('drilldownOverlay');
+  const modal=document.getElementById('drilldownModal');
+  const iconEl=document.getElementById('drilldownIcon');
+  const titleEl=document.getElementById('drilldownTitle');
+  const summaryEl=document.getElementById('drilldownSummary');
+  const contentEl=document.getElementById('drilldownContent');
+
+  iconEl.textContent=config.icon||'📊';
+  titleEl.textContent=config.title||'Details';
+
+  // Build summary stats
+  if(config.stats&&config.stats.length){
+    summaryEl.style.display='flex';
+    summaryEl.innerHTML=config.stats.map(s=>`
+      <div class="drilldown-stat">
+        <div class="drilldown-stat-value" style="${s.color?'color:'+s.color:''}">${s.value}</div>
+        <div class="drilldown-stat-label">${s.label}</div>
+      </div>
+    `).join('');
+  }else{
+    summaryEl.style.display='none';
+  }
+
+  // Build patient list
+  if(config.patients&&config.patients.length){
+    contentEl.innerHTML=`<ul class="drilldown-list">${config.patients.map(p=>`
+      <li class="drilldown-item" onclick="closeDrilldown();openPatientDetail('${p.id}')">
+        <div class="drilldown-item-avatar" style="background:${p.color||'linear-gradient(135deg,#2a7ab5,#1a5a8a)'}">${p.initials||''}</div>
+        <div class="drilldown-item-info">
+          <div class="drilldown-item-name">${p.name}</div>
+          <div class="drilldown-item-meta">${p.meta||''}</div>
+        </div>
+        <div class="drilldown-item-value">
+          ${p.valueDot?`<div class="drilldown-mood-dot" style="background:${p.valueDot.color}">${p.valueDot.value}</div>`:''}
+          ${p.valueText?`<div class="drilldown-item-primary">${p.valueText}</div>`:''}
+          ${p.valueSecondary?`<div class="drilldown-item-secondary">${p.valueSecondary}</div>`:''}
+        </div>
+      </li>
+    `).join('')}</ul>`;
+  }else{
+    contentEl.innerHTML='<div class="drilldown-empty">No patients found</div>';
+  }
+
+  overlay.classList.add('show');
+  modal.classList.add('show');
+}
+
+function closeDrilldown(){
+  document.getElementById('drilldownOverlay').classList.remove('show');
+  document.getElementById('drilldownModal').classList.remove('show');
+}
+
+function exportDrilldown(){
+  showToast('📥 Exporting patient list to CSV...');
+  setTimeout(()=>showToast('✓ Export complete'),1000);
+}
+
+// ── KPI DRILLDOWNS ──
+
+function drilldownActiveToday(){
+  const logged=PATIENTS.filter(p=>p.moodToday!==null);
+  const notLogged=PATIENTS.filter(p=>p.moodToday===null);
+  openDrilldown({
+    icon:'📊',
+    title:'Active Today — Check-ins',
+    stats:[
+      {value:logged.length,label:'Logged Today',color:'var(--safe)'},
+      {value:notLogged.length,label:'Not Yet Logged',color:'var(--warning)'},
+      {value:PATIENTS.length,label:'Total Patients'}
+    ],
+    patients:logged.map(p=>({
+      id:p.id,
+      initials:p.firstName[0]+p.lastName[0],
+      color:p.color+'cc',
+      name:p.firstName+' '+p.lastName,
+      meta:p.diagnosis+' · '+p.mrn,
+      valueDot:{value:Math.round(p.moodToday),color:MOOD_COLORS[Math.round(p.moodToday)-1]},
+      valueSecondary:'Logged '+p.lastCheckin
+    }))
+  });
+}
+
+function drilldownAvgMood(){
+  const logged=PATIENTS.filter(p=>p.moodToday!==null);
+  const avgMood=logged.length?(logged.reduce((s,p)=>s+p.moodToday,0)/logged.length).toFixed(1):0;
+  const lowMood=logged.filter(p=>p.moodToday<=4);
+  const midMood=logged.filter(p=>p.moodToday>4&&p.moodToday<=7);
+  const highMood=logged.filter(p=>p.moodToday>7);
+
+  // Sort by mood ascending (lowest first for clinical attention)
+  const sorted=[...logged].sort((a,b)=>a.moodToday-b.moodToday);
+
+  openDrilldown({
+    icon:'😊',
+    title:'Average Mood — '+avgMood,
+    stats:[
+      {value:lowMood.length,label:'Low (1-4)',color:'var(--critical)'},
+      {value:midMood.length,label:'Mid (5-7)',color:'var(--warning)'},
+      {value:highMood.length,label:'High (8-10)',color:'var(--safe)'}
+    ],
+    patients:sorted.map(p=>({
+      id:p.id,
+      initials:p.firstName[0]+p.lastName[0],
+      color:p.color+'cc',
+      name:p.firstName+' '+p.lastName,
+      meta:p.diagnosis,
+      valueDot:{value:Math.round(p.moodToday),color:MOOD_COLORS[Math.round(p.moodToday)-1]},
+      valueSecondary:p.moodToday<=4?'Needs attention':p.moodToday>7?'Doing well':'Moderate'
+    }))
+  });
+}
+
+function drilldownAvgSleep(){
+  const logged=PATIENTS.filter(p=>p.moodToday!==null);
+  const avgSleep=logged.length?(logged.reduce((s,p)=>{
+    const last=p.history.find(h=>h.logged&&h.sleep);
+    return s+(last?last.sleep:0);
+  },0)/logged.length).toFixed(1):0;
+
+  // Get sleep data for each patient
+  const withSleep=logged.map(p=>{
+    const last=p.history.find(h=>h.logged&&h.sleep);
+    return {...p,sleepHrs:last?last.sleep:null};
+  }).filter(p=>p.sleepHrs).sort((a,b)=>a.sleepHrs-b.sleepHrs);
+
+  const poor=withSleep.filter(p=>p.sleepHrs<6);
+  const ok=withSleep.filter(p=>p.sleepHrs>=6&&p.sleepHrs<8);
+  const good=withSleep.filter(p=>p.sleepHrs>=8);
+
+  openDrilldown({
+    icon:'😴',
+    title:'Average Sleep — '+avgSleep+'h',
+    stats:[
+      {value:poor.length,label:'< 6 hours',color:'var(--critical)'},
+      {value:ok.length,label:'6-8 hours',color:'var(--warning)'},
+      {value:good.length,label:'8+ hours',color:'var(--safe)'}
+    ],
+    patients:withSleep.map(p=>({
+      id:p.id,
+      initials:p.firstName[0]+p.lastName[0],
+      color:p.color+'cc',
+      name:p.firstName+' '+p.lastName,
+      meta:p.diagnosis,
+      valueText:p.sleepHrs.toFixed(1)+'h',
+      valueSecondary:p.sleepHrs<6?'Below target':p.sleepHrs>=8?'Optimal':'Adequate'
+    }))
+  });
+}
+
+function drilldownMedAdherence(){
+  const logged=PATIENTS.filter(p=>p.moodToday!==null);
+
+  // Calculate adherence for each patient
+  const withAdherence=logged.map(p=>{
+    const recent=p.history.filter(h=>h.logged).slice(0,7);
+    const taken=recent.filter(h=>h.medTaken).length;
+    const rate=recent.length?(taken/recent.length*100):0;
+    return {...p,adherenceRate:rate,takenCount:taken,totalCount:recent.length};
+  }).sort((a,b)=>a.adherenceRate-b.adherenceRate);
+
+  const avgAdherence=withAdherence.length?(withAdherence.reduce((s,p)=>s+p.adherenceRate,0)/withAdherence.length).toFixed(0):0;
+  const poor=withAdherence.filter(p=>p.adherenceRate<70);
+  const ok=withAdherence.filter(p=>p.adherenceRate>=70&&p.adherenceRate<90);
+  const good=withAdherence.filter(p=>p.adherenceRate>=90);
+
+  openDrilldown({
+    icon:'💊',
+    title:'Medication Adherence — '+avgAdherence+'%',
+    stats:[
+      {value:poor.length,label:'< 70%',color:'var(--critical)'},
+      {value:ok.length,label:'70-90%',color:'var(--warning)'},
+      {value:good.length,label:'90%+',color:'var(--safe)'}
+    ],
+    patients:withAdherence.map(p=>({
+      id:p.id,
+      initials:p.firstName[0]+p.lastName[0],
+      color:p.color+'cc',
+      name:p.firstName+' '+p.lastName,
+      meta:p.medications.join(', '),
+      valueText:p.adherenceRate.toFixed(0)+'%',
+      valueSecondary:p.takenCount+'/'+p.totalCount+' days'
+    }))
+  });
+}
+
+// ── MOOD DISTRIBUTION DRILLDOWN ──
+
+function drilldownMoodLevel(moodLevel){
+  const logged=PATIENTS.filter(p=>p.moodToday!==null);
+  const atLevel=logged.filter(p=>Math.round(p.moodToday)===moodLevel);
+  const moodColor=MOOD_COLORS[moodLevel-1];
+
+  const labels=['Crisis','Very Low','Low','Below Avg','Neutral','Above Avg','Good','Very Good','Great','Excellent'];
+
+  openDrilldown({
+    icon:'📊',
+    title:'Mood Level '+moodLevel+' — '+labels[moodLevel-1],
+    stats:[
+      {value:atLevel.length,label:'Patients',color:moodColor},
+      {value:((atLevel.length/logged.length)*100).toFixed(0)+'%',label:'Of Population'}
+    ],
+    patients:atLevel.map(p=>({
+      id:p.id,
+      initials:p.firstName[0]+p.lastName[0],
+      color:p.color+'cc',
+      name:p.firstName+' '+p.lastName,
+      meta:p.diagnosis+' · '+p.riskLevel+' risk',
+      valueDot:{value:moodLevel,color:moodColor},
+      valueSecondary:'Logged '+p.lastCheckin
+    }))
+  });
+}
+
+// ── TRIGGER DRILLDOWN ──
+
+function drilldownTrigger(triggerName){
+  // Find patients who logged this trigger recently
+  const patientsWithTrigger=PATIENTS.filter(p=>{
+    return p.history.some(h=>h.logged&&h.hasTrigger);
+  }).map(p=>{
+    const days=p.history.filter(h=>h.logged&&h.hasTrigger).length;
+    return {...p,triggerDays:days};
+  }).sort((a,b)=>b.triggerDays-a.triggerDays);
+
+  openDrilldown({
+    icon:'⚡',
+    title:'Trigger: '+triggerName,
+    stats:[
+      {value:patientsWithTrigger.length,label:'Patients Affected'},
+      {value:patientsWithTrigger.reduce((s,p)=>s+p.triggerDays,0),label:'Total Occurrences'}
+    ],
+    patients:patientsWithTrigger.slice(0,15).map(p=>({
+      id:p.id,
+      initials:p.firstName[0]+p.lastName[0],
+      color:p.color+'cc',
+      name:p.firstName+' '+p.lastName,
+      meta:p.diagnosis,
+      valueText:p.triggerDays+' days',
+      valueSecondary:'Last 30 days'
+    }))
+  });
+}
+
+// ═══════════════════════════════════════════════════
+// REPORTS
+// ═══════════════════════════════════════════════════
+let currentReportRange='7d';
+const RECENT_REPORTS=[
+  {id:'rpt_1',name:'Population Summary — Feb 2026',type:'population',range:'Feb 1–20, 2026',generated:'Today, 9:15 AM',status:'ready'},
+  {id:'rpt_2',name:'Marcus Webb — 30 Day Review',type:'individual',range:'Jan 21 – Feb 20, 2026',generated:'Yesterday, 4:30 PM',status:'ready'},
+  {id:'rpt_3',name:'Handover — Dr. Kim to Dr. Patel',type:'handover',range:'Feb 20, 2026',generated:'Feb 20, 5:00 PM',status:'ready'},
+  {id:'rpt_4',name:'Elena Kovac — Weekly Progress',type:'individual',range:'Feb 13–20, 2026',generated:'Feb 18, 10:00 AM',status:'ready'},
+  {id:'rpt_5',name:'Population Summary — Jan 2026',type:'population',range:'Jan 1–31, 2026',generated:'Feb 1, 8:00 AM',status:'ready'},
+];
+
+function setReportRange(el,range){
+  document.querySelectorAll('.report-range-btn').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  currentReportRange=range;
+  if(range==='custom'){
+    showToast('📅 Custom date picker coming soon');
+  }
+}
+
+function generateReport(type){
+  const names={individual:'Individual Patient Report',population:'Population Summary Report',handover:'Handover Report'};
+  const ranges={'7d':'7 days','30d':'30 days','90d':'90 days','custom':'custom range'};
+  showToast(`📊 Generating ${names[type]} (${ranges[currentReportRange]})...`);
+
+  // Simulate report generation
+  setTimeout(()=>{
+    showToast(`✓ ${names[type]} ready for download`);
+  },1500);
+}
+
+function buildRecentReports(){
+  const el=document.getElementById('recentReportsBody');
+  if(!el)return;
+  el.innerHTML=RECENT_REPORTS.map(r=>`
+    <tr>
+      <td><span class="report-name">${r.name}</span></td>
+      <td><span class="report-type-badge ${r.type}">${r.type}</span></td>
+      <td>${r.range}</td>
+      <td>${r.generated}</td>
+      <td><span class="report-status ${r.status}">${r.status==='ready'?'Ready':'Generating'}</span></td>
+      <td><button class="btn-download" onclick="downloadReport('${r.id}')">Download PDF</button></td>
+    </tr>
+  `).join('');
+}
+
+function downloadReport(id){
+  const report=RECENT_REPORTS.find(r=>r.id===id);
+  if(report){
+    showToast(`⬇️ Downloading ${report.name}.pdf`);
+  }
+}
+
+function showToast(message){
+  const toast=document.getElementById('toast');
+  if(!toast)return;
+  toast.textContent=message;
+  toast.classList.add('show');
+  setTimeout(()=>{
+    toast.classList.remove('show');
+  },2500);
+}
+
+// ═══════════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════════
 document.addEventListener('DOMContentLoaded',()=>{
@@ -2003,6 +2972,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   buildCheckinList();
   applyPatientFilter();
   buildAlertsView();
+  buildRecentReports();
   // Draw overview mini-charts after first patient is viewed
 });
 </script>

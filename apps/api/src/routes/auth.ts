@@ -10,9 +10,10 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { sql } from '@mindlog/db';
-import { LoginSchema, RefreshTokenSchema } from '@mindlog/shared';
+import { LoginSchema, RefreshTokenSchema, RegisterSchema } from '@mindlog/shared';
 import { config } from '../config.js';
 import { auditLog } from '../middleware/audit.js';
+import { sendWelcomeEmail } from '../services/messaging.js';
 import type { JwtPayload } from '../plugins/auth.js';
 
 // MFA verify only needs the 6-digit code; factor_id + supabase token
@@ -187,6 +188,226 @@ export default async function authRoutes(fastify: FastifyInstance): Promise<void
         org_id: patient.organisation_id,
         role: 'patient',
         user: { id: patient.id, email: body.email, role: 'patient', org_id: patient.organisation_id },
+      },
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // POST /register — invite-only patient self-registration
+  // ---------------------------------------------------------------------------
+  fastify.post('/register', async (request, reply) => {
+    const body = RegisterSchema.parse(request.body);
+
+    // --- 1. Validate invite token -------------------------------------------
+    const [invite] = await sql<{
+      id: string; clinician_id: string; org_id: string;
+      email: string; personal_message: string | null;
+    }[]>`
+      SELECT id, clinician_id, org_id, email, personal_message
+      FROM patient_invites
+      WHERE token = ${body.invite_token}
+        AND status = 'pending'
+        AND expires_at > NOW()
+      LIMIT 1
+    `;
+
+    if (!invite) {
+      return reply.status(400).send({
+        success: false,
+        error: { code: 'INVITE_INVALID', message: 'Invite token is invalid or has expired' },
+      });
+    }
+
+    // Emails must match (case-insensitive)
+    if (invite.email.toLowerCase() !== body.email.toLowerCase()) {
+      return reply.status(400).send({
+        success: false,
+        error: { code: 'EMAIL_MISMATCH', message: 'Email does not match the invite' },
+      });
+    }
+
+    // --- 2. Guard: email already registered ---------------------------------
+    const [existingPatient] = await sql<{ id: string }[]>`
+      SELECT id FROM patients
+      WHERE lower(email) = lower(${body.email})
+        AND is_active = TRUE
+      LIMIT 1
+    `;
+    if (existingPatient) {
+      return reply.status(409).send({
+        success: false,
+        error: { code: 'EMAIL_TAKEN', message: 'An account with this email already exists' },
+      });
+    }
+
+    // --- 3. Create Supabase Auth user ----------------------------------------
+    const supabaseRes = await fetch(
+      `${config.supabaseUrl}/auth/v1/admin/users`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: config.supabaseServiceRoleKey,
+          Authorization: `Bearer ${config.supabaseServiceRoleKey}`,
+        },
+        body: JSON.stringify({
+          email: body.email,
+          password: body.password,
+          email_confirm: true,
+        }),
+      },
+    );
+
+    if (!supabaseRes.ok) {
+      const errBody = (await supabaseRes.json()) as { message?: string };
+      const msg = errBody.message ?? 'Failed to create auth account';
+      if (msg.toLowerCase().includes('already')) {
+        return reply.status(409).send({
+          success: false,
+          error: { code: 'EMAIL_TAKEN', message: 'An account with this email already exists' },
+        });
+      }
+      return reply.status(500).send({
+        success: false,
+        error: { code: 'AUTH_ERROR', message: msg },
+      });
+    }
+
+    // --- 4. Insert patient row (new UUID, NOT Supabase auth UUID) -----------
+    const autoMrn = `AUTO-${Date.now().toString(36).toUpperCase()}`;
+
+    const [newPatient] = await sql<{ id: string }[]>`
+      INSERT INTO patients (
+        organisation_id, mrn, email,
+        first_name, last_name, date_of_birth,
+        timezone, invite_id
+      ) VALUES (
+        ${invite.org_id}::UUID,
+        ${autoMrn},
+        ${body.email},
+        ${body.first_name},
+        ${body.last_name},
+        ${body.date_of_birth}::DATE,
+        ${body.timezone},
+        ${invite.id}::UUID
+      )
+      RETURNING id
+    `;
+
+    if (!newPatient) {
+      return reply.status(500).send({
+        success: false,
+        error: { code: 'INTERNAL_ERROR', message: 'Failed to create patient record' },
+      });
+    }
+
+    const patientId = newPatient.id;
+
+    // --- 5. Mark invite as accepted -----------------------------------------
+    await sql`
+      UPDATE patient_invites
+      SET status      = 'accepted',
+          patient_id  = ${patientId}::UUID,
+          accepted_at = NOW()
+      WHERE id = ${invite.id}::UUID
+    `;
+
+    // --- 6. Add clinician to care team --------------------------------------
+    await sql`
+      INSERT INTO care_team_members (patient_id, clinician_id, role)
+      VALUES (${patientId}::UUID, ${invite.clinician_id}::UUID, 'primary')
+      ON CONFLICT (patient_id, clinician_id, role) DO NOTHING
+    `;
+
+    // --- 7. Seed required consents (user agreed to ToS/PP by submitting form) ---
+    const ipAddress = request.ip;
+    await sql`
+      INSERT INTO consent_records
+        (patient_id, consent_type, granted, consent_version, ip_address)
+      VALUES
+        (${patientId}::UUID, 'terms_of_service', TRUE, '1.0', ${ipAddress}::INET),
+        (${patientId}::UUID, 'privacy_policy',   TRUE, '1.0', ${ipAddress}::INET)
+    `;
+
+    // --- 8. Alert clinician: new patient registered -------------------------
+    try {
+      await sql`
+        INSERT INTO clinical_alerts
+          (patient_id, organisation_id, alert_type, severity, title, body)
+        VALUES (
+          ${patientId}::UUID,
+          ${invite.org_id}::UUID,
+          'patient_registered',
+          'info',
+          'New patient registered',
+          ${`${body.first_name} ${body.last_name} has registered and completed their account setup.`}
+        )
+      `;
+    } catch (err) {
+      fastify.log.warn({ err }, '[register] Failed to insert patient_registered alert');
+    }
+
+    // --- 9. Audit log -------------------------------------------------------
+    await auditLog({
+      actor: { sub: patientId, email: body.email, role: 'patient', org_id: invite.org_id },
+      action: 'create',
+      resourceType: 'patient',
+      resourceId: patientId,
+      ipAddress: request.ip,
+      userAgent: request.headers['user-agent'],
+    });
+
+    // --- 10. Send welcome email ---------------------------------------------
+    try {
+      const [clinicianRow] = await sql<{ first_name: string; last_name: string }[]>`
+        SELECT first_name, last_name FROM clinicians WHERE id = ${invite.clinician_id}::UUID LIMIT 1
+      `;
+      await sendWelcomeEmail({
+        to: body.email,
+        firstName: body.first_name,
+        clinicianName: clinicianRow
+          ? `${clinicianRow.first_name} ${clinicianRow.last_name}`
+          : 'your care team',
+      });
+    } catch (err) {
+      fastify.log.error({ err }, '[register] sendWelcomeEmail failed');
+    }
+
+    // --- 11. Issue tokens ---------------------------------------------------
+    // Use Supabase password grant to obtain a valid refresh token
+    const tokenRes = await fetch(
+      `${config.supabaseUrl}/auth/v1/token?grant_type=password`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: config.supabaseServiceRoleKey,
+        },
+        body: JSON.stringify({ email: body.email, password: body.password }),
+      },
+    );
+
+    const tokenData = tokenRes.ok
+      ? ((await tokenRes.json()) as { access_token: string; refresh_token: string })
+      : null;
+
+    const jwtPayload: JwtPayload = {
+      sub: patientId,
+      email: body.email,
+      role: 'patient',
+      org_id: invite.org_id,
+    };
+    const accessToken = fastify.jwt.sign(jwtPayload, { expiresIn: config.jwtAccessExpiry });
+
+    return reply.status(201).send({
+      success: true,
+      data: {
+        access_token: accessToken,
+        refresh_token: tokenData?.refresh_token ?? null,
+        patient_id: patientId,
+        org_id: invite.org_id,
+        role: 'patient',
+        user: { id: patientId, email: body.email, role: 'patient', org_id: invite.org_id },
       },
     });
   });

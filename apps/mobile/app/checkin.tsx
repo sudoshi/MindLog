@@ -14,6 +14,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { DESIGN_TOKENS, MOOD_COLORS, MOOD_LABELS, MOOD_EMOJIS, CRISIS_CONTACTS } from '@mindlog/shared';
+import { COLOR, FONTS, GRADIENT } from '../constants/DesignTokens';
 import { apiFetch, getStoredUser } from '../services/auth';
 import { database } from '../db/index';
 import type DailyEntry from '../db/models/DailyEntry';
@@ -434,7 +435,7 @@ export default function CheckinScreen() {
               <Text style={styles.questionSub}>Tap a number from 1 (worst) to 10 (best)</Text>
               {/* Phase 11e: mood spectrum gradient band */}
               <LinearGradient
-                colors={['#EF4444', '#EAB308', '#22C55E']}
+                colors={[COLOR.DANGER_DARK, COLOR.WARNING, COLOR.SUCCESS]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.moodGradientBand}
@@ -450,7 +451,7 @@ export default function CheckinScreen() {
                       onPress={() => setState((s) => ({ ...s, mood_score: score }))}
                     >
                       <Text style={styles.moodBtnEmoji}>{(MOOD_EMOJIS as Record<number, string>)[score] ?? score.toString()}</Text>
-                      <Text style={[styles.moodBtnNum, selected && { color: '#fff' }]}>{score}</Text>
+                      <Text style={[styles.moodBtnNum, selected && { color: COLOR.WHITE }]}>{score}</Text>
                       {selected && <Text style={styles.moodBtnLabel}>{(MOOD_LABELS as Record<number, string>)[score] ?? ''}</Text>}
                     </TouchableOpacity>
                   );
@@ -1000,31 +1001,31 @@ function SummaryRow({ label, value, danger }: { label: string; value: string; da
 
 // ── Styles ────────────────────────────────────────────────────────────────────
 
-const BG      = '#0c0f18';
-const CARD    = '#161a27';
-const BORDER  = '#1e2535';
-const TEXT    = '#e2e8f0';
-const SUB     = '#8b9cb0';
+const BG      = COLOR.BG;
+const CARD    = COLOR.SURFACE_2;
+const BORDER  = COLOR.SURFACE_3;
+const TEXT    = COLOR.INK;
+const SUB     = COLOR.INK_SOFT;
 const PRIMARY = DESIGN_TOKENS.COLOR_PRIMARY;
-const DANGER  = '#fc8181';
+const DANGER  = COLOR.DANGER;
 
 const styles = StyleSheet.create({
   safe:       { flex: 1, backgroundColor: BG },
   headerRow:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16 },
   backBtn:    { width: 60 },
-  backText:   { color: PRIMARY, fontSize: 16 },
-  stepLabel:  { color: TEXT, fontSize: 16, fontWeight: '700' },
+  backText:   { color: PRIMARY, fontFamily: FONTS.SANS_MEDIUM, fontSize: 16 },
+  stepLabel:  { color: TEXT, fontFamily: FONTS.SANS_BOLD, fontSize: 16 },
 
   progressBar:  { height: 3, backgroundColor: BORDER },
   progressFill: { height: 3, backgroundColor: PRIMARY },
 
-  safetyBanner:     { backgroundColor: '#4a1010', padding: 12, alignItems: 'center' },
-  safetyBannerText: { color: DANGER, fontSize: 13, fontWeight: '700', textAlign: 'center' },
+  safetyBanner:     { backgroundColor: COLOR.DANGER_BORDER, padding: 12, alignItems: 'center' },
+  safetyBannerText: { color: DANGER, fontFamily: FONTS.SANS_BOLD, fontSize: 13, textAlign: 'center' },
 
   scroll:       { padding: 24, paddingBottom: 48 },
-  question:     { color: TEXT, fontSize: 22, fontWeight: '700', marginBottom: 6 },
-  questionSub:  { color: SUB, fontSize: 14, marginBottom: 24 },
-  emptyHint:    { color: SUB, fontSize: 14, lineHeight: 22, marginBottom: 20 },
+  question:     { color: TEXT, fontFamily: FONTS.SERIF, fontSize: 22, fontWeight: '400', marginBottom: 6 },
+  questionSub:  { color: SUB, fontFamily: FONTS.SANS, fontSize: 14, marginBottom: 24 },
+  emptyHint:    { color: SUB, fontFamily: FONTS.SANS, fontSize: 14, lineHeight: 22, marginBottom: 20 },
 
   // Mood
   moodGradientBand: { height: 6, borderRadius: 3, marginBottom: 14 },
@@ -1032,100 +1033,100 @@ const styles = StyleSheet.create({
   moodBtn:       { width: '18%', padding: 10, borderRadius: 12, borderWidth: 2, alignItems: 'center', backgroundColor: CARD, minHeight: 70 },
   moodBtnEmoji:  { fontSize: 22 },
   moodBtnNum:    { color: SUB, fontSize: 13, fontWeight: '700', marginTop: 2 },
-  moodBtnLabel:  { color: '#fff', fontSize: 9, textAlign: 'center', marginTop: 2 },
-  hint:          { color: SUB, fontSize: 13, marginBottom: 6 },
-  input:         { backgroundColor: CARD, borderWidth: 1, borderColor: BORDER, borderRadius: 10, color: TEXT, fontSize: 15, padding: 14, marginBottom: 16 },
+  moodBtnLabel:  { color: COLOR.WHITE, fontFamily: FONTS.SANS, fontSize: 9, textAlign: 'center', marginTop: 2 },
+  hint:          { color: SUB, fontFamily: FONTS.SANS, fontSize: 13, marginBottom: 6 },
+  input:         { backgroundColor: CARD, borderWidth: 1, borderColor: BORDER, borderRadius: 10, color: TEXT, fontFamily: FONTS.SANS, fontSize: 15, padding: 14, marginBottom: 16 },
 
   // ScoreSelector (Phase 8c)
-  sectionLabel:   { color: TEXT, fontSize: 14, fontWeight: '600', marginBottom: 10 },
-  scoreRow:       { flexDirection: 'row', gap: 5, marginBottom: 6 },
-  scoreBtn:       { flex: 1, height: 40, borderRadius: 8, borderWidth: 1, borderColor: BORDER, alignItems: 'center', justifyContent: 'center', backgroundColor: CARD },
-  scoreBtnActive: { backgroundColor: PRIMARY, borderColor: PRIMARY },
-  scoreBtnText:   { color: SUB, fontSize: 12, fontWeight: '600' },
-  scoreBtnTextActive: { color: '#fff' },
-  scoreLabelRow:  { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
-  scoreLabelText: { color: SUB, fontSize: 11 },
-  scoreHintText:  { color: PRIMARY, fontSize: 12, fontWeight: '600', marginTop: -4, marginBottom: 16 },
+  sectionLabel:       { color: TEXT, fontFamily: FONTS.SANS_SEMIBOLD, fontSize: 14, marginBottom: 10 },
+  scoreRow:           { flexDirection: 'row', gap: 5, marginBottom: 6 },
+  scoreBtn:           { flex: 1, height: 40, borderRadius: 8, borderWidth: 1, borderColor: BORDER, alignItems: 'center', justifyContent: 'center', backgroundColor: CARD },
+  scoreBtnActive:     { backgroundColor: PRIMARY, borderColor: PRIMARY },
+  scoreBtnText:       { color: SUB, fontFamily: FONTS.SANS_SEMIBOLD, fontSize: 12 },
+  scoreBtnTextActive: { color: COLOR.WHITE, fontFamily: FONTS.SANS_SEMIBOLD },
+  scoreLabelRow:      { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
+  scoreLabelText:     { color: SUB, fontFamily: FONTS.SANS, fontSize: 11 },
+  scoreHintText:      { color: PRIMARY, fontFamily: FONTS.SANS_SEMIBOLD, fontSize: 12, marginTop: -4, marginBottom: 16 },
 
   // ToggleChip (Phase 8c)
-  toggleRow:          { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  toggleChip:         { paddingVertical: 10, paddingHorizontal: 16, backgroundColor: CARD, borderRadius: 20, borderWidth: 1, borderColor: BORDER },
-  toggleChipActive:   { backgroundColor: '#1a3a30', borderColor: PRIMARY },
-  toggleChipText:     { color: SUB, fontSize: 13 },
-  toggleChipTextActive: { color: PRIMARY, fontWeight: '600' },
+  toggleRow:            { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  toggleChip:           { paddingVertical: 10, paddingHorizontal: 16, backgroundColor: CARD, borderRadius: 20, borderWidth: 1, borderColor: BORDER },
+  toggleChipActive:     { backgroundColor: COLOR.SUCCESS_BG, borderColor: PRIMARY },
+  toggleChipText:       { color: SUB, fontFamily: FONTS.SANS, fontSize: 13 },
+  toggleChipTextActive: { color: PRIMARY, fontFamily: FONTS.SANS_SEMIBOLD },
 
   // Suicidal ideation screener (Phase 8c)
-  siSection:      { marginTop: 28, backgroundColor: '#0f1420', borderRadius: 14, borderWidth: 1, borderColor: '#2a2040', padding: 16 },
-  siSectionTitle: { color: TEXT, fontSize: 16, fontWeight: '700', marginBottom: 4 },
-  siSectionSub:   { color: SUB, fontSize: 13, marginBottom: 16 },
+  siSection:      { marginTop: 28, backgroundColor: COLOR.CARD_INPUT, borderRadius: 14, borderWidth: 1, borderColor: COLOR.INSIGHT_BORDER, padding: 16 },
+  siSectionTitle: { color: TEXT, fontFamily: FONTS.SANS_BOLD, fontSize: 16, marginBottom: 4 },
+  siSectionSub:   { color: SUB, fontFamily: FONTS.SANS, fontSize: 13, marginBottom: 16 },
   siOption:       { flexDirection: 'row', alignItems: 'flex-start', gap: 12, backgroundColor: CARD, borderRadius: 10, borderWidth: 1, borderColor: BORDER, padding: 12, marginBottom: 8 },
   siOptionSelected: { borderColor: PRIMARY },
-  siOptionCrisis: { borderColor: DANGER, backgroundColor: '#1a0a0a' },
+  siOptionCrisis: { borderColor: DANGER, backgroundColor: COLOR.DANGER_BG },
   siRadio:        { width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: BORDER, alignItems: 'center', justifyContent: 'center', marginTop: 2 },
   siRadioSelected: { borderColor: PRIMARY },
   siRadioCrisis:  { borderColor: DANGER },
   siRadioDot:     { width: 10, height: 10, borderRadius: 5, backgroundColor: PRIMARY },
   siRadioDotCrisis: { backgroundColor: DANGER },
-  siLabel:        { color: TEXT, fontSize: 14, fontWeight: '600' },
+  siLabel:        { color: TEXT, fontFamily: FONTS.SANS_SEMIBOLD, fontSize: 14 },
   siLabelCrisis:  { color: DANGER },
-  siDesc:         { color: SUB, fontSize: 12, marginTop: 2, lineHeight: 18 },
+  siDesc:         { color: SUB, fontFamily: FONTS.SANS, fontSize: 12, marginTop: 2, lineHeight: 18 },
 
   // Wellness chips
-  chipGrid:          { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 16 },
-  chip:              { paddingVertical: 10, paddingHorizontal: 16, backgroundColor: CARD, borderRadius: 20, borderWidth: 1, borderColor: BORDER },
-  chipSelected:      { backgroundColor: '#1a3a30', borderColor: PRIMARY },
-  chipText:          { color: SUB, fontSize: 14 },
-  chipTextSelected:  { color: PRIMARY, fontWeight: '600' },
+  chipGrid:         { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 16 },
+  chip:             { paddingVertical: 10, paddingHorizontal: 16, backgroundColor: CARD, borderRadius: 20, borderWidth: 1, borderColor: BORDER },
+  chipSelected:     { backgroundColor: COLOR.SUCCESS_BG, borderColor: PRIMARY },
+  chipText:         { color: SUB, fontFamily: FONTS.SANS, fontSize: 14 },
+  chipTextSelected: { color: PRIMARY, fontFamily: FONTS.SANS_SEMIBOLD },
 
   // Catalogue cards (triggers / symptoms)
-  catalogueCard:             { backgroundColor: CARD, borderRadius: 12, borderWidth: 1, borderColor: BORDER, marginBottom: 10, overflow: 'hidden' },
-  catalogueCardSelected:     { borderColor: PRIMARY },
-  catalogueCardSafety:       { borderColor: '#4a2020' },
+  catalogueCard:               { backgroundColor: CARD, borderRadius: 12, borderWidth: 1, borderColor: BORDER, marginBottom: 10, overflow: 'hidden' },
+  catalogueCardSelected:       { borderColor: PRIMARY },
+  catalogueCardSafety:         { borderColor: COLOR.DANGER_BORDER },
   catalogueCardSafetySelected: { borderColor: DANGER },
-  catalogueCardHeader:       { padding: 14 },
-  catalogueCardLeft:         { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  checkCircle:               { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: BORDER, alignItems: 'center', justifyContent: 'center' },
-  checkCircleSelected:       { backgroundColor: PRIMARY, borderColor: PRIMARY },
-  checkCircleSafety:         { borderColor: '#4a2020' },
-  checkMark:                 { color: '#fff', fontSize: 12, fontWeight: '700' },
-  catalogueName:             { color: TEXT, fontSize: 15, fontWeight: '600' },
-  catalogueNameSelected:     { color: PRIMARY },
-  catalogueCategory:         { color: SUB, fontSize: 12, marginTop: 2, textTransform: 'capitalize' },
+  catalogueCardHeader:         { padding: 14 },
+  catalogueCardLeft:           { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  checkCircle:                 { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: BORDER, alignItems: 'center', justifyContent: 'center' },
+  checkCircleSelected:         { backgroundColor: PRIMARY, borderColor: PRIMARY },
+  checkCircleSafety:           { borderColor: COLOR.DANGER_BORDER },
+  checkMark:                   { color: COLOR.WHITE, fontFamily: FONTS.SANS_BOLD, fontSize: 12 },
+  catalogueName:               { color: TEXT, fontFamily: FONTS.SANS_SEMIBOLD, fontSize: 15 },
+  catalogueNameSelected:       { color: PRIMARY },
+  catalogueCategory:           { color: SUB, fontFamily: FONTS.SANS, fontSize: 12, marginTop: 2, textTransform: 'capitalize' },
 
   // Symptom extras
-  symptomNameRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  safetyBadge:    { backgroundColor: '#4a1010', borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2 },
-  safetyBadgeText: { color: DANGER, fontSize: 10, fontWeight: '700' },
+  symptomNameRow:  { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  safetyBadge:     { backgroundColor: COLOR.DANGER_BORDER, borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2 },
+  safetyBadgeText: { color: DANGER, fontFamily: FONTS.SANS_BOLD, fontSize: 10 },
 
   // Severity selector (triggers)
-  severityRow:         { paddingHorizontal: 14, paddingBottom: 12, gap: 6 },
-  severityLabel:       { color: SUB, fontSize: 12 },
-  severityBtns:        { flexDirection: 'row', gap: 8 },
-  severityBtn:         { width: 40, height: 40, borderRadius: 8, borderWidth: 1, borderColor: BORDER, alignItems: 'center', justifyContent: 'center', backgroundColor: BG },
-  severityBtnActive:   { backgroundColor: PRIMARY, borderColor: PRIMARY },
-  severityBtnText:     { color: SUB, fontSize: 14, fontWeight: '600' },
-  severityBtnTextActive: { color: '#fff' },
-  severityDesc:        { color: PRIMARY, fontSize: 11, fontStyle: 'italic' },
+  severityRow:           { paddingHorizontal: 14, paddingBottom: 12, gap: 6 },
+  severityLabel:         { color: SUB, fontFamily: FONTS.SANS, fontSize: 12 },
+  severityBtns:          { flexDirection: 'row', gap: 8 },
+  severityBtn:           { width: 40, height: 40, borderRadius: 8, borderWidth: 1, borderColor: BORDER, alignItems: 'center', justifyContent: 'center', backgroundColor: BG },
+  severityBtnActive:     { backgroundColor: PRIMARY, borderColor: PRIMARY },
+  severityBtnText:       { color: SUB, fontFamily: FONTS.SANS_SEMIBOLD, fontSize: 14 },
+  severityBtnTextActive: { color: COLOR.WHITE, fontFamily: FONTS.SANS_SEMIBOLD },
+  severityDesc:          { color: PRIMARY, fontFamily: FONTS.SANS, fontSize: 11, fontStyle: 'italic' },
 
-  selectionCount: { color: PRIMARY, fontSize: 13, fontWeight: '600', marginTop: 4, marginBottom: 8 },
-  crisisNote:     { backgroundColor: '#1a0a0a', borderRadius: 12, borderWidth: 1, borderColor: '#4a1010', padding: 16, marginTop: 16, marginBottom: 8 },
-  crisisNoteText: { color: DANGER, fontSize: 13, lineHeight: 22 },
+  selectionCount: { color: PRIMARY, fontFamily: FONTS.SANS_SEMIBOLD, fontSize: 13, marginTop: 4, marginBottom: 8 },
+  crisisNote:     { backgroundColor: COLOR.DANGER_BG, borderRadius: 12, borderWidth: 1, borderColor: COLOR.DANGER_BORDER, padding: 16, marginTop: 16, marginBottom: 8 },
+  crisisNoteText: { color: DANGER, fontFamily: FONTS.SANS, fontSize: 13, lineHeight: 22 },
 
   // Journal
   journalInput:     { minHeight: 200, lineHeight: 22 },
-  journalWordCount: { color: SUB, fontSize: 11, textAlign: 'right', marginTop: -12, marginBottom: 16 },
+  journalWordCount: { color: SUB, fontFamily: FONTS.SANS, fontSize: 11, textAlign: 'right', marginTop: -12, marginBottom: 16 },
 
   // Submit summary
   summaryCard:  { backgroundColor: CARD, borderRadius: 12, borderWidth: 1, borderColor: BORDER, padding: 16, marginBottom: 24 },
   summaryRow:   { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: BORDER },
-  summaryLabel: { color: SUB, fontSize: 14 },
-  summaryValue: { color: TEXT, fontSize: 14, fontWeight: '600' },
+  summaryLabel: { color: SUB, fontFamily: FONTS.SANS, fontSize: 14 },
+  summaryValue: { color: TEXT, fontFamily: FONTS.SANS_SEMIBOLD, fontSize: 14 },
 
   // Navigation
   navRow:          { marginTop: 8 },
   nextBtn:         { backgroundColor: PRIMARY, borderRadius: 12, padding: 16, alignItems: 'center' },
-  nextBtnDisabled: { backgroundColor: '#2d3748' },
-  nextBtnText:     { color: '#fff', fontWeight: '700', fontSize: 16 },
+  nextBtnDisabled: { backgroundColor: COLOR.SURFACE_4 },
+  nextBtnText:     { color: COLOR.WHITE, fontFamily: FONTS.SANS_BOLD, fontSize: 16 },
   skipBtn:         { alignItems: 'center', paddingVertical: 12 },
-  skipBtnText:     { color: SUB, fontSize: 14 },
+  skipBtnText:     { color: SUB, fontFamily: FONTS.SANS, fontSize: 14 },
 });

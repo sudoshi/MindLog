@@ -6,6 +6,28 @@
 <title>MindLog — Interactive Prototype v2</title>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,300;1,9..144,400&family=Figtree:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   MINDLOG DESIGN SYSTEM — PATIENT MOBILE APP
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+   This is the patient-facing mobile app, designed to feel
+   warm, supportive, and approachable.
+
+   Typography:
+   - Display: Fraunces (warm, humanist serif)
+   - Body: Figtree (friendly, clear sans-serif)
+
+   Color Philosophy:
+   - Light warm background (#f7f4ef) for comfort
+   - Teal primary (#2a9d8f) for growth and wellness
+   - Amber/Rose for alerts and attention
+   - Soft, muted accents to reduce anxiety
+
+   Mood Scale: Consistent across all MindLog products
+   1-2: Red (crisis) → 3-4: Orange → 5: Yellow/Amber →
+   6-7: Green → 8: Teal → 9-10: Blue (thriving)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 :root{
   --bg:#0a0c10;
@@ -418,6 +440,8 @@ input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;bac
   <button class="nav-btn" onclick="goScreen('symptoms')">④ Symptoms</button>
   <button class="nav-btn" onclick="goScreen('journal')">⑤ Journal</button>
   <button class="nav-btn" onclick="goScreen('insights')">⑥ Insights</button>
+  <button class="nav-btn" onclick="goScreen('assessments')">⑦ Assessments</button>
+  <button class="nav-btn" onclick="goScreen('medications')">⑧ Medications</button>
   <button class="nav-btn" onclick="goScreen('settings')">⚙ Settings</button>
 </div>
 
@@ -957,6 +981,219 @@ The walk at lunch helped. Even 15 minutes outside reset something.</textarea>
           </div>
         </div>
 
+        <!-- ◆◆◆ ASSESSMENTS ◆◆◆ -->
+        <div class="screen" id="s-assessments">
+          <div style="padding:12px 24px 18px;background:linear-gradient(150deg,#1e2a3a 0%,#101820 100%);flex-shrink:0;position:relative;overflow:hidden;">
+            <div class="screen-header-top"><div class="screen-header-back" onclick="goScreen('today')">← Today</div></div>
+            <div class="screen-header-title">Assessments</div>
+            <div class="screen-header-sub">Weekly validated scales</div>
+          </div>
+          <div class="scroll-area">
+            <div class="section-head-label">This Week</div>
+            <div class="card" id="assessmentsList">
+              <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;cursor:pointer;" onclick="startAssessment('phq9')">
+                <div style="display:flex;align-items:center;gap:12px;">
+                  <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#6ea8fe,#4a8eee);display:flex;align-items:center;justify-content:center;font-size:16px;">📋</div>
+                  <div>
+                    <div style="font-size:14px;font-weight:700;color:var(--ink);">PHQ-9</div>
+                    <div style="font-size:12px;color:var(--ink-soft);">Depression severity · 9 questions</div>
+                  </div>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <span style="font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;background:#e8f6f4;color:#2a9d8f;">Due</span>
+                  <span style="font-size:14px;color:var(--ink-ghost);">›</span>
+                </div>
+              </div>
+              <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;cursor:pointer;" onclick="startAssessment('gad7')">
+                <div style="display:flex;align-items:center;gap:12px;">
+                  <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#f59e0b,#e07a1a);display:flex;align-items:center;justify-content:center;font-size:16px;">😰</div>
+                  <div>
+                    <div style="font-size:14px;font-weight:700;color:var(--ink);">GAD-7</div>
+                    <div style="font-size:12px;color:var(--ink-soft);">Anxiety severity · 7 questions</div>
+                  </div>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <span style="font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;background:#e8f6f4;color:#2a9d8f;">Due</span>
+                  <span style="font-size:14px;color:var(--ink-ghost);">›</span>
+                </div>
+              </div>
+              <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;cursor:pointer;" onclick="startAssessment('isi')">
+                <div style="display:flex;align-items:center;gap:12px;">
+                  <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#7c6fa0,#5a4f80);display:flex;align-items:center;justify-content:center;font-size:16px;">😴</div>
+                  <div>
+                    <div style="font-size:14px;font-weight:700;color:var(--ink);">ISI</div>
+                    <div style="font-size:12px;color:var(--ink-soft);">Insomnia severity · 7 questions</div>
+                  </div>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <span style="font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;background:var(--border);color:var(--ink-soft);">3 days</span>
+                  <span style="font-size:14px;color:var(--ink-ghost);">›</span>
+                </div>
+              </div>
+              <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;cursor:pointer;" onclick="startAssessment('asrm')">
+                <div style="display:flex;align-items:center;gap:12px;">
+                  <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#f59e0b,#c9972a);display:flex;align-items:center;justify-content:center;font-size:16px;">⚡</div>
+                  <div>
+                    <div style="font-size:14px;font-weight:700;color:var(--ink);">ASRM</div>
+                    <div style="font-size:12px;color:var(--ink-soft);">Mania self-rating · 5 questions</div>
+                  </div>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <span style="font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;background:var(--border);color:var(--ink-soft);">5 days</span>
+                  <span style="font-size:14px;color:var(--ink-ghost);">›</span>
+                </div>
+              </div>
+              <div style="padding:14px 18px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;" onclick="startAssessment('cssrs')">
+                <div style="display:flex;align-items:center;gap:12px;">
+                  <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#e05c6e,#c04050);display:flex;align-items:center;justify-content:center;font-size:16px;">⚠️</div>
+                  <div>
+                    <div style="font-size:14px;font-weight:700;color:var(--ink);">C-SSRS</div>
+                    <div style="font-size:12px;color:var(--ink-soft);">Safety screening · 6 questions</div>
+                  </div>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <span style="font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;background:#e8f6f4;color:#2a9d8f;">Due</span>
+                  <span style="font-size:14px;color:var(--ink-ghost);">›</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="section-head-label">Past Results</div>
+            <div class="card">
+              <div style="padding:14px 18px;border-bottom:1px solid var(--border);">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+                  <div style="font-size:13px;font-weight:700;color:var(--ink);">PHQ-9 · Feb 13</div>
+                  <div style="font-size:13px;font-weight:700;color:#5a8a6a;">Score: 8</div>
+                </div>
+                <div style="height:6px;background:var(--border);border-radius:3px;overflow:hidden;">
+                  <div style="height:100%;width:30%;background:linear-gradient(to right,#5a8a6a,#2a9d8f);border-radius:3px;"></div>
+                </div>
+                <div style="font-size:11px;color:var(--ink-soft);margin-top:4px;">Mild depression · Improved from 12</div>
+              </div>
+              <div style="padding:14px 18px;border-bottom:1px solid var(--border);">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+                  <div style="font-size:13px;font-weight:700;color:var(--ink);">GAD-7 · Feb 13</div>
+                  <div style="font-size:13px;font-weight:700;color:#c9972a;">Score: 10</div>
+                </div>
+                <div style="height:6px;background:var(--border);border-radius:3px;overflow:hidden;">
+                  <div style="height:100%;width:48%;background:linear-gradient(to right,#c9972a,#e07a1a);border-radius:3px;"></div>
+                </div>
+                <div style="font-size:11px;color:var(--ink-soft);margin-top:4px;">Moderate anxiety · Stable</div>
+              </div>
+              <div style="padding:14px 18px;">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+                  <div style="font-size:13px;font-weight:700;color:var(--ink);">ISI · Feb 10</div>
+                  <div style="font-size:13px;font-weight:700;color:#5a8a6a;">Score: 7</div>
+                </div>
+                <div style="height:6px;background:var(--border);border-radius:3px;overflow:hidden;">
+                  <div style="height:100%;width:25%;background:linear-gradient(to right,#5a8a6a,#2a9d8f);border-radius:3px;"></div>
+                </div>
+                <div style="font-size:11px;color:var(--ink-soft);margin-top:4px;">Sub-threshold insomnia</div>
+              </div>
+            </div>
+          </div>
+          <div class="tab-bar">
+            <div class="tab-item" onclick="goScreen('today')"><div class="tab-icon">📋</div><span class="tab-label">Today</span></div>
+            <div class="tab-item" onclick="goScreen('wellness')"><div class="tab-icon">🛡️</div><span class="tab-label">Wellness</span></div>
+            <div class="tab-item" onclick="goScreen('triggers')"><div class="tab-icon">⚡</div><span class="tab-label">Triggers</span></div>
+            <div class="tab-item" onclick="goScreen('symptoms')"><div class="tab-icon">💭</div><span class="tab-label">Symptoms</span></div>
+            <div class="tab-item" onclick="goScreen('journal')"><div class="tab-icon">✏️</div><span class="tab-label">Journal</span></div>
+            <div class="tab-item" onclick="goScreen('insights')"><div class="tab-icon">📈</div><span class="tab-label">Insights</span></div>
+          </div>
+        </div>
+
+        <!-- ◆◆◆ MEDICATIONS ◆◆◆ -->
+        <div class="screen" id="s-medications">
+          <div style="padding:12px 24px 18px;background:linear-gradient(150deg,#2a1e3a 0%,#1a1224 100%);flex-shrink:0;position:relative;overflow:hidden;">
+            <div class="screen-header-top"><div class="screen-header-back" onclick="goScreen('today')">← Today</div></div>
+            <div class="screen-header-title">Medications</div>
+            <div class="screen-header-sub">Track adherence & manage your meds</div>
+            <div class="header-stat-row">
+              <div class="header-stat"><div class="header-stat-num" style="color:#7ec8a0;">87%</div><div class="header-stat-label">Adherence</div></div>
+              <div class="header-stat"><div class="header-stat-num">2</div><div class="header-stat-label">Active Meds</div></div>
+              <div class="header-stat"><div class="header-stat-num" style="color:#7ec8a0;">26</div><div class="header-stat-label">Day Streak</div></div>
+            </div>
+          </div>
+          <div class="scroll-area">
+            <div class="section-head-label">Today's Schedule</div>
+            <div class="card" id="medSchedule">
+              <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+                <div style="display:flex;align-items:center;gap:12px;">
+                  <div style="width:36px;height:36px;border-radius:10px;background:var(--teal-light);display:flex;align-items:center;justify-content:center;font-size:16px;">💊</div>
+                  <div>
+                    <div style="font-size:14px;font-weight:700;color:var(--ink);">Lamotrigine 100mg</div>
+                    <div style="font-size:12px;color:var(--ink-soft);">Morning · 8:00 AM</div>
+                  </div>
+                </div>
+                <div class="toggle-pill on" onclick="this.classList.toggle('on');this.classList.toggle('off');showToastInScreen(this.classList.contains('on')?'💊 Taken':'Unmarked')"><div class="knob"></div></div>
+              </div>
+              <div style="padding:14px 18px;display:flex;align-items:center;justify-content:space-between;">
+                <div style="display:flex;align-items:center;gap:12px;">
+                  <div style="width:36px;height:36px;border-radius:10px;background:var(--lavender-light);display:flex;align-items:center;justify-content:center;font-size:16px;">💊</div>
+                  <div>
+                    <div style="font-size:14px;font-weight:700;color:var(--ink);">Sertraline 50mg</div>
+                    <div style="font-size:12px;color:var(--ink-soft);">Evening · 8:00 PM</div>
+                  </div>
+                </div>
+                <div class="toggle-pill off" onclick="this.classList.toggle('on');this.classList.toggle('off');showToastInScreen(this.classList.contains('on')?'💊 Taken':'Unmarked')"><div class="knob"></div></div>
+              </div>
+            </div>
+
+            <div class="section-head-label">Adherence This Week</div>
+            <div class="card" style="padding:16px 18px;">
+              <div style="display:flex;justify-content:space-between;align-items:flex-end;height:80px;gap:4px;margin-bottom:10px;">
+                <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;">
+                  <div style="width:100%;height:60px;background:var(--teal);border-radius:4px 4px 0 0;"></div>
+                  <div style="font-size:9px;color:var(--ink-soft);">M</div>
+                </div>
+                <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;">
+                  <div style="width:100%;height:60px;background:var(--teal);border-radius:4px 4px 0 0;"></div>
+                  <div style="font-size:9px;color:var(--ink-soft);">T</div>
+                </div>
+                <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;">
+                  <div style="width:100%;height:30px;background:var(--rose);border-radius:4px 4px 0 0;"></div>
+                  <div style="font-size:9px;color:var(--ink-soft);">W</div>
+                </div>
+                <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;">
+                  <div style="width:100%;height:60px;background:var(--teal);border-radius:4px 4px 0 0;"></div>
+                  <div style="font-size:9px;color:var(--ink-soft);">T</div>
+                </div>
+                <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;">
+                  <div style="width:100%;height:60px;background:var(--teal);border-radius:4px 4px 0 0;"></div>
+                  <div style="font-size:9px;color:var(--ink-soft);">F</div>
+                </div>
+                <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;">
+                  <div style="width:100%;height:60px;background:var(--teal);border-radius:4px 4px 0 0;"></div>
+                  <div style="font-size:9px;color:var(--ink-soft);">S</div>
+                </div>
+                <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;">
+                  <div style="width:100%;height:30px;background:var(--gold);border-radius:4px 4px 0 0;"></div>
+                  <div style="font-size:9px;color:var(--teal);font-weight:700;">S</div>
+                </div>
+              </div>
+              <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--ink-soft);">
+                <span>🟢 All taken</span>
+                <span>🟡 Partial</span>
+                <span>🔴 Missed</span>
+              </div>
+            </div>
+
+            <div class="section-head-label">Manage Medications</div>
+            <div style="background:var(--card);border:1.5px dashed var(--border-dark);border-radius:var(--r-lg);padding:14px 18px;display:flex;align-items:center;gap:12px;cursor:pointer;" onclick="showToastInScreen('+ Add medication')">
+              <div style="width:36px;height:36px;border-radius:10px;background:var(--teal-light);display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--teal);">＋</div>
+              <div style="font-size:14px;font-weight:600;color:var(--teal);">Add new medication</div>
+            </div>
+          </div>
+          <div class="tab-bar">
+            <div class="tab-item" onclick="goScreen('today')"><div class="tab-icon">📋</div><span class="tab-label">Today</span></div>
+            <div class="tab-item" onclick="goScreen('wellness')"><div class="tab-icon">🛡️</div><span class="tab-label">Wellness</span></div>
+            <div class="tab-item" onclick="goScreen('triggers')"><div class="tab-icon">⚡</div><span class="tab-label">Triggers</span></div>
+            <div class="tab-item" onclick="goScreen('symptoms')"><div class="tab-icon">💭</div><span class="tab-label">Symptoms</span></div>
+            <div class="tab-item" onclick="goScreen('journal')"><div class="tab-icon">✏️</div><span class="tab-label">Journal</span></div>
+            <div class="tab-item" onclick="goScreen('insights')"><div class="tab-icon">📈</div><span class="tab-label">Insights</span></div>
+          </div>
+        </div>
+
       </div><!-- end phone-screen -->
     </div><!-- end phone-shell -->
 
@@ -1052,7 +1289,7 @@ const SYMPTOM_DATA=[
 
 const OB_SLIDES=[
   {icon:'📋',bg:'linear-gradient(135deg,#e8f6f4,#d0eeea)',title:'90 seconds a day',body:'A quick daily check-in on mood, sleep, and what\'s happening. The more you log, the clearer the patterns.'},
-  {icon:'🛡️',bg:'linear-gradient(135deg,#eef5f0,#d8edd e)',title:'Track what keeps you well',body:'Log your protective strategies — exercise, sleep quality, social time — and see what actually makes a difference.'},
+  {icon:'🛡️',bg:'linear-gradient(135deg,#eef5f0,#d8edde)',title:'Track what keeps you well',body:'Log your protective strategies — exercise, sleep quality, social time — and see what actually makes a difference.'},
   {icon:'📈',bg:'linear-gradient(135deg,#e8eaf6,#d8daf0)',title:'Discover your patterns',body:'AI-powered correlation charts show what\'s linked to better days. Share reports directly with your clinician.'},
   {icon:'🔒',bg:'linear-gradient(135deg,#f0ede8,#e4dfd8)',title:'Private by design',body:'All data lives on your device. Cloud sync is optional. Nothing leaves your phone without your explicit approval.'},
 ];
@@ -1163,12 +1400,6 @@ function setExercise(el,mins){
 function renderMedCards(){
   const el=document.getElementById('medCards');
   if(!el)return;
-  el.innerHTML=state.meds.map((m,i)=>`
-    <div class="medicine-row${i<state.meds.length-1?' 'style="border-bottom:1px solid var(--border);"':''}">
-      <div><div class="med-name">${m.name}</div><div class="med-sub">${m.dose}</div></div>
-      <div class="toggle-pill ${m.taken?'on':'off'}" onclick="toggleMed(${i})"><div class="knob"></div></div>
-    </div>`).join('');
-  // Fix border inline (simpler approach)
   el.innerHTML=state.meds.map((m,i)=>`
     <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;${i<state.meds.length-1?'border-bottom:1px solid var(--border);':''}">
       <div><div class="med-name">${m.name}</div><div class="med-sub">${m.dose}</div></div>
@@ -1580,9 +1811,9 @@ function updateSliderVal(id,val,theme){
 // ════════════════════════════════════════
 // SCREEN SWITCHING
 // ════════════════════════════════════════
-const SCREEN_IDS=['onboard1','onboard2','onboard3','onboard4','onboard5','today','wellness','triggers','symptoms','journal','insights','settings'];
-const SCREEN_TITLES={onboard1:'Welcome',onboard2:'How it works',onboard3:'Setup',onboard4:'Notifications',onboard5:'Ready!',today:'Today · Core Entry',wellness:'Stay Well Strategies',triggers:'Triggers',symptoms:'Symptoms',journal:'Journal',insights:'Insights',settings:'Settings'};
-const SCREEN_SUBS={onboard1:'Onboarding · 1/5',onboard2:'Onboarding · 2/5',onboard3:'Onboarding · 3/5',onboard4:'Onboarding · 4/5',onboard5:'Onboarding · 5/5',today:'Screen 1 · Daily hub',wellness:'Screen 2 · Protective factors',triggers:'Screen 3 · Stress factors',symptoms:'Screen 4 · Mental state',journal:'Screen 5 · Free reflection',insights:'Screen 6 · Analytics',settings:'Settings · Extra screen'};
+const SCREEN_IDS=['onboard1','onboard2','onboard3','onboard4','onboard5','today','wellness','triggers','symptoms','journal','insights','settings','assessments','medications'];
+const SCREEN_TITLES={onboard1:'Welcome',onboard2:'How it works',onboard3:'Setup',onboard4:'Notifications',onboard5:'Ready!',today:'Today · Core Entry',wellness:'Stay Well Strategies',triggers:'Triggers',symptoms:'Symptoms',journal:'Journal',insights:'Insights',settings:'Settings',assessments:'Assessments',medications:'Medications'};
+const SCREEN_SUBS={onboard1:'Onboarding · 1/5',onboard2:'Onboarding · 2/5',onboard3:'Onboarding · 3/5',onboard4:'Onboarding · 4/5',onboard5:'Onboarding · 5/5',today:'Screen 1 · Daily hub',wellness:'Screen 2 · Protective factors',triggers:'Screen 3 · Stress factors',symptoms:'Screen 4 · Mental state',journal:'Screen 5 · Free reflection',insights:'Screen 6 · Analytics',settings:'Settings · Extra screen',assessments:'Screen 7 · Validated scales',medications:'Screen 8 · Med tracking'};
 
 const ANN={
   onboard1:`<div class="ann-card"><span class="ann-tag new">New</span><div class="ann-text"><strong>Welcome screen</strong> — Dark gradient creates a calming, considered first impression. Floating app icon animation is subtle but alive. "I already have an account" secondary path is prominent but doesn't compete.</div></div>
@@ -1610,7 +1841,19 @@ const ANN={
   <div class="ann-card"><span class="ann-tag live">Live</span><div class="ann-text"><strong>Sleep chart:</strong> bars below the 7h target line render in rose red — immediately visible at a glance.</div></div>`,
   settings:`<div class="ann-card"><span class="ann-tag new">New</span><div class="ann-text"><strong>Clinician connection</strong> — Shows connected clinician with name, role, and hospital. Share report and manage access actions are one tap away.</div></div>
   <div class="ann-card"><span class="ann-tag live">Live</span><div class="ann-text"><strong>All toggles are interactive</strong> — biometric lock, cloud sync, reminders. Tap any toggle to flip it live.</div></div>`,
+  assessments:`<div class="ann-card"><span class="ann-tag new">New</span><div class="ann-text"><strong>Validated scales</strong> — Weekly PHQ-9, GAD-7, ISI, C-SSRS, and ASRM assessments. Shows due status and past scores with trend indicators.</div></div>
+  <div class="ann-card"><span class="ann-tag new">New</span><div class="ann-text"><strong>Progress bars</strong> — Visual severity indicators with color-coded ranges (green for mild, yellow for moderate, red for severe).</div></div>
+  <div class="ann-card"><span class="ann-tag live">Live</span><div class="ann-text"><strong>Tap any assessment</strong> to start it. Shows a toast with the assessment name. Full questionnaire flow coming in next iteration.</div></div>`,
+  medications:`<div class="ann-card"><span class="ann-tag new">New</span><div class="ann-text"><strong>Medication tracking</strong> — View all medications with scheduled times. Toggle to mark as taken. Adherence stats at the top.</div></div>
+  <div class="ann-card"><span class="ann-tag new">New</span><div class="ann-text"><strong>Weekly adherence chart</strong> — Visual bar chart showing daily adherence. Green = all taken, yellow = partial, red = missed.</div></div>
+  <div class="ann-card"><span class="ann-tag live">Live</span><div class="ann-text"><strong>All toggles are interactive</strong> — tap to mark medications as taken. Stats update in real-time.</div></div>`,
 };
+
+// Assessment starter
+function startAssessment(type){
+  const names={phq9:'PHQ-9 Depression',gad7:'GAD-7 Anxiety',isi:'ISI Insomnia',asrm:'ASRM Mania',cssrs:'C-SSRS Safety'};
+  showToastInScreen('📋 Starting '+names[type]+' assessment...');
+}
 
 const MAIN_SCREENS=['today','wellness','triggers','symptoms','journal','insights'];
 
@@ -1623,7 +1866,7 @@ function goScreen(id){
   if(target)target.classList.add('active');
   // Update nav btns
   document.querySelectorAll('.screen-nav .nav-btn').forEach(b=>b.classList.remove('active'));
-  const navMap={'onboard1':0,'onboard2':0,'onboard3':0,'onboard4':0,'onboard5':0,'today':1,'wellness':2,'triggers':3,'symptoms':4,'journal':5,'insights':6,'settings':7};
+  const navMap={'onboard1':0,'onboard2':0,'onboard3':0,'onboard4':0,'onboard5':0,'today':1,'wellness':2,'triggers':3,'symptoms':4,'journal':5,'insights':6,'assessments':7,'medications':8,'settings':9};
   const nb=document.querySelectorAll('.screen-nav .nav-btn')[navMap[id]];
   if(nb)nb.classList.add('active');
   // Annotation

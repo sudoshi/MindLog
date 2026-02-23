@@ -317,19 +317,6 @@ export function AlertsPage() {
         </div>
       </div>
 
-      {/* Crisis banner */}
-      <div style={{
-        margin: '0 24px 16px',
-        background: 'rgba(255,77,109,.06)',
-        border: '1px solid var(--critical-border)',
-        borderRadius: 'var(--r-sm)',
-        padding: '8px 14px',
-        fontSize: 12,
-        color: 'var(--critical)',
-      }}>
-        🚨 Patient in crisis? Call <strong>988</strong> · Text HOME to <strong>741741</strong> · Veterans: 988 press 1
-      </div>
-
       {/* Alert list */}
       <div style={{ padding: '0 24px 40px' }}>
         {loading ? (
