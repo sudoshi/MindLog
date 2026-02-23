@@ -18,7 +18,9 @@
     "db:seed": "node --import tsx/esm src/seed.ts",
     "db:seed-demo": "node --import tsx/esm src/seed-demo.ts",
     "db:fix-clinician-auth": "node --import tsx/esm src/fix-clinician-auth.ts",
-    "db:enrich-demo": "node --import tsx/esm src/enrich-demo-data.ts"
+    "db:enrich-demo": "node --import tsx/esm src/enrich-demo-data.ts",
+    "db:enrich-low-risk": "node --import tsx/esm src/enrich-low-risk-moods.ts",
+    "db:simulate": "node --import tsx/esm src/live-simulation.ts"
   },
   "dependencies": {
     "postgres": "^3.4.5",

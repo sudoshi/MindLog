@@ -199,6 +199,11 @@ npm run db:migrate   # Apply migrations
 npm run db:seed      # Seed production data
 npm run db:seed-demo # Seed demo data (146 patients, 60 days)
 
+# Demo Data Enrichment
+npm run db:enrich-demo     # Add clinical data (diagnoses, assessments, notes)
+npm run db:enrich-low-risk # Establish mood patterns for low-risk patients
+npm run db:simulate        # Run live simulation (or schedule via cron)
+
 # Individual apps
 cd apps/api && npm run dev
 cd apps/web && npm run dev
@@ -249,6 +254,7 @@ cd apps/mobile && npm run start
 - [DEMO.md](DEMO.md) — Full demo setup guide
 - [DECISIONS.md](DECISIONS.md) — Architectural decisions
 - [MOBILE_PLAN.md](MOBILE_PLAN.md) — Mobile development roadmap
+- [docs/live-simulation.md](docs/live-simulation.md) — Live data simulation system
 - [.env.example](.env.example) — Environment variables (85 documented)
 
 ---
