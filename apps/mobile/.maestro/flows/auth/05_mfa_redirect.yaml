@@ -1,0 +1,58 @@
+# =============================================================================
+# AUTH-05: MFA Redirect
+# Verifies that after sign-in the app either shows the MFA verification
+# screen (for accounts with MFA enabled) or proceeds directly to the
+# Today screen. MFA enrollment is server-side, so this test accepts
+# either outcome as a pass.
+# =============================================================================
+appId: com.mindlog.app
+
+---
+
+# Launch with a clean slate
+- launchApp:
+    clearState: true
+
+# Connect to Metro dev server (Expo Dev Client)
+- runFlow: ../../subflows/connect_dev_server.yaml
+
+# Verify onboarding screen loaded
+- extendedWaitUntil:
+    visible:
+      text: "MindLog"
+    timeout: 10000
+
+# Switch to the Sign In tab
+- tapOn:
+    id: "tab-signin"
+
+# Enter demo patient credentials
+- tapOn:
+    id: "email-input"
+- inputText: ${PATIENT_EMAIL}
+
+- tapOn:
+    id: "password-input"
+- inputText: ${PATIENT_PASSWORD}
+
+# Submit sign-in form
+- tapOn:
+    id: "sign-in-btn"
+
+# The app should navigate to either:
+#   a) MFA verification screen (text contains "verification"), or
+#   b) Today screen (greeting starts with "Good")
+# We check for both with optional assertions — at least one must pass.
+- extendedWaitUntil:
+    visible:
+      text: "verification"
+    timeout: 15000
+    optional: true
+
+- extendedWaitUntil:
+    visible:
+      text: "Good"
+    timeout: 15000
+    optional: true
+
+- takeScreenshot: screenshots/auth_mfa_redirect

@@ -1,0 +1,144 @@
+# =============================================================================
+# CHECKIN-01: Full Check-in Flow — Happy Path
+# Completes all 9 steps of the check-in wizard: mood, mania, wellbeing,
+# lifestyle, wellness, triggers, symptoms, journal, and submit.
+# Verifies the review screen shows the entered mood score, then submits.
+# =============================================================================
+appId: com.mindlog.app
+
+---
+
+# Launch with a clean slate
+- launchApp:
+    clearState: true
+
+# Connect to Metro dev server (Expo Dev Client)
+- runFlow: ../../subflows/connect_dev_server.yaml
+
+# Sign in as demo patient
+- runFlow: ../../subflows/sign_in.yaml
+
+# Tap the check-in CTA on the Today screen
+- tapOn:
+    id: "checkin-cta-btn"
+
+# ── STEP 1: MOOD ────────────────────────────────────────────────────────────
+- extendedWaitUntil:
+    visible:
+      text: "How are you feeling today?"
+    timeout: 8000
+
+# Select mood score 7
+- tapOn:
+    id: "mood-btn-7"
+
+# Enter sleep hours
+- tapOn:
+    id: "sleep-input"
+- inputText: "7.5"
+
+# Enter exercise minutes
+- tapOn:
+    id: "exercise-input"
+- inputText: "30"
+
+# Continue to next step
+- tapOn:
+    id: "checkin-continue-btn"
+
+# ── STEP 2: MANIA ───────────────────────────────────────────────────────────
+- extendedWaitUntil:
+    visible:
+      text: "Energy"
+    timeout: 5000
+
+# Skip mania step (optional)
+- tapOn:
+    id: "checkin-skip-btn"
+
+# ── STEP 3: WELLBEING ───────────────────────────────────────────────────────
+- extendedWaitUntil:
+    visible:
+      text: "Wellbeing"
+    timeout: 5000
+
+# Skip wellbeing step (optional)
+- tapOn:
+    id: "checkin-skip-btn"
+
+# ── STEP 4: LIFESTYLE ───────────────────────────────────────────────────────
+- extendedWaitUntil:
+    visible:
+      text: "Lifestyle"
+    timeout: 5000
+
+# Skip lifestyle step (optional)
+- tapOn:
+    id: "checkin-skip-btn"
+
+# ── STEP 5: WELLNESS STRATEGIES ─────────────────────────────────────────────
+- extendedWaitUntil:
+    visible:
+      text: "strategies"
+    timeout: 5000
+
+# Continue (no strategies selected)
+- tapOn:
+    id: "checkin-continue-btn"
+
+# ── STEP 6: TRIGGERS ────────────────────────────────────────────────────────
+- extendedWaitUntil:
+    visible:
+      text: "triggers"
+    timeout: 5000
+
+# Continue (no triggers selected)
+- tapOn:
+    id: "checkin-continue-btn"
+
+# ── STEP 7: SYMPTOMS ────────────────────────────────────────────────────────
+- extendedWaitUntil:
+    visible:
+      text: "Symptoms"
+    timeout: 5000
+
+# Continue (no symptoms selected)
+- tapOn:
+    id: "checkin-continue-btn"
+
+# ── STEP 8: JOURNAL ─────────────────────────────────────────────────────────
+- extendedWaitUntil:
+    visible:
+      text: "Journal"
+    timeout: 5000
+
+# Write a journal entry
+- tapOn:
+    id: "checkin-journal-input"
+- inputText: "Feeling good today. Testing the check-in flow."
+
+# Continue to submit
+- tapOn:
+    id: "checkin-continue-btn"
+
+# ── STEP 9: SUBMIT ──────────────────────────────────────────────────────────
+- extendedWaitUntil:
+    visible:
+      text: "Ready to submit?"
+    timeout: 5000
+
+# Verify mood score is displayed in the review summary
+- assertVisible:
+    text: "7/10"
+
+# Submit the check-in
+- tapOn:
+    id: "checkin-submit-btn"
+
+# Wait for navigation back to the Today screen
+- extendedWaitUntil:
+    visible:
+      text: "Good"
+    timeout: 15000
+
+- takeScreenshot: screenshots/checkin_full_flow_complete

@@ -1,0 +1,55 @@
+# =============================================================================
+# SAFETY-05: Crisis Contacts on Medications Screen
+# CRITICAL — FDA SaMD / HIPAA safety-critical test.
+# Verifies that the Medications screen displays a safety footer with the 988
+# Suicide & Crisis Lifeline number. Medication non-adherence is a risk factor,
+# so crisis information must be accessible from this screen.
+# The today-med-card tap is optional because the demo patient may not have
+# medications configured, but 988 assertion is MANDATORY if the screen loads.
+# =============================================================================
+appId: com.mindlog.app
+
+---
+
+# Launch with a clean slate
+- launchApp:
+    clearState: true
+
+# Connect to Metro dev server (Expo Dev Client)
+- runFlow: ../../subflows/connect_dev_server.yaml
+
+# Sign in as the demo patient
+- runFlow: ../../subflows/sign_in.yaml
+
+# Confirm Today screen loaded
+- extendedWaitUntil:
+    visible:
+      text: "Good"
+    timeout: 10000
+
+# Attempt to navigate to medications via the Today screen med card
+# This is optional because the demo patient may not have a medications card
+- tapOn:
+    id: "today-med-card"
+    optional: true
+
+# If the medications card was not available, try navigating via Profile
+- tapOn:
+    text: "Medications"
+    optional: true
+
+# Scroll to the bottom of the medications screen to find the safety footer
+- scroll:
+    direction: DOWN
+
+- scroll:
+    direction: DOWN
+
+# ── MANDATORY: 988 in safety footer ───────────────────────────────────────
+# The medications screen must always show a crisis footer
+- extendedWaitUntil:
+    visible:
+      text: "988"
+    timeout: 5000
+
+- takeScreenshot: screenshots/safety_medications_crisis

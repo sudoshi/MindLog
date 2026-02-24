@@ -1,0 +1,123 @@
+# =============================================================================
+# CHECKIN-05: Review Screen Verification
+# Enters mood (8), sleep (8h), and exercise (45 min), then skips all
+# remaining steps to reach the review/submit screen. Verifies that the
+# summary correctly reflects all entered values before submission.
+# =============================================================================
+appId: com.mindlog.app
+
+---
+
+# Launch with a clean slate
+- launchApp:
+    clearState: true
+
+# Connect to Metro dev server (Expo Dev Client)
+- runFlow: ../../subflows/connect_dev_server.yaml
+
+# Sign in as demo patient
+- runFlow: ../../subflows/sign_in.yaml
+
+# Tap the check-in CTA on the Today screen
+- tapOn:
+    id: "checkin-cta-btn"
+
+# ── STEP 1: MOOD ────────────────────────────────────────────────────────────
+- extendedWaitUntil:
+    visible:
+      text: "How are you feeling today?"
+    timeout: 8000
+
+# Select mood score 8
+- tapOn:
+    id: "mood-btn-8"
+
+# Enter sleep hours
+- tapOn:
+    id: "sleep-input"
+- inputText: "8"
+
+# Enter exercise minutes
+- tapOn:
+    id: "exercise-input"
+- inputText: "45"
+
+# Continue to next step
+- tapOn:
+    id: "checkin-continue-btn"
+
+# ── STEP 2: MANIA — skip ────────────────────────────────────────────────────
+- extendedWaitUntil:
+    visible:
+      text: "Energy"
+    timeout: 5000
+- tapOn:
+    id: "checkin-skip-btn"
+
+# ── STEP 3: WELLBEING — skip ────────────────────────────────────────────────
+- extendedWaitUntil:
+    visible:
+      text: "Wellbeing"
+    timeout: 5000
+- tapOn:
+    id: "checkin-skip-btn"
+
+# ── STEP 4: LIFESTYLE — skip ────────────────────────────────────────────────
+- extendedWaitUntil:
+    visible:
+      text: "Lifestyle"
+    timeout: 5000
+- tapOn:
+    id: "checkin-skip-btn"
+
+# ── STEP 5: WELLNESS — skip ─────────────────────────────────────────────────
+- extendedWaitUntil:
+    visible:
+      text: "strategies"
+    timeout: 5000
+- tapOn:
+    id: "checkin-skip-btn"
+
+# ── STEP 6: TRIGGERS — skip ─────────────────────────────────────────────────
+- extendedWaitUntil:
+    visible:
+      text: "triggers"
+    timeout: 5000
+- tapOn:
+    id: "checkin-skip-btn"
+
+# ── STEP 7: SYMPTOMS — skip ─────────────────────────────────────────────────
+- extendedWaitUntil:
+    visible:
+      text: "Symptoms"
+    timeout: 5000
+- tapOn:
+    id: "checkin-skip-btn"
+
+# ── STEP 8: JOURNAL — skip ──────────────────────────────────────────────────
+- extendedWaitUntil:
+    visible:
+      text: "Journal"
+    timeout: 5000
+- tapOn:
+    id: "checkin-skip-btn"
+
+# ── STEP 9: REVIEW / SUBMIT ─────────────────────────────────────────────────
+- extendedWaitUntil:
+    visible:
+      text: "Ready to submit?"
+    timeout: 5000
+
+# Verify mood score is displayed correctly
+- assertVisible:
+    text: "8/10"
+
+# Verify sleep hours are displayed correctly
+- assertVisible:
+    text: "8h"
+
+# Verify exercise minutes are displayed correctly
+- assertVisible:
+    text: "45 min"
+
+- takeScreenshot: screenshots/checkin_review

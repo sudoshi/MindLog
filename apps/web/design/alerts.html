@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MindLog — Alerts (Dark Theme)</title>
+  <link rel="stylesheet" href="tokens.css">
+  <style>
+    /* ==========================================================================
+       ALERTS PAGE — Dark Theme
+       ========================================================================== */
+
+    .alerts-page {
+      padding: var(--space-6);
+      background: var(--forest-dark);
+      min-height: 100vh;
+    }
+
+    /* ==========================================================================
+       FILTER BAR
+       ========================================================================== */
+
+    .filter-bar {
+      display: flex;
+      gap: var(--space-3);
+      margin-bottom: var(--space-6);
+      flex-wrap: wrap;
+    }
+
+    .filter-chip {
+      padding: var(--space-2) var(--space-4);
+      background: var(--forest);
+      border: 1px solid var(--forest-accent);
+      border-radius: var(--radius-full);
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--ivory-mid);
+      cursor: pointer;
+      transition: all var(--duration-fast);
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+    }
+
+    .filter-chip:hover {
+      background: var(--forest-mid);
+      border-color: var(--gold-muted);
+      color: var(--ivory);
+    }
+
+    .filter-chip.active {
+      background: var(--burgundy);
+      border-color: var(--burgundy);
+      color: var(--ivory);
+    }
+
+    .filter-chip.critical {
+      border-color: var(--critical-border);
+      color: var(--critical);
+    }
+
+    .filter-chip.critical:hover {
+      background: var(--critical-bg);
+    }
+
+    .filter-chip.critical.active {
+      background: var(--critical);
+      color: var(--ivory);
+    }
+
+    /* ==========================================================================
+       ALERT CARDS
+       ========================================================================== */
+
+    .alert-list {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-3);
+    }
+
+    .alert-card {
+      background: var(--forest);
+      border: 1px solid var(--forest-accent);
+      border-radius: var(--radius-lg);
+      padding: var(--space-4) var(--space-5);
+      border-left: 4px solid var(--ivory-ghost);
+      transition: all var(--duration-normal);
+    }
+
+    .alert-card:hover {
+      box-shadow: var(--shadow-lg);
+      border-color: var(--gold-muted);
+    }
+
+    .alert-card.critical {
+      border-left-color: var(--critical);
+      background: var(--critical-bg);
+      border-color: var(--critical-border);
+    }
+
+    .alert-card.warning {
+      border-left-color: var(--warning);
+      background: var(--warning-bg);
+      border-color: var(--warning-border);
+    }
+
+    .alert-card.info {
+      border-left-color: var(--info);
+      background: var(--info-bg);
+      border-color: var(--info-border);
+    }
+
+    .alert-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: var(--space-4);
+    }
+
+    .alert-content {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .severity-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-1);
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 2px 8px;
+      border-radius: var(--radius-sm);
+      margin-bottom: var(--space-2);
+    }
+
+    .severity-badge.critical {
+      background: rgba(232, 90, 107, 0.2);
+      color: var(--critical);
+      border: 1px solid var(--critical-border);
+    }
+
+    .severity-badge.warning {
+      background: rgba(229, 168, 75, 0.2);
+      color: var(--warning);
+      border: 1px solid var(--warning-border);
+    }
+
+    .severity-badge.info {
+      background: rgba(96, 165, 250, 0.2);
+      color: var(--info);
+      border: 1px solid var(--info-border);
+    }
+
+    .alert-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--ivory);
+      margin: 0 0 var(--space-1);
+    }
+
+    .alert-patient {
+      font-size: 13px;
+      color: var(--gold);
+      text-decoration: underline;
+      cursor: pointer;
+      margin-bottom: var(--space-2);
+    }
+
+    .alert-patient:hover {
+      color: var(--gold-light);
+    }
+
+    .alert-meta {
+      font-size: 11px;
+      color: var(--ivory-soft);
+    }
+
+    .alert-actions {
+      display: flex;
+      gap: var(--space-2);
+      flex-shrink: 0;
+    }
+
+    .action-btn {
+      padding: var(--space-2) var(--space-3);
+      border-radius: var(--radius-md);
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all var(--duration-fast);
+    }
+
+    .action-btn.acknowledge {
+      background: var(--info-bg);
+      border: 1px solid var(--info-border);
+      color: var(--info);
+    }
+
+    .action-btn.acknowledge:hover {
+      background: rgba(96, 165, 250, 0.25);
+    }
+
+    .action-btn.resolve {
+      background: var(--success-bg);
+      border: 1px solid var(--success-border);
+      color: var(--success);
+    }
+
+    .action-btn.resolve:hover {
+      background: rgba(45, 212, 191, 0.25);
+    }
+
+    .action-btn.escalate {
+      background: var(--critical-bg);
+      border: 1px solid var(--critical-border);
+      color: var(--critical);
+    }
+
+    .action-btn.escalate:hover {
+      background: rgba(232, 90, 107, 0.25);
+    }
+
+    /* ==========================================================================
+       PAGINATION
+       ========================================================================== */
+
+    .pagination {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: var(--space-4);
+      margin-top: var(--space-8);
+    }
+
+    .page-btn {
+      padding: var(--space-2) var(--space-4);
+      background: var(--forest);
+      border: 1px solid var(--forest-accent);
+      border-radius: var(--radius-md);
+      font-size: 13px;
+      color: var(--ivory-mid);
+      cursor: pointer;
+      transition: all var(--duration-fast);
+    }
+
+    .page-btn:hover:not(:disabled) {
+      background: var(--forest-mid);
+      border-color: var(--gold-muted);
+      color: var(--ivory);
+    }
+
+    .page-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .page-info {
+      font-size: 13px;
+      color: var(--ivory-soft);
+    }
+
+    /* ==========================================================================
+       EMPTY STATE
+       ========================================================================== */
+
+    .empty-state {
+      background: var(--forest);
+      border: 1px solid var(--forest-accent);
+      border-radius: var(--radius-lg);
+      padding: var(--space-16);
+      text-align: center;
+    }
+
+    .empty-icon {
+      font-size: 48px;
+      margin-bottom: var(--space-4);
+    }
+
+    .empty-title {
+      font-family: var(--font-heading);
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--ivory);
+      margin: 0 0 var(--space-2);
+    }
+
+    .empty-text {
+      font-size: 14px;
+      color: var(--ivory-soft);
+      margin: 0;
+    }
+
+    /* ==========================================================================
+       LIVE TOAST
+       ========================================================================== */
+
+    .live-toast {
+      position: fixed;
+      bottom: var(--space-6);
+      right: var(--space-6);
+      background: var(--charcoal);
+      border: 1px solid var(--critical);
+      border-radius: var(--radius-lg);
+      padding: var(--space-4) var(--space-5);
+      min-width: 280px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), 0 0 20px var(--critical-glow);
+      animation: slideIn 0.3s ease;
+    }
+
+    @keyframes slideIn {
+      from {
+        transform: translateX(100%);
+        opacity: 0;
+      }
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
+    }
+
+    .toast-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: var(--space-2);
+    }
+
+    .toast-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: var(--critical);
+    }
+
+    .toast-dismiss {
+      background: none;
+      border: none;
+      color: var(--ivory-soft);
+      font-size: 18px;
+      cursor: pointer;
+    }
+
+    .toast-dismiss:hover {
+      color: var(--ivory);
+    }
+
+    .toast-title {
+      font-size: 13px;
+      color: var(--ivory);
+      margin-bottom: var(--space-1);
+    }
+
+    .toast-rule {
+      font-size: 11px;
+      color: var(--ivory-soft);
+    }
+  </style>
+</head>
+<body>
+  <main class="alerts-page">
+    <!-- Filter Bar -->
+    <div class="filter-bar">
+      <div class="filter-chip active">All alerts (24)</div>
+      <div class="filter-chip critical">Critical (3)</div>
+      <div class="filter-chip">Warning (8)</div>
+      <div class="filter-chip">Info (13)</div>
+      <div class="filter-chip">Unacknowledged (5)</div>
+      <div class="filter-chip">Resolved</div>
+    </div>
+
+    <!-- Alert List -->
+    <div class="alert-list">
+      <!-- Critical Alert -->
+      <div class="alert-card critical">
+        <div class="alert-header">
+          <div class="alert-content">
+            <span class="severity-badge critical">Critical</span>
+            <h3 class="alert-title">PHQ-9 score 22 — severe depression indicated</h3>
+            <div class="alert-patient">Sarah Mitchell</div>
+            <div class="alert-meta">phq9_severe · Open · 15m ago</div>
+          </div>
+          <div class="alert-actions">
+            <button class="action-btn acknowledge">Acknowledge</button>
+            <button class="action-btn resolve">Resolve</button>
+            <button class="action-btn escalate">Escalate</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Critical Alert -->
+      <div class="alert-card critical">
+        <div class="alert-header">
+          <div class="alert-content">
+            <span class="severity-badge critical">Critical</span>
+            <h3 class="alert-title">Safety flag triggered — patient reported suicidal ideation</h3>
+            <div class="alert-patient">Marcus Williams</div>
+            <div class="alert-meta">safety_flag · Open · 42m ago</div>
+          </div>
+          <div class="alert-actions">
+            <button class="action-btn acknowledge">Acknowledge</button>
+            <button class="action-btn resolve">Resolve</button>
+            <button class="action-btn escalate">Escalate</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Warning Alert -->
+      <div class="alert-card warning">
+        <div class="alert-header">
+          <div class="alert-content">
+            <span class="severity-badge warning">Warning</span>
+            <h3 class="alert-title">Mood declined 3+ points over 7 days</h3>
+            <div class="alert-patient">Jennifer Park</div>
+            <div class="alert-meta">mood_decline · Acknowledged · 2h ago</div>
+          </div>
+          <div class="alert-actions">
+            <button class="action-btn resolve">Resolve</button>
+            <button class="action-btn escalate">Escalate</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Warning Alert -->
+      <div class="alert-card warning">
+        <div class="alert-header">
+          <div class="alert-content">
+            <span class="severity-badge warning">Warning</span>
+            <h3 class="alert-title">No check-in for 5 consecutive days</h3>
+            <div class="alert-patient">David Chen</div>
+            <div class="alert-meta">no_checkin_5d · Open · 3h ago</div>
+          </div>
+          <div class="alert-actions">
+            <button class="action-btn acknowledge">Acknowledge</button>
+            <button class="action-btn resolve">Resolve</button>
+            <button class="action-btn escalate">Escalate</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Info Alert -->
+      <div class="alert-card info">
+        <div class="alert-header">
+          <div class="alert-content">
+            <span class="severity-badge info">Info</span>
+            <h3 class="alert-title">Patient achieved 7-day tracking streak</h3>
+            <div class="alert-patient">Emily Rodriguez</div>
+            <div class="alert-meta">streak_milestone · Open · 5h ago</div>
+          </div>
+          <div class="alert-actions">
+            <button class="action-btn acknowledge">Acknowledge</button>
+            <button class="action-btn resolve">Resolve</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Info Alert -->
+      <div class="alert-card info">
+        <div class="alert-header">
+          <div class="alert-content">
+            <span class="severity-badge info">Info</span>
+            <h3 class="alert-title">Medication adherence improved to 95%</h3>
+            <div class="alert-patient">Michael Thompson</div>
+            <div class="alert-meta">med_adherence · Open · 6h ago</div>
+          </div>
+          <div class="alert-actions">
+            <button class="action-btn acknowledge">Acknowledge</button>
+            <button class="action-btn resolve">Resolve</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pagination -->
+    <div class="pagination">
+      <button class="page-btn" disabled>Prev</button>
+      <span class="page-info">Page 1 of 4</span>
+      <button class="page-btn">Next</button>
+    </div>
+
+    <!-- Live Toast (for new alerts) -->
+    <div class="live-toast">
+      <div class="toast-header">
+        <span class="toast-label">New alert</span>
+        <button class="toast-dismiss">×</button>
+      </div>
+      <div class="toast-title">PHQ-9 score 18 — moderate-severe depression</div>
+      <div class="toast-rule">phq9_moderate_severe</div>
+    </div>
+  </main>
+</body>
+</html>

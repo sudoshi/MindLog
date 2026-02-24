@@ -1,0 +1,48 @@
+# =============================================================================
+# JOURNAL-03: Voice Journal Modal
+# Verifies that tapping the microphone button on the Journal tab opens
+# the voice recording modal with the expected title and instructions.
+# =============================================================================
+appId: com.mindlog.app
+
+---
+
+# Launch with a clean slate
+- launchApp:
+    clearState: true
+
+# Connect to Metro dev server (Expo Dev Client)
+- runFlow: ../../subflows/connect_dev_server.yaml
+
+# Sign in as demo patient
+- runFlow:
+    file: ../../subflows/sign_in.yaml
+
+# Navigate to the Journal tab
+- tapOn:
+    text: "Journal"
+
+# Wait for the Journal screen to fully load
+- extendedWaitUntil:
+    visible:
+      text: "Journal"
+    timeout: 8000
+
+# Tap the microphone button to open the voice recording modal
+- tapOn:
+    id: "journal-mic-btn"
+
+# Verify the voice modal title appears
+- extendedWaitUntil:
+    visible:
+      text: "Voice Journal"
+    timeout: 5000
+
+# Verify the instruction text is present
+- assertVisible:
+    text: "Record your thoughts"
+
+- takeScreenshot: screenshots/journal_voice_modal
+
+# Dismiss the modal by pressing the Android back button / modal close
+- pressKey: back

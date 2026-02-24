@@ -1,0 +1,99 @@
+# =============================================================================
+# MEDICATIONS-02: Add Medication Modal — Form Interaction
+# Verifies that tapping the "+ Add" button opens the Add Medication modal,
+# that all expected form fields are present, that input can be entered into
+# the medication name field, and that the modal can be dismissed via Cancel.
+# =============================================================================
+appId: com.mindlog.app
+
+---
+
+# Launch with a clean slate
+- launchApp:
+    clearState: true
+
+# Connect to Metro dev server (Expo Dev Client)
+- runFlow: ../../subflows/connect_dev_server.yaml
+
+# Sign in as the demo patient
+- runFlow: ../../subflows/sign_in.yaml
+
+# Navigate to medications via the med card on Today screen
+- scrollUntilVisible:
+    element:
+      id: "today-med-card"
+    direction: DOWN
+    timeout: 10000
+    optional: true
+
+- tapOn:
+    id: "today-med-card"
+    optional: true
+
+# Verify the Medications screen loaded
+- extendedWaitUntil:
+    visible:
+      text: "Medications"
+    timeout: 8000
+
+# Tap the "+ Add" button to open the modal
+- tapOn:
+    id: "meds-add-btn"
+
+# Verify the modal title appears
+- extendedWaitUntil:
+    visible:
+      text: "Add Medication"
+    timeout: 5000
+
+# Verify the modal subtitle
+- extendedWaitUntil:
+    visible:
+      text: "Add a medication prescribed by your care team"
+    timeout: 5000
+
+# Verify the medication name input field is present
+- extendedWaitUntil:
+    visible:
+      id: "add-med-name"
+    timeout: 5000
+
+# Verify the form labels
+- extendedWaitUntil:
+    visible:
+      text: "Medication name"
+    timeout: 5000
+
+- extendedWaitUntil:
+    visible:
+      text: "Dose"
+    timeout: 5000
+
+- extendedWaitUntil:
+    visible:
+      text: "Frequency"
+    timeout: 5000
+
+# Tap the name input and enter a test medication
+- tapOn:
+    id: "add-med-name"
+
+- inputText: "Test Medication"
+
+# Verify the submit button is present
+- extendedWaitUntil:
+    visible:
+      id: "add-med-submit"
+    timeout: 5000
+
+- takeScreenshot: screenshots/medications_add_modal
+
+# Dismiss the modal by tapping Cancel
+- tapOn:
+    text: "Cancel"
+
+# Verify we are back on the Medications screen
+- extendedWaitUntil:
+    visible:
+      text: "Medications"
+    timeout: 5000

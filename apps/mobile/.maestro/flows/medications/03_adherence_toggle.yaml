@@ -1,0 +1,83 @@
+# =============================================================================
+# MEDICATIONS-03: Adherence Toggle — Mark Medication as Taken
+# Verifies that tapping the "Taken" button on a medication card triggers the
+# adherence toggle and the card updates to reflect the taken state.
+#
+# Note: This flow depends on the demo patient having at least one active
+# medication. All assertions after navigation use optional: true to handle
+# cases where no medications are assigned.
+# =============================================================================
+appId: com.mindlog.app
+
+---
+
+# Launch with a clean slate
+- launchApp:
+    clearState: true
+
+# Connect to Metro dev server (Expo Dev Client)
+- runFlow: ../../subflows/connect_dev_server.yaml
+
+# Sign in as the demo patient
+- runFlow: ../../subflows/sign_in.yaml
+
+# Navigate to medications via the med card on Today screen
+- scrollUntilVisible:
+    element:
+      id: "today-med-card"
+    direction: DOWN
+    timeout: 10000
+    optional: true
+
+- tapOn:
+    id: "today-med-card"
+    optional: true
+
+# Verify the Medications screen loaded
+- extendedWaitUntil:
+    visible:
+      text: "Medications"
+    timeout: 8000
+
+# Look for a "Taken" button on any medication card
+# (Each med card renders "Taken" and "Skip" action buttons)
+- extendedWaitUntil:
+    visible:
+      text: "Taken"
+    timeout: 8000
+    optional: true
+
+# Tap the first "Taken" button to mark a medication as taken
+- tapOn:
+    text: "Taken"
+    optional: true
+
+# Wait for the API call to complete and the card to update
+- extendedWaitUntil:
+    visible:
+      text: "Taken"
+    timeout: 8000
+
+# After toggling, look for the taken badge confirmation on the card
+- extendedWaitUntil:
+    visible:
+      text: "Taken"
+    timeout: 5000
+    optional: true
+
+# Verify the progress label updates (e.g. "1 / 3 taken today" or "All taken today!")
+- extendedWaitUntil:
+    visible:
+      text: "taken today"
+    timeout: 5000
+    optional: true
+
+# Scroll down to confirm safety footer is still rendered
+- scrollUntilVisible:
+    element:
+      text: "Crisis? Call or text 988"
+    direction: DOWN
+    timeout: 10000
+    optional: true
+
+- takeScreenshot: screenshots/medications_adherence

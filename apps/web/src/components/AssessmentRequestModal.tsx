@@ -100,7 +100,7 @@ export function AssessmentRequestModal({
                   style={{
                     display: 'flex', alignItems: 'center', gap: 10,
                     padding: '10px 12px', borderRadius: 8, cursor: 'pointer',
-                    background: selectedScale === s.value ? 'rgba(42,157,143,0.12)' : 'var(--glass-01)',
+                    background: selectedScale === s.value ? 'rgba(45,212,191,0.12)' : 'var(--glass-01)',
                     border: `1px solid ${selectedScale === s.value ? 'var(--safe)' : 'var(--border)'}`,
                     transition: 'all 0.15s',
                   }}

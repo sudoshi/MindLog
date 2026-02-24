@@ -417,7 +417,7 @@ export default function CheckinScreen() {
 
       {/* Safety banner — shown when any safety symptom or SI > 0 is active */}
       {showSafetyBanner && (
-        <View style={styles.safetyBanner}>
+        <View testID="checkin-safety-banner" style={styles.safetyBanner}>
           <Text style={styles.safetyBannerText}>
             If you are in crisis, please call or text 988 now.
           </Text>
@@ -447,6 +447,7 @@ export default function CheckinScreen() {
                   return (
                     <TouchableOpacity
                       key={score}
+                      testID={`mood-btn-${score}`}
                       style={[styles.moodBtn, { borderColor: color }, selected && { backgroundColor: color }]}
                       onPress={() => setState((s) => ({ ...s, mood_score: score }))}
                     >
@@ -459,12 +460,14 @@ export default function CheckinScreen() {
               </View>
               <Text style={styles.hint}>Sleep hours (optional)</Text>
               <TextInput
+                testID="sleep-input"
                 style={styles.input} placeholder="e.g. 7.5" placeholderTextColor="#4a5568"
                 keyboardType="decimal-pad" value={state.sleep_hours?.toString() ?? ''}
                 onChangeText={(v) => setState((s) => ({ ...s, sleep_hours: v ? Number(v) : null }))}
               />
               <Text style={styles.hint}>Exercise minutes (optional)</Text>
               <TextInput
+                testID="exercise-input"
                 style={styles.input} placeholder="e.g. 30" placeholderTextColor="#4a5568"
                 keyboardType="number-pad" value={state.exercise_minutes?.toString() ?? ''}
                 onChangeText={(v) => setState((s) => ({ ...s, exercise_minutes: v ? Number(v) : null }))}
@@ -590,6 +593,7 @@ export default function CheckinScreen() {
                   return (
                     <TouchableOpacity
                       key={opt.value}
+                      testID={`si-option-${opt.value}`}
                       style={[
                         styles.siOption,
                         selected && styles.siOptionSelected,
@@ -851,6 +855,7 @@ export default function CheckinScreen() {
               <Text style={styles.question}>Journal entry</Text>
               <Text style={styles.questionSub}>Write freely — this is private by default</Text>
               <TextInput
+                testID="checkin-journal-input"
                 style={[styles.input, styles.journalInput]}
                 placeholder="How was your day? What's on your mind?"
                 placeholderTextColor="#4a5568"
@@ -906,6 +911,7 @@ export default function CheckinScreen() {
             {step !== 'submit' ? (
               <>
                 <TouchableOpacity
+                  testID="checkin-continue-btn"
                   style={[styles.nextBtn, state.mood_score === null && step === 'mood' && styles.nextBtnDisabled]}
                   onPress={goNext}
                   disabled={state.mood_score === null && step === 'mood'}
@@ -913,13 +919,14 @@ export default function CheckinScreen() {
                   <Text style={styles.nextBtnText}>Continue →</Text>
                 </TouchableOpacity>
                 {step !== 'mood' && (
-                  <TouchableOpacity onPress={goNext} style={styles.skipBtn}>
+                  <TouchableOpacity testID="checkin-skip-btn" onPress={goNext} style={styles.skipBtn}>
                     <Text style={styles.skipBtnText}>Skip this step</Text>
                   </TouchableOpacity>
                 )}
               </>
             ) : (
               <TouchableOpacity
+                testID="checkin-submit-btn"
                 style={[styles.nextBtn, submitting && styles.nextBtnDisabled]}
                 onPress={() => void handleSubmit()}
                 disabled={submitting}

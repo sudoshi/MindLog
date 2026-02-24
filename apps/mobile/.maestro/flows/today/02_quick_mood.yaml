@@ -1,0 +1,43 @@
+# =============================================================================
+# TODAY-02: Quick Mood Selection
+# Verifies that tapping a quick-mood emoji button (score 8 / smiley face)
+# submits a mood entry and the mood pip row updates to reflect the selection.
+# =============================================================================
+appId: com.mindlog.app
+
+---
+
+# Launch with a clean slate
+- launchApp:
+    clearState: true
+
+# Connect to Metro dev server (Expo Dev Client)
+- runFlow: ../../subflows/connect_dev_server.yaml
+
+# Sign in as the demo patient
+- runFlow: ../../subflows/sign_in.yaml
+
+# Scroll down to make the quick-mood row visible
+- scrollUntilVisible:
+    element:
+      id: "quick-mood-8"
+    direction: DOWN
+    timeout: 10000
+
+# Tap the smiley face (score 8)
+- tapOn:
+    id: "quick-mood-8"
+
+# Wait for the API POST to complete and UI to refresh
+- extendedWaitUntil:
+    visible:
+      text: "8/10"
+    timeout: 8000
+
+# The mood pip row should now show the selected score
+- extendedWaitUntil:
+    visible:
+      text: "8/10"
+    timeout: 5000
+
+- takeScreenshot: screenshots/today_quick_mood

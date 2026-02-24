@@ -1,0 +1,47 @@
+# =============================================================================
+# EDGE-02: Back Navigation from Check-in
+# Verifies that entering the check-in wizard and immediately pressing the
+# back button returns the user to the Today screen without crashing or
+# leaving the navigation stack in a broken state.
+# =============================================================================
+appId: com.mindlog.app
+
+---
+
+# Launch with a clean slate
+- launchApp:
+    clearState: true
+
+# Connect to Metro dev server (Expo Dev Client)
+- runFlow: ../../subflows/connect_dev_server.yaml
+
+# Sign in as the demo patient
+- runFlow: ../../subflows/sign_in.yaml
+
+# Confirm we are on the Today screen
+- extendedWaitUntil:
+    visible:
+      text: "Good"
+    timeout: 10000
+
+# Tap the check-in CTA to enter the check-in wizard
+- tapOn:
+    id: "checkin-cta-btn"
+
+# Verify we landed on the first step of check-in (Mood)
+- extendedWaitUntil:
+    visible:
+      text: "How are you feeling"
+    timeout: 8000
+
+# Press the hardware / gesture back button to exit
+- pressKey: back
+
+# ── Stability assertion ───────────────────────────────────────────────────
+# We should be back on the Today screen with the greeting or check-in card
+- extendedWaitUntil:
+    visible:
+      text: "Daily Check-in"
+    timeout: 10000
+
+- takeScreenshot: screenshots/edge_back_nav

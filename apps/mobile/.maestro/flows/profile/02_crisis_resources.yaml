@@ -1,0 +1,68 @@
+# =============================================================================
+# PROFILE-02: Crisis Resources
+# Verifies that the Profile screen displays the crisis resources card with
+# all required contact information: 988 Lifeline, Crisis Text Line (741741),
+# and Veterans Crisis Line.
+# =============================================================================
+appId: com.mindlog.app
+
+---
+
+# Launch with a clean slate
+- launchApp:
+    clearState: true
+
+# Connect to Metro dev server (Expo Dev Client)
+- runFlow: ../../subflows/connect_dev_server.yaml
+
+# Sign in as the demo patient
+- runFlow: ../../subflows/sign_in.yaml
+
+# Navigate to the Profile tab
+- tapOn:
+    text: "Profile"
+
+# Wait for the Profile screen to load
+- extendedWaitUntil:
+    visible:
+      text: "Profile"
+    timeout: 10000
+
+# Scroll down to reveal the crisis resources card
+- scrollUntilVisible:
+    element:
+      id: "profile-crisis-card"
+    direction: DOWN
+    timeout: 10000
+
+# Crisis card must be visible
+- extendedWaitUntil:
+    visible:
+      id: "profile-crisis-card"
+    timeout: 5000
+
+# Section title for crisis resources
+- extendedWaitUntil:
+    visible:
+      text: "Crisis Resources"
+    timeout: 5000
+
+# 988 Suicide & Crisis Lifeline phone number
+- extendedWaitUntil:
+    visible:
+      text: "988"
+    timeout: 5000
+
+# Crisis Text Line short code
+- extendedWaitUntil:
+    visible:
+      text: "741741"
+    timeout: 5000
+
+# Veterans Crisis Line reference
+- extendedWaitUntil:
+    visible:
+      text: "Veterans"
+    timeout: 5000
+
+- takeScreenshot: screenshots/profile_crisis_resources

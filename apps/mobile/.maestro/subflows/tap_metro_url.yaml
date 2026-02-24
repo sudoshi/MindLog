@@ -1,0 +1,16 @@
+# =============================================================================
+# Subflow: Tap the Metro dev server URL
+# Used when Expo Dev Client launcher appears (after clearState).
+# =============================================================================
+appId: com.mindlog.app
+
+---
+
+- tapOn:
+    point: "50%,42%"
+
+# Wait for bundle to load
+- extendedWaitUntil:
+    visible:
+      text: "MindLog"
+    timeout: 30000

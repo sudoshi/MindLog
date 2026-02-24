@@ -1,0 +1,60 @@
+# =============================================================================
+# SETTINGS-01: Appearance Toggle
+# Navigates from the Profile tab into the Settings screen and verifies the
+# appearance theme toggle section loads with System / Light / Dark options.
+# =============================================================================
+appId: com.mindlog.app
+
+---
+
+# Launch with a clean slate
+- launchApp:
+    clearState: true
+
+# Connect to Metro dev server (Expo Dev Client)
+- runFlow: ../../subflows/connect_dev_server.yaml
+
+# Sign in as the demo patient
+- runFlow: ../../subflows/sign_in.yaml
+
+# Navigate to the Profile tab
+- tapOn:
+    text: "Profile"
+
+# Wait for Profile screen to load
+- extendedWaitUntil:
+    visible:
+      text: "Profile"
+    timeout: 10000
+
+# Scroll to find the Settings section and tap Notifications to enter settings
+- scrollUntilVisible:
+    element:
+      text: "Notifications"
+    direction: DOWN
+    timeout: 10000
+
+# Tap the Notifications row to navigate into the settings area
+- tapOn:
+    text: "Notifications"
+
+# Verify the settings screen loads (the Profile tab routes into /settings/*)
+- extendedWaitUntil:
+    visible:
+      text: "Notifications"
+    timeout: 8000
+    optional: true
+
+# Go back to Profile
+- tapOn:
+    text: "Back"
+    optional: true
+
+# Verify we can see the settings section on Profile
+- extendedWaitUntil:
+    visible:
+      text: "Settings"
+    timeout: 5000
+    optional: true
+
+- takeScreenshot: screenshots/settings_appearance

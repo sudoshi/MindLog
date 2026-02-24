@@ -1,0 +1,56 @@
+# =============================================================================
+# JOURNAL-02: New Entry — Navigate to Check-in Journal Step
+# Verifies that tapping the "+ New" button on the Journal tab navigates to
+# the check-in flow's journal step with a text input for free writing.
+# =============================================================================
+appId: com.mindlog.app
+
+---
+
+# Launch with a clean slate
+- launchApp:
+    clearState: true
+
+# Connect to Metro dev server (Expo Dev Client)
+- runFlow: ../../subflows/connect_dev_server.yaml
+
+# Sign in as demo patient
+- runFlow:
+    file: ../../subflows/sign_in.yaml
+
+# Navigate to the Journal tab
+- tapOn:
+    text: "Journal"
+
+# Wait for the Journal screen to fully load
+- extendedWaitUntil:
+    visible:
+      text: "Journal"
+    timeout: 8000
+
+# Tap the "+ New" button to start a new journal entry
+- tapOn:
+    id: "journal-new-btn"
+
+# Verify we land on the check-in journal step
+- extendedWaitUntil:
+    visible:
+      text: "Journal entry"
+    timeout: 8000
+
+# Verify the sub-label for the journal step
+- assertVisible:
+    text: "Write freely"
+
+# Verify the text input with the expected placeholder is visible
+- assertVisible:
+    id: "checkin-journal-input"
+
+# Tap on the journal input field
+- tapOn:
+    id: "checkin-journal-input"
+
+# Type a journal entry
+- inputText: "Today was a productive day. I felt calm and focused."
+
+- takeScreenshot: screenshots/journal_new_entry

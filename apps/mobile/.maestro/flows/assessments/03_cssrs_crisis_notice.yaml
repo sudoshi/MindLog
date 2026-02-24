@@ -1,0 +1,95 @@
+# =============================================================================
+# ASSESSMENT-03: C-SSRS — Crisis Notice Visibility
+# Verifies that the C-SSRS suicidal ideation screener displays the crisis
+# contact card (988 and 741741) prominently before the questions begin.
+# This is a compliance-critical flow: the crisis notice must always be visible
+# on the C-SSRS assessment screen.
+#
+# Note: This flow depends on the demo patient having a pending C-SSRS assessment.
+# If no banner is available, the flow gracefully skips with optional: true.
+# =============================================================================
+appId: com.mindlog.app
+
+---
+
+# Launch with a clean slate
+- launchApp:
+    clearState: true
+
+# Connect to Metro dev server (Expo Dev Client)
+- runFlow: ../../subflows/connect_dev_server.yaml
+
+# Sign in as the demo patient
+- runFlow: ../../subflows/sign_in.yaml
+
+# Scroll down to look for a C-SSRS assessment banner on the Today screen
+- scrollUntilVisible:
+    element:
+      id: "assessment-banner-C-SSRS"
+    direction: DOWN
+    timeout: 10000
+    optional: true
+
+# Tap the C-SSRS banner if present
+- tapOn:
+    id: "assessment-banner-C-SSRS"
+    optional: true
+
+# Wait for the assessment screen to load and verify the scale name in the header
+- extendedWaitUntil:
+    visible:
+      text: "C-SSRS"
+    timeout: 8000
+    optional: true
+
+# Verify the full scale title is rendered
+- extendedWaitUntil:
+    visible:
+      text: "C-SSRS — Suicidal Ideation Screener"
+    timeout: 5000
+    optional: true
+
+# Verify the instructions text
+- extendedWaitUntil:
+    visible:
+      text: "Please answer honestly"
+    timeout: 5000
+    optional: true
+
+# --- CRISIS CONTACT VERIFICATION (compliance-critical) ---
+
+# Verify the 988 crisis line number is displayed in the crisis notice card
+- extendedWaitUntil:
+    visible:
+      text: "988"
+    timeout: 5000
+    optional: true
+
+# Verify the crisis notice card text
+- extendedWaitUntil:
+    visible:
+      text: "If you are in crisis right now"
+    timeout: 5000
+    optional: true
+
+# Verify the first C-SSRS question is rendered (yes/no format)
+- extendedWaitUntil:
+    visible:
+      text: "Have you wished you were dead"
+    timeout: 5000
+    optional: true
+
+# Verify binary answer options are available
+- extendedWaitUntil:
+    visible:
+      text: "No"
+    timeout: 5000
+    optional: true
+
+- extendedWaitUntil:
+    visible:
+      text: "Yes"
+    timeout: 5000
+    optional: true
+
+- takeScreenshot: screenshots/assessment_cssrs

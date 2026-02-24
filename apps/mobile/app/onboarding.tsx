@@ -101,6 +101,7 @@ function SignInForm() {
     <View style={styles.form}>
       <Text style={styles.label}>Email</Text>
       <TextInput
+        testID="email-input"
         style={styles.input}
         value={email}
         onChangeText={setEmail}
@@ -113,6 +114,7 @@ function SignInForm() {
 
       <Text style={styles.label}>Password</Text>
       <TextInput
+        testID="password-input"
         style={styles.input}
         value={password}
         onChangeText={setPassword}
@@ -123,6 +125,7 @@ function SignInForm() {
       />
 
       <TouchableOpacity
+        testID="sign-in-btn"
         style={[styles.primaryBtn, loading && styles.primaryBtnDisabled]}
         onPress={() => void handleLogin()}
         disabled={loading}
@@ -261,6 +264,7 @@ function CreateAccountForm({ initialToken }: { initialToken: string }) {
     <View style={styles.form}>
       <Text style={styles.label}>Invite Code</Text>
       <TextInput
+        testID="invite-code-input"
         style={[
           styles.input,
           inviteStatus === 'valid' && { borderColor: '#4ade80' },
@@ -370,6 +374,7 @@ function CreateAccountForm({ initialToken }: { initialToken: string }) {
       />
 
       <TouchableOpacity
+        testID="register-btn"
         style={[styles.primaryBtn, loading && styles.primaryBtnDisabled]}
         onPress={() => void handleRegister()}
         disabled={loading}
@@ -398,12 +403,14 @@ export default function OnboardingScreen() {
         {/* Tab toggle */}
         <View style={styles.tabRow}>
           <TouchableOpacity
+            testID="tab-signin"
             style={[styles.tab, tab === 'signin' && styles.tabActive]}
             onPress={() => setTab('signin')}
           >
             <Text style={[styles.tabText, tab === 'signin' && styles.tabTextActive]}>Sign In</Text>
           </TouchableOpacity>
           <TouchableOpacity
+            testID="tab-register"
             style={[styles.tab, tab === 'register' && styles.tabActive]}
             onPress={() => setTab('register')}
           >

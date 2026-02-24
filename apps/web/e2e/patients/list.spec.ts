@@ -268,7 +268,7 @@ test.describe('Patients List', () => {
 
     test('should close invite modal with cancel', async ({ page }) => {
       await patientsPage.openInviteModal();
-      await page.locator('button:has-text("Cancel")').click();
+      await page.locator('[data-testid="invite-modal"] button:has-text("Cancel")').click();
 
       await expect(patientsPage.inviteModal).not.toBeVisible();
     });

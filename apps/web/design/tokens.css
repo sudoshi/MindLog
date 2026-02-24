@@ -1,0 +1,329 @@
+/* =============================================================================
+   MindLog Design System — Dark Theme Tokens
+   Clinical Intelligence Platform
+   Dark Crimson + Gold + Dark Grey
+   ============================================================================= */
+
+@import url('https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,400;0,500;0,600;1,400&family=Source+Sans+3:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+:root {
+  /* ─────────────────────────────────────────────────────────────────────────
+     PRIMARY COLORS — Dark Crimson
+     ───────────────────────────────────────────────────────────────────────── */
+  --burgundy: #9B1B30;
+  --burgundy-dark: #6A1220;
+  --burgundy-light: #B82D42;
+  --burgundy-glow: rgba(155, 27, 48, 0.4);
+  --burgundy-bg: rgba(155, 27, 48, 0.15);
+  --burgundy-border: rgba(184, 45, 66, 0.4);
+
+  --gold: #C9A227;
+  --gold-muted: #A68B1F;
+  --gold-light: #D4B340;
+  --gold-pale: rgba(201, 162, 39, 0.15);
+  --gold-bg: rgba(201, 162, 39, 0.1);
+
+  /* Legacy aliases for compatibility */
+  --crimson: var(--burgundy);
+  --crimson-dark: var(--burgundy-dark);
+  --crimson-light: var(--burgundy-light);
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     NEUTRAL PALETTE — Dark Grey Base
+     ───────────────────────────────────────────────────────────────────────── */
+  --forest-darkest: #08080A;
+  --forest-dark: #0E0E11;
+  --forest: #151518;
+  --forest-mid: #1C1C20;
+  --forest-light: #232328;
+  --forest-accent: #2A2A30;
+
+  /* Surface hierarchy */
+  --surface-base: var(--forest-dark);
+  --surface-raised: var(--forest);
+  --surface-overlay: var(--forest-mid);
+  --surface-elevated: var(--forest-light);
+
+  /* Sidebar uses darker charcoal */
+  --charcoal: #0B0B0E;
+  --charcoal-light: #131316;
+
+  /* Text colors (light on dark) */
+  --ivory: #F0EDE8;
+  --ivory-mid: #C5C0B8;
+  --ivory-soft: #8A857D;
+  --ivory-ghost: #5A5650;
+
+  /* Legacy neutral aliases */
+  --black: var(--ivory);
+  --slate: var(--ivory-mid);
+  --graphite: var(--ivory-soft);
+  --silver: var(--ivory-ghost);
+  --pearl: rgba(240, 237, 232, 0.08);
+  --parchment: var(--forest-dark);
+  --white: var(--forest);
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     SEMANTIC COLORS — Dark Theme
+     ───────────────────────────────────────────────────────────────────────── */
+  --critical: #E85A6B;
+  --critical-bg: rgba(232, 90, 107, 0.12);
+  --critical-border: rgba(232, 90, 107, 0.3);
+  --critical-glow: rgba(232, 90, 107, 0.25);
+
+  --warning: #E5A84B;
+  --warning-bg: rgba(229, 168, 75, 0.12);
+  --warning-border: rgba(229, 168, 75, 0.3);
+  --warning-glow: rgba(229, 168, 75, 0.25);
+
+  --success: #2DD4BF;
+  --success-bg: rgba(45, 212, 191, 0.12);
+  --success-border: rgba(45, 212, 191, 0.3);
+  --success-glow: rgba(45, 212, 191, 0.25);
+
+  --info: #60A5FA;
+  --info-bg: rgba(96, 165, 250, 0.12);
+  --info-border: rgba(96, 165, 250, 0.3);
+  --info-glow: rgba(96, 165, 250, 0.25);
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     RISK LEVEL COLORS — Dark Theme
+     ───────────────────────────────────────────────────────────────────────── */
+  --risk-crisis: var(--critical);
+  --risk-high: #F59E0B;
+  --risk-moderate: var(--warning);
+  --risk-low: var(--success);
+  --risk-minimal: var(--ivory-soft);
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     TYPOGRAPHY
+     ───────────────────────────────────────────────────────────────────────── */
+  --font-display: 'Crimson Pro', Georgia, serif;
+  --font-heading: 'Source Serif 4', Georgia, serif;
+  --font-body: 'Source Sans 3', 'Helvetica Neue', sans-serif;
+  --font-mono: 'IBM Plex Mono', Consolas, monospace;
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     SPACING
+     ───────────────────────────────────────────────────────────────────────── */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     BORDER RADIUS
+     ───────────────────────────────────────────────────────────────────────── */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-full: 9999px;
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     SHADOWS — Dark Theme (glows and depth)
+     ───────────────────────────────────────────────────────────────────────── */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.6);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.7);
+  --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.8);
+  --shadow-burgundy: 0 4px 20px rgba(155, 27, 48, 0.4);
+  --shadow-gold: 0 4px 20px rgba(201, 162, 39, 0.3);
+  --shadow-inset: inset 0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow-glow: 0 0 30px var(--burgundy-glow);
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     TRANSITIONS
+     ───────────────────────────────────────────────────────────────────────── */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --duration-fast: 100ms;
+  --duration-normal: 200ms;
+  --duration-slow: 300ms;
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     LAYOUT
+     ───────────────────────────────────────────────────────────────────────── */
+  --sidebar-width: 260px;
+  --topbar-height: 60px;
+}
+
+/* =============================================================================
+   BASE STYLES — Dark Theme
+   ============================================================================= */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--ivory);
+  background: var(--forest-dark);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom scrollbar for dark theme */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--forest-darkest);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--forest-accent);
+  border-radius: var(--radius-full);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--gold-muted);
+}
+
+/* Selection */
+::selection {
+  background: var(--burgundy);
+  color: var(--ivory);
+}
+
+/* =============================================================================
+   TYPOGRAPHY UTILITIES
+   ============================================================================= */
+
+.display-xl {
+  font-family: var(--font-display);
+  font-size: 48px;
+  font-weight: 400;
+  line-height: 1.1;
+  letter-spacing: -1px;
+  color: var(--ivory);
+}
+
+.display {
+  font-family: var(--font-display);
+  font-size: 36px;
+  font-weight: 400;
+  line-height: 1.2;
+  letter-spacing: -0.5px;
+  color: var(--ivory);
+}
+
+.heading-1 {
+  font-family: var(--font-heading);
+  font-size: 28px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--ivory);
+}
+
+.heading-2 {
+  font-family: var(--font-heading);
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--ivory);
+}
+
+.heading-3 {
+  font-family: var(--font-body);
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--ivory);
+}
+
+.body-lg {
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+.body {
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.body-sm {
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.caption {
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.overline {
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.3;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--ivory-soft);
+}
+
+.mono {
+  font-family: var(--font-mono);
+}
+
+/* =============================================================================
+   ANIMATIONS
+   ============================================================================= */
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes subtlePulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+@keyframes glowPulse {
+  0%, 100% { box-shadow: 0 0 20px var(--burgundy-glow); }
+  50% { box-shadow: 0 0 40px var(--burgundy-glow); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.animate-fade-in {
+  animation: fadeInUp 0.4s var(--ease-out) forwards;
+}
+
+.animate-pulse {
+  animation: subtlePulse 2s ease-in-out infinite;
+}
+
+.animate-glow {
+  animation: glowPulse 3s ease-in-out infinite;
+}

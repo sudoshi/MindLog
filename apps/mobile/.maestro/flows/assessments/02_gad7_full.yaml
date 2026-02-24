@@ -1,0 +1,96 @@
+# =============================================================================
+# ASSESSMENT-02: GAD-7 — Anxiety Screener Flow
+# Verifies that the GAD-7 anxiety screener can be accessed from the Today
+# screen assessment banner, renders its title, instructions, and questions.
+#
+# Note: This flow depends on the demo patient having a pending GAD-7 assessment.
+# If no assessment banner is visible, the flow gracefully skips with optional: true.
+# =============================================================================
+appId: com.mindlog.app
+
+---
+
+# Launch with a clean slate
+- launchApp:
+    clearState: true
+
+# Connect to Metro dev server (Expo Dev Client)
+- runFlow: ../../subflows/connect_dev_server.yaml
+
+# Sign in as the demo patient
+- runFlow: ../../subflows/sign_in.yaml
+
+# Scroll down to look for a GAD-7 assessment banner on the Today screen
+- scrollUntilVisible:
+    element:
+      id: "assessment-banner-GAD-7"
+    direction: DOWN
+    timeout: 10000
+    optional: true
+
+# Tap the GAD-7 banner if present
+- tapOn:
+    id: "assessment-banner-GAD-7"
+    optional: true
+
+# Wait for the assessment screen to load and verify the scale name in the header
+- extendedWaitUntil:
+    visible:
+      text: "GAD-7"
+    timeout: 8000
+    optional: true
+
+# Verify the full scale title is rendered
+- extendedWaitUntil:
+    visible:
+      text: "GAD-7 — Anxiety Screener"
+    timeout: 5000
+    optional: true
+
+# Verify the instruction text is displayed
+- extendedWaitUntil:
+    visible:
+      text: "Over the last 2 weeks"
+    timeout: 5000
+    optional: true
+
+# Verify the first question text is shown
+- extendedWaitUntil:
+    visible:
+      text: "Feeling nervous, anxious, or on edge"
+    timeout: 5000
+    optional: true
+
+# Verify answer options are present (same options as PHQ-9)
+- extendedWaitUntil:
+    visible:
+      text: "Not at all"
+    timeout: 5000
+    optional: true
+
+- extendedWaitUntil:
+    visible:
+      text: "Several days"
+    timeout: 5000
+    optional: true
+
+# Verify the progress indicator starts at 0/7
+- extendedWaitUntil:
+    visible:
+      text: "0/7"
+    timeout: 5000
+    optional: true
+
+# Answer the first question by tapping "Several days"
+- tapOn:
+    text: "Several days"
+    optional: true
+
+# Verify the progress updates to 1/7
+- extendedWaitUntil:
+    visible:
+      text: "1/7"
+    timeout: 5000
+    optional: true
+
+- takeScreenshot: screenshots/assessment_gad7

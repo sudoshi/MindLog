@@ -1,0 +1,37 @@
+# =============================================================================
+# AUTH-03: Sign In — Empty Fields Validation
+# Verifies that tapping sign-in without entering any credentials
+# triggers a client-side validation error.
+# =============================================================================
+appId: com.mindlog.app
+
+---
+
+# Launch with a clean slate
+- launchApp:
+    clearState: true
+
+# Connect to Metro dev server (Expo Dev Client)
+- runFlow: ../../subflows/connect_dev_server.yaml
+
+# Verify onboarding screen loaded
+- extendedWaitUntil:
+    visible:
+      text: "MindLog"
+    timeout: 10000
+
+# Switch to the Sign In tab
+- tapOn:
+    id: "tab-signin"
+
+# Tap sign-in without filling in any fields
+- tapOn:
+    id: "sign-in-btn"
+
+# Client-side validation should surface an error
+- extendedWaitUntil:
+    visible:
+      text: "Validation error"
+    timeout: 5000
+
+- takeScreenshot: screenshots/auth_sign_in_empty_fields

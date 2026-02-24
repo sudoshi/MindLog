@@ -1,0 +1,44 @@
+# =============================================================================
+# AUTH-04: Sign Out
+# Verifies that a signed-in patient can sign out from the Profile tab
+# and is returned to the onboarding screen.
+# =============================================================================
+appId: com.mindlog.app
+
+---
+
+# Launch with a clean slate
+- launchApp:
+    clearState: true
+
+# Connect to Metro dev server (Expo Dev Client)
+- runFlow: ../../subflows/connect_dev_server.yaml
+
+# Sign in using the shared subflow
+- runFlow: ../../subflows/sign_in.yaml
+
+# Navigate to the Profile tab
+- tapOn:
+    text: "Profile"
+
+# Verify Profile screen loaded
+- extendedWaitUntil:
+    visible:
+      text: "Profile"
+    timeout: 10000
+
+# Tap the sign-out button
+- tapOn:
+    id: "sign-out-btn"
+
+# Confirm sign out in the alert dialog
+- tapOn:
+    text: "Sign Out"
+
+# Verify we are back on the onboarding screen
+- extendedWaitUntil:
+    visible:
+      text: "MindLog"
+    timeout: 10000
+
+- takeScreenshot: screenshots/auth_sign_out_success

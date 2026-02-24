@@ -53,7 +53,7 @@ export class AlertsPage {
     this.pageInfo = page.locator('.page-info');
 
     // States
-    this.loadingIndicator = page.locator('text=Loading');
+    this.loadingIndicator = page.locator('[data-testid="alerts-page"]').locator('text=Loading');
     this.emptyState = page.locator('.empty-state');
 
     // Live toast

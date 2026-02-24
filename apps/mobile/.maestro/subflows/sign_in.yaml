@@ -1,0 +1,36 @@
+# =============================================================================
+# Subflow: Sign in as demo patient
+# Reused by most flows that require authentication
+# =============================================================================
+appId: com.mindlog.app
+
+---
+
+# Wait for onboarding screen to load
+- extendedWaitUntil:
+    visible:
+      text: "MindLog"
+    timeout: 10000
+
+# Ensure we're on the Sign In tab
+- tapOn:
+    id: "tab-signin"
+
+# Enter credentials
+- tapOn:
+    id: "email-input"
+- inputText: ${PATIENT_EMAIL}
+
+- tapOn:
+    id: "password-input"
+- inputText: ${PATIENT_PASSWORD}
+
+# Submit
+- tapOn:
+    id: "sign-in-btn"
+
+# Wait for Today screen to load (greeting text appears)
+- extendedWaitUntil:
+    visible:
+      text: "Good"
+    timeout: 15000

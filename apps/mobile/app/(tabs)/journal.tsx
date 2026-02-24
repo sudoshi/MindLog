@@ -59,6 +59,7 @@ export default function JournalScreen() {
         <View style={styles.headerBtns}>
           {/* Voice journal shortcut */}
           <TouchableOpacity
+            testID="journal-mic-btn"
             style={styles.micBtn}
             onPress={() => setShowVoice(true)}
             accessibilityLabel="Record a voice journal entry"
@@ -69,6 +70,7 @@ export default function JournalScreen() {
 
           {/* Write entry */}
           <TouchableOpacity
+            testID="journal-new-btn"
             style={styles.newBtn}
             onPress={() => router.push('/checkin?step=journal')}
             accessibilityLabel="Write a new journal entry"
@@ -96,7 +98,7 @@ export default function JournalScreen() {
           </View>
         )}
         {!loading && !error && entries.length === 0 && (
-          <View style={styles.emptyCard}>
+          <View testID="journal-empty-state" style={styles.emptyCard}>
             <Text style={styles.emptyEmoji}>📓</Text>
             <Text style={styles.emptyText}>No journal entries yet.</Text>
             <Text style={styles.emptySub}>Writing helps you understand your patterns.</Text>

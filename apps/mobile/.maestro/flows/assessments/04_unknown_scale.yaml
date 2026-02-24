@@ -1,0 +1,57 @@
+# =============================================================================
+# ASSESSMENT-04: Unknown Scale — Graceful Error Handling
+# Verifies that navigating to an unrecognised assessment scale does not crash
+# the app. The assessment screen should show an error message and a "Go back"
+# button that returns the user to the previous screen.
+#
+# This test uses a deep link to force navigation to a non-existent scale.
+# =============================================================================
+appId: com.mindlog.app
+
+---
+
+# Launch with a clean slate
+- launchApp:
+    clearState: true
+
+# Connect to Metro dev server (Expo Dev Client)
+- runFlow: ../../subflows/connect_dev_server.yaml
+
+# Sign in as the demo patient
+- runFlow: ../../subflows/sign_in.yaml
+
+# Confirm the Today screen loaded
+- extendedWaitUntil:
+    visible:
+      text: "Good"
+    timeout: 10000
+
+# Navigate to an unknown assessment scale via deep link
+- openLink: "exp://127.0.0.1:8081/--/assessments/UNKNOWN-SCALE"
+
+# The screen should display an error message for the unknown scale
+- extendedWaitUntil:
+    visible:
+      text: "Unknown assessment scale"
+    timeout: 8000
+    optional: true
+
+# A "Go back" button should be available
+- extendedWaitUntil:
+    visible:
+      text: "Go back"
+    timeout: 5000
+    optional: true
+
+# Tap the "Go back" button to return
+- tapOn:
+    text: "Go back"
+    optional: true
+
+# Verify the Today screen is still accessible and the app did not crash
+- extendedWaitUntil:
+    visible:
+      text: "Good"
+    timeout: 10000
+
+- takeScreenshot: screenshots/assessment_unknown

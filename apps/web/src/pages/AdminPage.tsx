@@ -136,7 +136,7 @@ const MOCK_FHIR_ENDPOINTS: FhirEndpoint[] = [
 const ROLES_CONFIG: RoleConfig[] = [
   { id: 'system', label: 'System Administrator', color: '#7C3AED', permissions: ['all'], description: 'Full system access including configuration, user management, and audit logs' },
   { id: 'admin', label: 'Clinical Admin', color: '#2563EB', permissions: ['manage_users', 'view_audit', 'config_endpoints', 'view_all_patients', 'manage_consents'], description: 'Clinical informatics admin with user and endpoint management' },
-  { id: 'psychiatrist', label: 'Psychiatrist', color: '#059669', permissions: ['view_assigned_patients', 'view_phi', 'write_orders', 'view_alerts', 'manage_care_plans'], description: 'Prescribing physician with full clinical access to assigned patients' },
+  { id: 'psychiatrist', label: 'Psychiatrist', color: '#0D9488', permissions: ['view_assigned_patients', 'view_phi', 'write_orders', 'view_alerts', 'manage_care_plans'], description: 'Prescribing physician with full clinical access to assigned patients' },
   { id: 'psychologist', label: 'Psychologist', color: '#0891B2', permissions: ['view_assigned_patients', 'view_phi', 'view_alerts'], description: 'Psychology provider with read access to assigned patient data' },
   { id: 'nurse', label: 'RN / Care Coordinator', color: '#DC2626', permissions: ['view_assigned_patients', 'view_phi', 'view_alerts', 'triage_alerts'], description: 'Nursing staff with triage capability for safety alerts' },
   { id: 'readonly', label: 'Read-Only / Auditor', color: '#6B7280', permissions: ['view_audit', 'view_reports'], description: 'Compliance or audit staff with read-only access to logs and reports' },
@@ -169,9 +169,9 @@ function formatDateTime(dateStr: string | null): string {
 
 function StatusBadge({ status }: { status: string }) {
   const configMap: Record<string, { bg: string; color: string; border: string; label: string }> = {
-    connected: { bg: '#ECFDF5', color: '#059669', border: '#A7F3D0', label: 'Connected' },
-    active: { bg: '#ECFDF5', color: '#059669', border: '#A7F3D0', label: 'Active' },
-    success: { bg: '#ECFDF5', color: '#059669', border: '#A7F3D0', label: 'Success' },
+    connected: { bg: '#F0FDFA', color: '#0D9488', border: '#99F6E4', label: 'Connected' },
+    active: { bg: '#F0FDFA', color: '#0D9488', border: '#99F6E4', label: 'Active' },
+    success: { bg: '#F0FDFA', color: '#0D9488', border: '#99F6E4', label: 'Success' },
     degraded: { bg: '#FFFBEB', color: '#D97706', border: '#FDE68A', label: 'Degraded' },
     warning: { bg: '#FFFBEB', color: '#D97706', border: '#FDE68A', label: 'Warning' },
     suspended: { bg: '#FFFBEB', color: '#D97706', border: '#FDE68A', label: 'Suspended' },
@@ -322,7 +322,7 @@ function DashboardSection() {
           label="Clinicians"
           value={stats?.clinicians.total ?? 0}
           sublabel={`${stats?.clinicians.admins ?? 0} admins`}
-          accent="#059669"
+          accent="#0D9488"
         />
         <MetricCard
           label="Critical Alerts"
@@ -351,7 +351,7 @@ function DashboardSection() {
                   width: 8,
                   height: 8,
                   borderRadius: '50%',
-                  background: getActivityStatus(entry.action) === 'success' ? '#059669' : getActivityStatus(entry.action) === 'error' ? '#DC2626' : '#D97706',
+                  background: getActivityStatus(entry.action) === 'success' ? '#0D9488' : getActivityStatus(entry.action) === 'error' ? '#DC2626' : '#D97706',
                   flexShrink: 0,
                 }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -374,7 +374,7 @@ function DashboardSection() {
               <span style={{
                 fontSize: 18,
                 fontWeight: 700,
-                color: (stats?.patients.crisis ?? 0) > 0 ? '#DC2626' : '#059669',
+                color: (stats?.patients.crisis ?? 0) > 0 ? '#DC2626' : '#0D9488',
               }}>
                 {stats?.patients.crisis ?? 0}
               </span>
@@ -405,7 +405,7 @@ function DashboardSection() {
               <span style={{
                 fontSize: 18,
                 fontWeight: 700,
-                color: (stats?.audit.errors ?? 0) > 0 ? '#D97706' : '#059669',
+                color: (stats?.audit.errors ?? 0) > 0 ? '#D97706' : '#0D9488',
               }}>
                 {stats?.audit.errors ?? 0}
               </span>
@@ -489,7 +489,7 @@ function FhirEndpointsSection() {
                 </div>
                 <div style={{ background: 'var(--glass-01)', padding: 12, borderRadius: 8 }}>
                   <div style={{ fontSize: 11, color: 'var(--ink-mid)', marginBottom: 4 }}>PKCE</div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: '#059669' }}>S256 Enabled</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: '#0D9488' }}>S256 Enabled</div>
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
@@ -609,7 +609,7 @@ function UsersSection() {
                       <td style={{ fontSize: 11, color: 'var(--ink-mid)', fontFamily: 'monospace' }}>{u.npi ?? '—'}</td>
                       <td>
                         {u.mfa_enabled ? (
-                          <span style={{ color: '#059669' }}>✓</span>
+                          <span style={{ color: '#0D9488' }}>✓</span>
                         ) : (
                           <span style={{ fontSize: 11, color: '#DC2626', fontWeight: 600 }}>REQUIRED</span>
                         )}
@@ -933,7 +933,7 @@ function AuditLogSection() {
                   borderRadius: '50%',
                   marginTop: 5,
                   flexShrink: 0,
-                  background: getActionStatus(entry.action) === 'success' ? '#059669' : getActionStatus(entry.action) === 'error' ? '#DC2626' : '#D97706',
+                  background: getActionStatus(entry.action) === 'success' ? '#0D9488' : getActionStatus(entry.action) === 'error' ? '#DC2626' : '#D97706',
                 }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -1040,10 +1040,10 @@ function SecuritySection() {
                 fontSize: 11,
                 padding: '2px 10px',
                 borderRadius: 20,
-                background: item.status === 'enabled' ? '#ECFDF5' : 'var(--glass-01)',
-                color: item.status === 'enabled' ? '#059669' : 'var(--ink-mid)',
+                background: item.status === 'enabled' ? '#F0FDFA' : 'var(--glass-01)',
+                color: item.status === 'enabled' ? '#0D9488' : 'var(--ink-mid)',
                 fontWeight: 600,
-                border: `1px solid ${item.status === 'enabled' ? '#A7F3D0' : 'var(--border2)'}`,
+                border: `1px solid ${item.status === 'enabled' ? '#99F6E4' : 'var(--border2)'}`,
               }}>
                 {item.status === 'enabled' ? 'Enabled' : 'Optional'}
               </span>

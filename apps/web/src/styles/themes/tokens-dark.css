@@ -1,0 +1,180 @@
+/* =============================================================================
+   MindLog Design System — Dark Theme Tokens
+   Clinical Intelligence Platform
+   Dark Crimson + Gold + Dark Grey
+   ============================================================================= */
+
+:root,
+[data-theme="dark"] {
+  /* ─────────────────────────────────────────────────────────────────────────
+     PRIMARY COLORS — Dark Crimson
+     ───────────────────────────────────────────────────────────────────────── */
+  --primary: #9B1B30;
+  --primary-dark: #6A1220;
+  --primary-light: #B82D42;
+  --primary-lighter: #D04058;
+  --primary-glow: rgba(155, 27, 48, 0.4);
+  --primary-bg: rgba(155, 27, 48, 0.15);
+  --primary-border: rgba(184, 45, 66, 0.4);
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     ACCENT COLORS — Gold
+     ───────────────────────────────────────────────────────────────────────── */
+  --accent: #C9A227;
+  --accent-dark: #A68B1F;
+  --accent-light: #D4B340;
+  --accent-lighter: #E0C45A;
+  --accent-muted: #A68B1F;
+  --accent-pale: rgba(201, 162, 39, 0.15);
+  --accent-bg: rgba(201, 162, 39, 0.1);
+  --accent-glow: rgba(201, 162, 39, 0.3);
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     SURFACES — Dark Grey
+     ───────────────────────────────────────────────────────────────────────── */
+  --surface-darkest: #08080A;
+  --surface-base: #0E0E11;
+  --surface-raised: #151518;
+  --surface-overlay: #1C1C20;
+  --surface-elevated: #232328;
+  --surface-accent: #2A2A30;
+  --surface-highlight: #323238;
+
+  /* Sidebar specific */
+  --sidebar-bg: #0B0B0E;
+  --sidebar-bg-light: #131316;
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     TEXT COLORS — Ivory
+     ───────────────────────────────────────────────────────────────────────── */
+  --text-primary: #F0EDE8;
+  --text-secondary: #C5C0B8;
+  --text-muted: #8A857D;
+  --text-ghost: #5A5650;
+  --text-disabled: #454540;
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     BORDERS
+     ───────────────────────────────────────────────────────────────────────── */
+  --border-default: #2A2A30;
+  --border-subtle: rgba(42, 42, 48, 0.6);
+  --border-hover: #A68B1F;
+  --border-focus: #C9A227;
+  --border-active: #9B1B30;
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     SEMANTIC COLORS — Brighter for Dark Mode Visibility
+     ───────────────────────────────────────────────────────────────────────── */
+
+  /* Critical / Error / Danger */
+  --critical: #E85A6B;
+  --critical-dark: #C94A5A;
+  --critical-light: #FF6B7D;
+  --critical-bg: rgba(232, 90, 107, 0.12);
+  --critical-border: rgba(232, 90, 107, 0.3);
+  --critical-glow: rgba(232, 90, 107, 0.25);
+
+  /* Warning / Caution */
+  --warning: #E5A84B;
+  --warning-dark: #C9923A;
+  --warning-light: #F0B85C;
+  --warning-bg: rgba(229, 168, 75, 0.12);
+  --warning-border: rgba(229, 168, 75, 0.3);
+  --warning-glow: rgba(229, 168, 75, 0.25);
+
+  /* Success / Safe — Warm Teal */
+  --success: #2DD4BF;
+  --success-dark: #20B8A5;
+  --success-light: #45E0CF;
+  --success-bg: rgba(45, 212, 191, 0.12);
+  --success-border: rgba(45, 212, 191, 0.3);
+  --success-glow: rgba(45, 212, 191, 0.25);
+
+  /* Info / Neutral */
+  --info: #60A5FA;
+  --info-dark: #4A94E8;
+  --info-light: #78B4FF;
+  --info-bg: rgba(96, 165, 250, 0.12);
+  --info-border: rgba(96, 165, 250, 0.3);
+  --info-glow: rgba(96, 165, 250, 0.25);
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     RISK LEVEL COLORS
+     ───────────────────────────────────────────────────────────────────────── */
+  --risk-crisis: var(--critical);
+  --risk-critical: var(--critical);
+  --risk-high: #F59E0B;
+  --risk-moderate: var(--warning);
+  --risk-low: var(--success);
+  --risk-minimal: var(--text-muted);
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     SHADOWS — Glows for Dark Theme
+     ───────────────────────────────────────────────────────────────────────── */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.6);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.7);
+  --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.8);
+  --shadow-2xl: 0 24px 64px rgba(0, 0, 0, 0.85);
+
+  /* Colored shadows/glows */
+  --shadow-primary: 0 4px 20px var(--primary-glow);
+  --shadow-accent: 0 4px 20px var(--accent-glow);
+  --shadow-critical: 0 4px 16px var(--critical-glow);
+  --shadow-warning: 0 4px 16px var(--warning-glow);
+  --shadow-success: 0 4px 16px var(--success-glow);
+  --shadow-info: 0 4px 16px var(--info-glow);
+
+  /* Inner shadow for depth */
+  --shadow-inset: inset 0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow-inset-lg: inset 0 2px 6px rgba(0, 0, 0, 0.5);
+
+  /* Glow effects */
+  --glow-primary: 0 0 30px var(--primary-glow);
+  --glow-accent: 0 0 30px var(--accent-glow);
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     GLASSMORPHISM OVERLAYS
+     ───────────────────────────────────────────────────────────────────────── */
+  --glass-00: rgba(255, 255, 255, 0.02);
+  --glass-01: rgba(255, 255, 255, 0.04);
+  --glass-02: rgba(255, 255, 255, 0.07);
+  --glass-03: rgba(255, 255, 255, 0.10);
+  --glass-04: rgba(255, 255, 255, 0.14);
+  --glass-05: rgba(255, 255, 255, 0.18);
+
+  --glass-dark-00: rgba(0, 0, 0, 0.1);
+  --glass-dark-01: rgba(0, 0, 0, 0.2);
+  --glass-dark-02: rgba(0, 0, 0, 0.3);
+
+  /* Backdrop blur values */
+  --blur-sm: blur(4px);
+  --blur-md: blur(8px);
+  --blur-lg: blur(16px);
+  --blur-xl: blur(24px);
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     FOCUS STATES
+     ───────────────────────────────────────────────────────────────────────── */
+  --focus-ring: 0 0 0 3px var(--accent-pale);
+  --focus-ring-primary: 0 0 0 3px var(--primary-bg);
+  --focus-ring-critical: 0 0 0 3px var(--critical-bg);
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     SCROLLBAR COLORS
+     ───────────────────────────────────────────────────────────────────────── */
+  --scrollbar-track: var(--surface-darkest);
+  --scrollbar-thumb: var(--surface-accent);
+  --scrollbar-thumb-hover: var(--accent-muted);
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     CHART COLORS
+     ───────────────────────────────────────────────────────────────────────── */
+  --chart-primary: var(--primary-light);
+  --chart-secondary: var(--accent);
+  --chart-tertiary: var(--info);
+  --chart-quaternary: var(--success);
+  --chart-grid: rgba(255, 255, 255, 0.06);
+  --chart-axis: var(--text-ghost);
+}

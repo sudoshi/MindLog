@@ -1,0 +1,60 @@
+# =============================================================================
+# EDGE-01: Rapid Tab Switching Stress Test
+# Verifies that rapidly switching between all four bottom tabs does not crash
+# the app or leave it in an inconsistent state. After 8 rapid taps the app
+# must still render the Today screen greeting normally.
+# =============================================================================
+appId: com.mindlog.app
+
+---
+
+# Launch with a clean slate
+- launchApp:
+    clearState: true
+
+# Connect to Metro dev server (Expo Dev Client)
+- runFlow: ../../subflows/connect_dev_server.yaml
+
+# Sign in as the demo patient
+- runFlow: ../../subflows/sign_in.yaml
+
+# Confirm we are on the Today screen
+- extendedWaitUntil:
+    visible:
+      text: "Good"
+    timeout: 10000
+
+# ── Rapid tab switch cycle 1 ──────────────────────────────────────────────
+- tapOn:
+    text: "Journal"
+
+- tapOn:
+    text: "Insights"
+
+- tapOn:
+    text: "Profile"
+
+- tapOn:
+    text: "Today"
+
+# ── Rapid tab switch cycle 2 ──────────────────────────────────────────────
+- tapOn:
+    text: "Journal"
+
+- tapOn:
+    text: "Insights"
+
+- tapOn:
+    text: "Profile"
+
+- tapOn:
+    text: "Today"
+
+# ── Stability assertion ───────────────────────────────────────────────────
+# If the app survived all rapid switches, the Today greeting must still render
+- extendedWaitUntil:
+    visible:
+      text: "Good"
+    timeout: 10000
+
+- takeScreenshot: screenshots/edge_rapid_tabs

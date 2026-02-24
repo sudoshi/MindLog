@@ -1,0 +1,56 @@
+# =============================================================================
+# ACCESSIBILITY-01: Journal Screen Accessibility Labels
+# Verifies that the Journal tab exposes correct accessibilityLabel attributes
+# on the microphone (voice journal) and new-entry buttons, ensuring screen
+# readers can announce actionable controls to visually impaired users.
+# FDA SaMD — WCAG 2.1 AA compliance checkpoint.
+# =============================================================================
+appId: com.mindlog.app
+
+---
+
+# Launch with a clean slate
+- launchApp:
+    clearState: true
+
+# Connect to Metro dev server (Expo Dev Client)
+- runFlow: ../../subflows/connect_dev_server.yaml
+
+# Sign in as the demo patient
+- runFlow: ../../subflows/sign_in.yaml
+
+# Navigate to the Journal tab
+- tapOn:
+    text: "Journal"
+
+# Wait for Journal screen to fully load
+- extendedWaitUntil:
+    visible:
+      text: "Journal"
+    timeout: 8000
+
+# ── Accessibility label: voice journal button ──────────────────────────────
+# The microphone button must expose a descriptive label for screen readers
+- extendedWaitUntil:
+    visible:
+      id: "journal-mic-btn"
+    timeout: 5000
+
+- extendedWaitUntil:
+    visible:
+      text: "Record a voice journal entry"
+    timeout: 5000
+
+# ── Accessibility label: new entry button ──────────────────────────────────
+# The compose button must expose a descriptive label for screen readers
+- extendedWaitUntil:
+    visible:
+      id: "journal-new-btn"
+    timeout: 5000
+
+- extendedWaitUntil:
+    visible:
+      text: "Write a new journal entry"
+    timeout: 5000
+
+- takeScreenshot: screenshots/a11y_journal

@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MindLog — App Shell (Dark Theme)</title>
+  <link rel="stylesheet" href="tokens.css">
+  <style>
+    /* ==========================================================================
+       APP SHELL LAYOUT — Dark Theme
+       ========================================================================== */
+
+    .app {
+      display: flex;
+      min-height: 100vh;
+    }
+
+    /* ==========================================================================
+       SIDEBAR — Dark Teal + Burgundy
+       ========================================================================== */
+
+    .sidebar {
+      width: var(--sidebar-width);
+      background: var(--charcoal);
+      display: flex;
+      flex-direction: column;
+      position: fixed;
+      top: 0;
+      left: 0;
+      bottom: 0;
+      z-index: 100;
+      border-right: 1px solid var(--forest-accent);
+    }
+
+    .sidebar-brand {
+      padding: var(--space-6);
+      border-bottom: 1px solid var(--forest-accent);
+    }
+
+    .brand-logo {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      margin-bottom: var(--space-2);
+    }
+
+    .brand-mark {
+      width: 36px;
+      height: 36px;
+      background: var(--burgundy);
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: var(--shadow-burgundy);
+    }
+
+    .brand-mark svg {
+      width: 20px;
+      height: 20px;
+      fill: var(--ivory);
+    }
+
+    .brand-name {
+      font-family: var(--font-display);
+      font-size: 22px;
+      font-weight: 500;
+      color: var(--ivory);
+      letter-spacing: -0.5px;
+    }
+
+    .brand-name em {
+      color: var(--gold);
+      font-style: normal;
+    }
+
+    .brand-tagline {
+      font-size: 11px;
+      color: var(--ivory-soft);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* User Profile Badge */
+    .user-badge {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      padding: var(--space-4) var(--space-5);
+      margin: var(--space-4) var(--space-4) 0;
+      background: var(--forest);
+      border: 1px solid var(--forest-accent);
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      transition: all var(--duration-fast);
+    }
+
+    .user-badge:hover {
+      background: var(--forest-mid);
+      border-color: var(--gold-muted);
+    }
+
+    .user-avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: var(--radius-md);
+      background: var(--burgundy);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--ivory);
+    }
+
+    .user-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .user-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--ivory);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .user-role {
+      font-size: 11px;
+      color: var(--ivory-soft);
+    }
+
+    /* Navigation */
+    .nav-section {
+      padding: var(--space-4) var(--space-4);
+    }
+
+    .nav-section-label {
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--ivory-ghost);
+      padding: 0 var(--space-3);
+      margin-bottom: var(--space-2);
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      padding: var(--space-3) var(--space-3);
+      border-radius: var(--radius-md);
+      color: var(--ivory-mid);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all var(--duration-fast);
+      position: relative;
+    }
+
+    .nav-item:hover {
+      background: var(--forest);
+      color: var(--ivory);
+    }
+
+    .nav-item.active {
+      background: var(--burgundy-bg);
+      color: var(--ivory);
+    }
+
+    .nav-item.active::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 6px;
+      bottom: 6px;
+      width: 3px;
+      background: var(--burgundy);
+      border-radius: 0 2px 2px 0;
+    }
+
+    .nav-icon {
+      width: 20px;
+      text-align: center;
+      opacity: 0.8;
+    }
+
+    .nav-badge {
+      margin-left: auto;
+      padding: 2px 8px;
+      border-radius: var(--radius-full);
+      font-size: 10px;
+      font-weight: 700;
+      background: var(--forest-accent);
+      color: var(--ivory-mid);
+    }
+
+    .nav-badge.critical {
+      background: var(--burgundy);
+      color: var(--ivory);
+      box-shadow: 0 0 10px var(--burgundy-glow);
+    }
+
+    .nav-badge.warning {
+      background: var(--gold);
+      color: var(--forest-darkest);
+    }
+
+    /* Sidebar Footer */
+    .sidebar-footer {
+      margin-top: auto;
+      padding: var(--space-4);
+      border-top: 1px solid var(--forest-accent);
+    }
+
+    .btn-signout {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--space-2);
+      padding: var(--space-3);
+      background: transparent;
+      border: 1px solid var(--forest-accent);
+      border-radius: var(--radius-md);
+      color: var(--ivory-mid);
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all var(--duration-fast);
+    }
+
+    .btn-signout:hover {
+      background: var(--burgundy-bg);
+      border-color: var(--burgundy);
+      color: var(--ivory);
+    }
+
+    /* ==========================================================================
+       MAIN CONTENT AREA
+       ========================================================================== */
+
+    .main {
+      flex: 1;
+      margin-left: var(--sidebar-width);
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      background: var(--forest-dark);
+    }
+
+    /* ==========================================================================
+       TOPBAR — Dark Theme
+       ========================================================================== */
+
+    .topbar {
+      height: var(--topbar-height);
+      background: var(--forest);
+      border-bottom: 1px solid var(--forest-accent);
+      display: flex;
+      align-items: center;
+      padding: 0 var(--space-6);
+      gap: var(--space-4);
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+
+    .topbar-title-group {
+      flex: 1;
+    }
+
+    .topbar-title {
+      font-family: var(--font-heading);
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--ivory);
+    }
+
+    .topbar-subtitle {
+      font-size: 12px;
+      color: var(--ivory-soft);
+    }
+
+    .search-bar {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      padding: var(--space-2) var(--space-4);
+      background: var(--forest-mid);
+      border: 1px solid var(--forest-accent);
+      border-radius: var(--radius-full);
+      width: 240px;
+      transition: all var(--duration-normal);
+    }
+
+    .search-bar:focus-within {
+      border-color: var(--gold);
+      box-shadow: 0 0 0 3px var(--gold-pale);
+    }
+
+    .search-bar input {
+      border: none;
+      background: transparent;
+      outline: none;
+      font-size: 13px;
+      color: var(--ivory);
+      flex: 1;
+    }
+
+    .search-bar input::placeholder {
+      color: var(--ivory-ghost);
+    }
+
+    .search-icon {
+      color: var(--ivory-soft);
+      font-size: 14px;
+    }
+
+    .topbar-btn {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      padding: var(--space-2) var(--space-4);
+      background: var(--forest-mid);
+      border: 1px solid var(--forest-accent);
+      border-radius: var(--radius-md);
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--ivory-mid);
+      cursor: pointer;
+      transition: all var(--duration-fast);
+    }
+
+    .topbar-btn:hover {
+      background: var(--forest-light);
+      border-color: var(--gold-muted);
+      color: var(--ivory);
+    }
+
+    .topbar-btn.primary {
+      background: var(--burgundy);
+      border-color: var(--burgundy);
+      color: var(--ivory);
+      box-shadow: var(--shadow-burgundy);
+    }
+
+    .topbar-btn.primary:hover {
+      background: var(--burgundy-light);
+    }
+
+    .alert-dot {
+      width: 8px;
+      height: 8px;
+      background: var(--ivory);
+      border-radius: 50%;
+      animation: subtlePulse 1.5s ease-in-out infinite;
+    }
+
+    .ws-indicator {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      padding: var(--space-2) var(--space-3);
+      font-size: 11px;
+      color: var(--ivory-soft);
+    }
+
+    .ws-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--success);
+      box-shadow: 0 0 8px var(--success-glow);
+    }
+
+    .ws-dot.connecting {
+      background: var(--warning);
+      box-shadow: 0 0 8px var(--warning-glow);
+    }
+
+    .ws-dot.disconnected {
+      background: var(--critical);
+      box-shadow: 0 0 8px var(--critical-glow);
+    }
+
+    /* ==========================================================================
+       CONTENT AREA
+       ========================================================================== */
+
+    .content {
+      flex: 1;
+      padding: var(--space-6);
+      background: var(--forest-dark);
+    }
+
+    /* ==========================================================================
+       PLACEHOLDER CONTENT
+       ========================================================================== */
+
+    .placeholder-content {
+      background: var(--forest);
+      border: 1px solid var(--forest-accent);
+      border-radius: var(--radius-lg);
+      padding: var(--space-16);
+      text-align: center;
+      color: var(--ivory-soft);
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+      <!-- Brand -->
+      <div class="sidebar-brand">
+        <div class="brand-logo">
+          <div class="brand-mark">
+            <svg viewBox="0 0 24 24">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/>
+              <circle cx="12" cy="12" r="4"/>
+            </svg>
+          </div>
+          <span class="brand-name">Mind<em>Log</em></span>
+        </div>
+        <div class="brand-tagline">Clinical Intelligence Platform</div>
+      </div>
+
+      <!-- User Badge -->
+      <div class="user-badge">
+        <div class="user-avatar">SA</div>
+        <div class="user-info">
+          <div class="user-name">Dr. Sarah Anderson</div>
+          <div class="user-role">Psychiatry</div>
+        </div>
+      </div>
+
+      <!-- Navigation: Overview -->
+      <div class="nav-section">
+        <div class="nav-section-label">Overview</div>
+        <div class="nav-item active">
+          <span class="nav-icon">📊</span>
+          Population
+        </div>
+        <div class="nav-item">
+          <span class="nav-icon">👥</span>
+          All Patients
+          <span class="nav-badge warning">146</span>
+        </div>
+        <div class="nav-item">
+          <span class="nav-icon">🔔</span>
+          Alerts
+          <span class="nav-badge critical">12</span>
+        </div>
+      </div>
+
+      <!-- Navigation: Clinical Tools -->
+      <div class="nav-section">
+        <div class="nav-section-label">Clinical Tools</div>
+        <div class="nav-item">
+          <span class="nav-icon">📈</span>
+          Population Trends
+        </div>
+        <div class="nav-item">
+          <span class="nav-icon">📄</span>
+          Reports
+        </div>
+        <div class="nav-item">
+          <span class="nav-icon">🔬</span>
+          Cohort Builder
+        </div>
+      </div>
+
+      <!-- Navigation: Actions -->
+      <div class="nav-section">
+        <div class="nav-section-label">Actions</div>
+        <div class="nav-item">
+          <span class="nav-icon">➕</span>
+          Invite Patient
+        </div>
+      </div>
+
+      <!-- Navigation: Admin -->
+      <div class="nav-section">
+        <div class="nav-section-label">Administration</div>
+        <div class="nav-item">
+          <span class="nav-icon">⚙️</span>
+          Admin Panel
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div class="sidebar-footer">
+        <button class="btn-signout">
+          <span>⏻</span>
+          Sign Out
+        </button>
+      </div>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <div class="main">
+      <!-- Topbar -->
+      <header class="topbar">
+        <div class="topbar-title-group">
+          <div class="topbar-title">Population Overview</div>
+          <div class="topbar-subtitle">Monday, February 24, 2026 · 146 patients</div>
+        </div>
+
+        <div class="search-bar">
+          <span class="search-icon">🔍</span>
+          <input type="text" placeholder="Search patients...">
+        </div>
+
+        <button class="topbar-btn primary">
+          <span class="alert-dot"></span>
+          12 Critical Alerts
+        </button>
+
+        <button class="topbar-btn">✏️ Note</button>
+        <button class="topbar-btn">?</button>
+
+        <div class="ws-indicator">
+          <span class="ws-dot"></span>
+          Live
+        </div>
+      </header>
+
+      <!-- Content -->
+      <main class="content">
+        <div class="placeholder-content">
+          <p class="heading-2" style="margin: 0 0 8px;">Content Area</p>
+          <p style="margin: 0;">Page content renders here</p>
+        </div>
+      </main>
+    </div>
+  </div>
+</body>
+</html>

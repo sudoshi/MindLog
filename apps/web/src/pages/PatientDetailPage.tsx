@@ -251,7 +251,7 @@ const SCALE_COLORS: Record<string, string> = {
   'PHQ-9': '#4a90e2',
   'GAD-7': '#e07a3a',
   'ASRM':  '#9b59b6',
-  'ISI':   '#2ecc71',
+  'ISI':   '#2DD4BF',
   'C-SSRS':'#e74c3c',
   'WHODAS':'#1abc9c',
 };
@@ -357,7 +357,7 @@ function OverviewTab({
           <Badge label={patient.status} color={statusColor} />
           <Badge label={`${patient.risk_level} risk`} color={riskColor} />
           {patient.app_installed && <Badge label="App Installed" color={PRIMARY} />}
-          {patient.onboarding_complete && <Badge label="Onboarded" color="#6a994e" />}
+          {patient.onboarding_complete && <Badge label="Onboarded" color="var(--success)" />}
         </div>
       </div>
 
@@ -376,7 +376,7 @@ function OverviewTab({
         </div>
         <div style={{ marginTop: 14, fontSize: 13, color: SUB }}>
           Last check-in:{' '}
-          <span style={{ color: patient.last_checkin_at ? '#6a994e' : '#4a5568' }}>
+          <span style={{ color: patient.last_checkin_at ? 'var(--success)' : '#4a5568' }}>
             {patient.last_checkin_at ? formatRelative(patient.last_checkin_at) : 'Never'}
           </span>
         </div>
@@ -1072,7 +1072,7 @@ function AlertsTab({
                   {!a.acknowledged_at && (
                     <ActionBtn label="Acknowledge" color="#3182ce" disabled={isBusy} onClick={() => void act(a.id, 'acknowledge')} />
                   )}
-                  <ActionBtn label="Resolve" color="#6a994e" disabled={isBusy} onClick={() => void act(a.id, 'resolve')} />
+                  <ActionBtn label="Resolve" color="var(--success)" disabled={isBusy} onClick={() => void act(a.id, 'resolve')} />
                 </div>
               ) : (
                 <div style={{ color: '#4a5568', fontSize: 12, flexShrink: 0 }}>
@@ -1182,7 +1182,7 @@ function MedicationsTab({
                 <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', fontSize: 12, color: SUB }}>
                   <span>
                     Adherence: {rate !== null ? (
-                      <span style={{ color: rate >= 80 ? '#6a994e' : rate >= 50 ? '#faa307' : '#d62828', fontWeight: 600 }}>
+                      <span style={{ color: rate >= 80 ? 'var(--success)' : rate >= 50 ? '#faa307' : '#d62828', fontWeight: 600 }}>
                         {rate}%
                       </span>
                     ) : 'No logs'}
@@ -1800,7 +1800,7 @@ export function PatientDetailPage() {
 
   // Avatar color based on name hash
   const avatarColor = (() => {
-    const COLORS = ['#2a7ab5','#5a8a6a','#c9972a','#7c6fa0','#2a9d8f','#e05a2a','#2a6db5','#9a5a8a','#4a8a3a','#c04060'];
+    const COLORS = ['#2a7ab5','#5A8A8A','#c9972a','#7c6fa0','#2a9d8f','#e05a2a','#2a6db5','#9a5a8a','#3A8A8A','#c04060'];
     const hash = (patient?.first_name ?? 'P').charCodeAt(0) + (patient?.last_name ?? 'P').charCodeAt(0);
     return COLORS[hash % COLORS.length]!;
   })();

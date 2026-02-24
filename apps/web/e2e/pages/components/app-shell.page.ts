@@ -55,7 +55,7 @@ export class AppShellComponent {
     this.clinicianName = page.locator('.clinician-name');
 
     // Navigation
-    this.populationNav = page.locator('.nav-item:has-text("Population")');
+    this.populationNav = page.locator('.nav-item').filter({ hasText: /Population$/ });
     this.patientsNav = page.locator('.nav-item:has-text("All Patients")');
     this.alertsNav = page.locator('.nav-item:has-text("Alerts")');
     this.trendsNav = page.locator('.nav-item:has-text("Population Trends")');

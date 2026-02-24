@@ -59,7 +59,7 @@ test.describe('Navigation', () => {
     test('should access dashboard directly', async ({ page }) => {
       await page.goto('/dashboard');
       await expect(page).toHaveURL(/\/dashboard/);
-      await expect(page.locator('.metric-card')).toBeVisible();
+      await expect(page.locator('.metric-card').first()).toBeVisible();
     });
 
     test('should access patients directly', async ({ page }) => {
@@ -96,7 +96,7 @@ test.describe('Navigation', () => {
       await expect(page).toHaveURL(/\/patients\?q=smith/);
 
       // Verify search input has the query
-      const searchInput = page.locator('input[placeholder*="Search"]');
+      const searchInput = page.locator('[data-testid="patient-search"]');
       await expect(searchInput).toHaveValue('smith');
     });
 
@@ -196,7 +196,7 @@ test.describe('Navigation', () => {
   test.describe('Active State Indicators', () => {
     test('should highlight active nav item for dashboard', async ({ page }) => {
       await page.goto('/dashboard');
-      const navItem = page.locator('.nav-item:has-text("Population")');
+      const navItem = page.locator('.nav-item').filter({ hasText: /Population$/ });
       await expect(navItem).toHaveClass(/active/);
     });
 

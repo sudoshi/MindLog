@@ -1,0 +1,86 @@
+# =============================================================================
+# CHECKIN-04: Suicidal Ideation Safety Banner
+# Verifies that selecting SI options on the Wellbeing step triggers the
+# safety banner with crisis contact information (988 Lifeline).
+# Tests progressive escalation from passive to frequent thoughts.
+# =============================================================================
+appId: com.mindlog.app
+
+---
+
+# Launch with a clean slate
+- launchApp:
+    clearState: true
+
+# Connect to Metro dev server (Expo Dev Client)
+- runFlow: ../../subflows/connect_dev_server.yaml
+
+# Sign in as demo patient
+- runFlow: ../../subflows/sign_in.yaml
+
+# Tap the check-in CTA on the Today screen
+- tapOn:
+    id: "checkin-cta-btn"
+
+# ── STEP 1: MOOD ────────────────────────────────────────────────────────────
+- extendedWaitUntil:
+    visible:
+      text: "How are you feeling today?"
+    timeout: 8000
+
+# Select a low mood score (3) — typical when SI might be reported
+- tapOn:
+    id: "mood-btn-3"
+
+# Continue to next step
+- tapOn:
+    id: "checkin-continue-btn"
+
+# ── STEP 2: MANIA — skip ────────────────────────────────────────────────────
+- extendedWaitUntil:
+    visible:
+      text: "Energy"
+    timeout: 5000
+- tapOn:
+    id: "checkin-skip-btn"
+
+# ── STEP 3: WELLBEING — Safety Check section ────────────────────────────────
+- extendedWaitUntil:
+    visible:
+      text: "Wellbeing"
+    timeout: 5000
+
+# Scroll down to the Safety Check section at the bottom of wellbeing
+- scrollUntilVisible:
+    element:
+      text: "Safety Check"
+    direction: DOWN
+    timeout: 8000
+
+# Tap SI option 1 (passive thoughts)
+- tapOn:
+    id: "si-option-1"
+
+# Assert the safety banner is now visible at the top
+- extendedWaitUntil:
+    visible:
+      id: "checkin-safety-banner"
+    timeout: 3000
+
+# Verify the 988 crisis number is shown in the banner
+- assertVisible:
+    text: "988"
+
+- takeScreenshot: screenshots/checkin_si_banner
+
+# Escalate: tap SI option 2 (frequent thoughts)
+- tapOn:
+    id: "si-option-2"
+
+# Verify care team notification text is visible
+- extendedWaitUntil:
+    visible:
+      text: "care team"
+    timeout: 3000
+
+- takeScreenshot: screenshots/checkin_si_banner_escalated

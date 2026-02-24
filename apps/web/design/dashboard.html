@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MindLog — Dashboard (Dark Theme)</title>
+  <link rel="stylesheet" href="tokens.css">
+  <style>
+    /* ==========================================================================
+       DASHBOARD SPECIFIC STYLES — Dark Theme
+       ========================================================================== */
+
+    .dashboard {
+      padding: var(--space-6);
+    }
+
+    /* Metric Cards Row */
+    .metric-row {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: var(--space-4);
+      margin-bottom: var(--space-6);
+    }
+
+    .metric-card {
+      background: var(--forest);
+      border: 1px solid var(--forest-accent);
+      border-radius: var(--radius-lg);
+      padding: var(--space-5);
+      position: relative;
+      cursor: pointer;
+      transition: all var(--duration-normal);
+    }
+
+    .metric-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: var(--burgundy);
+      border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    }
+
+    .metric-card:hover {
+      box-shadow: var(--shadow-md), 0 0 20px var(--burgundy-glow);
+      transform: translateY(-2px);
+      border-color: var(--gold-muted);
+    }
+
+    .metric-card.critical::before {
+      background: var(--critical);
+    }
+
+    .metric-card.warning::before {
+      background: var(--warning);
+    }
+
+    .metric-card.success::before {
+      background: var(--success);
+    }
+
+    .metric-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--ivory-soft);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: var(--space-2);
+    }
+
+    .metric-value {
+      font-family: var(--font-display);
+      font-size: 32px;
+      font-weight: 500;
+      color: var(--ivory);
+      line-height: 1;
+      margin-bottom: var(--space-2);
+    }
+
+    .metric-value.critical {
+      color: var(--critical);
+    }
+
+    .metric-value.warning {
+      color: var(--warning);
+    }
+
+    .metric-value.success {
+      color: var(--success);
+    }
+
+    .metric-delta {
+      font-size: 12px;
+      color: var(--ivory-ghost);
+    }
+
+    /* Alert Strip */
+    .alert-strip {
+      display: flex;
+      align-items: center;
+      gap: var(--space-4);
+      padding: var(--space-4) var(--space-5);
+      background: var(--critical-bg);
+      border: 1px solid var(--critical-border);
+      border-left: 4px solid var(--critical);
+      border-radius: var(--radius-lg);
+      margin-bottom: var(--space-6);
+      cursor: pointer;
+      transition: all var(--duration-normal);
+    }
+
+    .alert-strip:hover {
+      box-shadow: 0 0 20px var(--critical-glow);
+    }
+
+    .alert-strip-icon {
+      font-size: 24px;
+    }
+
+    .alert-strip-content {
+      flex: 1;
+    }
+
+    .alert-strip-title {
+      font-weight: 600;
+      color: var(--ivory);
+      margin-bottom: var(--space-1);
+    }
+
+    .alert-strip-meta {
+      font-size: 12px;
+      color: var(--ivory-soft);
+    }
+
+    .alert-strip-action {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--critical);
+    }
+
+    /* Two Column Layout */
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-5);
+    }
+
+    /* Panel Card */
+    .panel {
+      background: var(--forest);
+      border: 1px solid var(--forest-accent);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+    }
+
+    .panel + .panel {
+      margin-top: var(--space-4);
+    }
+
+    .panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding: var(--space-4) var(--space-5);
+      border-bottom: 1px solid var(--forest-accent);
+    }
+
+    .panel-title {
+      font-family: var(--font-heading);
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--ivory);
+    }
+
+    .panel-subtitle {
+      font-size: 12px;
+      color: var(--ivory-soft);
+      margin-top: var(--space-1);
+    }
+
+    .panel-action {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--gold);
+      cursor: pointer;
+    }
+
+    .panel-action:hover {
+      text-decoration: underline;
+    }
+
+    .panel-body {
+      padding: var(--space-4) var(--space-5);
+    }
+
+    /* Mood Heatmap Grid */
+    .mood-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 3px;
+    }
+
+    .mood-cell {
+      width: 18px;
+      height: 18px;
+      border-radius: 3px;
+      cursor: pointer;
+      transition: transform var(--duration-fast);
+    }
+
+    .mood-cell:hover {
+      transform: scale(1.2);
+    }
+
+    .mood-cell.crisis {
+      box-shadow: 0 0 0 2px var(--critical), 0 0 8px var(--critical-glow);
+    }
+
+    /* Mood scale colors */
+    .mood-1 { background: #c0392b; }
+    .mood-2 { background: #e05a2a; }
+    .mood-3 { background: #d08020; }
+    .mood-4 { background: #c9972a; }
+    .mood-5 { background: #C9A227; }
+    .mood-6 { background: #B8A436; }
+    .mood-7 { background: #5BB8A0; }
+    .mood-8 { background: #34B8A8; }
+    .mood-9 { background: #2a7ab5; }
+    .mood-10 { background: #2a5ab5; }
+    .mood-none { background: var(--forest-accent); }
+
+    .mood-legend {
+      display: flex;
+      gap: var(--space-4);
+      margin-top: var(--space-3);
+      flex-wrap: wrap;
+    }
+
+    .mood-legend-item {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      font-size: 10px;
+      color: var(--ivory-soft);
+    }
+
+    .mood-legend-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 2px;
+    }
+
+    /* Mood Distribution Bars */
+    .dist-row {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      padding: var(--space-2) var(--space-5);
+      cursor: pointer;
+      transition: background var(--duration-fast);
+    }
+
+    .dist-row:hover {
+      background: var(--forest-mid);
+    }
+
+    .dist-label {
+      width: 100px;
+      font-size: 12px;
+      color: var(--ivory-mid);
+    }
+
+    .dist-bar-track {
+      flex: 1;
+      height: 8px;
+      background: var(--forest-accent);
+      border-radius: var(--radius-full);
+      overflow: hidden;
+    }
+
+    .dist-bar-fill {
+      height: 100%;
+      border-radius: var(--radius-full);
+      transition: width var(--duration-slow);
+    }
+
+    .dist-value {
+      width: 32px;
+      text-align: right;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--ivory);
+    }
+
+    /* Alert Item */
+    .alert-item {
+      display: flex;
+      gap: var(--space-3);
+      padding: var(--space-3) var(--space-5);
+      cursor: pointer;
+      transition: background var(--duration-fast);
+      border-bottom: 1px solid var(--forest-accent);
+    }
+
+    .alert-item:last-child {
+      border-bottom: none;
+    }
+
+    .alert-item:hover {
+      background: var(--forest-mid);
+    }
+
+    .alert-item-icon {
+      font-size: 18px;
+    }
+
+    .alert-item-content {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .alert-item-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--ivory);
+      margin-bottom: var(--space-1);
+    }
+
+    .alert-item-patient {
+      font-size: 12px;
+      color: var(--gold);
+      margin-bottom: var(--space-1);
+    }
+
+    .alert-item-meta {
+      font-size: 11px;
+      color: var(--ivory-ghost);
+    }
+
+    /* Check-in Activity */
+    .checkin-item {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      padding: var(--space-3) var(--space-5);
+      cursor: pointer;
+      transition: background var(--duration-fast);
+    }
+
+    .checkin-item:hover {
+      background: var(--forest-mid);
+    }
+
+    .checkin-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: var(--radius-md);
+      background: var(--burgundy);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--ivory);
+    }
+
+    .checkin-name {
+      flex: 1;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--ivory);
+    }
+
+    .checkin-mood {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+    }
+
+    .checkin-time {
+      font-size: 11px;
+      color: var(--ivory-ghost);
+      min-width: 60px;
+      text-align: right;
+    }
+
+    /* Empty State */
+    .empty-state {
+      text-align: center;
+      padding: var(--space-10) var(--space-6);
+    }
+
+    .empty-state-icon {
+      font-size: 32px;
+      margin-bottom: var(--space-3);
+    }
+
+    .empty-state-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--ivory);
+      margin-bottom: var(--space-2);
+    }
+
+    .empty-state-text {
+      font-size: 13px;
+      color: var(--ivory-soft);
+    }
+  </style>
+</head>
+<body>
+  <!-- Include shell styles inline for standalone viewing -->
+  <style>
+    .app { display: flex; min-height: 100vh; }
+    .sidebar { width: 260px; background: var(--charcoal); position: fixed; top: 0; left: 0; bottom: 0; z-index: 100; display: flex; flex-direction: column; border-right: 1px solid var(--forest-accent); }
+    .sidebar-brand { padding: var(--space-6); border-bottom: 1px solid var(--forest-accent); }
+    .brand-name { font-family: var(--font-display); font-size: 22px; color: var(--ivory); }
+    .brand-name em { color: var(--gold); font-style: normal; }
+    .brand-tagline { font-size: 11px; color: var(--ivory-soft); text-transform: uppercase; letter-spacing: 0.5px; margin-top: var(--space-2); }
+    .nav-section { padding: var(--space-4); }
+    .nav-section-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; color: var(--ivory-ghost); padding: 0 var(--space-3); margin-bottom: var(--space-2); }
+    .nav-item { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3); border-radius: var(--radius-md); color: var(--ivory-mid); font-size: 13px; cursor: pointer; position: relative; }
+    .nav-item:hover { background: var(--forest); color: var(--ivory); }
+    .nav-item.active { background: var(--burgundy-bg); color: var(--ivory); }
+    .nav-item.active::before { content: ''; position: absolute; left: 0; top: 6px; bottom: 6px; width: 3px; background: var(--burgundy); border-radius: 0 2px 2px 0; }
+    .nav-badge { margin-left: auto; padding: 2px 8px; border-radius: var(--radius-full); font-size: 10px; font-weight: 700; background: var(--forest-accent); }
+    .nav-badge.critical { background: var(--burgundy); color: var(--ivory); box-shadow: 0 0 10px var(--burgundy-glow); }
+    .sidebar-footer { margin-top: auto; padding: var(--space-4); border-top: 1px solid var(--forest-accent); }
+    .btn-signout { width: 100%; padding: var(--space-3); background: transparent; border: 1px solid var(--forest-accent); border-radius: var(--radius-md); color: var(--ivory-mid); font-size: 12px; cursor: pointer; }
+    .main { flex: 1; margin-left: 260px; display: flex; flex-direction: column; }
+    .topbar { height: 60px; background: var(--forest); border-bottom: 1px solid var(--forest-accent); display: flex; align-items: center; padding: 0 var(--space-6); gap: var(--space-4); position: sticky; top: 0; z-index: 50; }
+    .topbar-title-group { flex: 1; }
+    .topbar-title { font-family: var(--font-heading); font-size: 18px; font-weight: 600; color: var(--ivory); }
+    .topbar-subtitle { font-size: 12px; color: var(--ivory-soft); }
+    .search-bar { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-4); background: var(--forest-mid); border: 1px solid var(--forest-accent); border-radius: var(--radius-full); width: 200px; }
+    .search-bar input { border: none; background: transparent; outline: none; font-size: 13px; flex: 1; color: var(--ivory); }
+    .search-bar input::placeholder { color: var(--ivory-ghost); }
+    .topbar-btn { padding: var(--space-2) var(--space-4); background: var(--forest-mid); border: 1px solid var(--forest-accent); border-radius: var(--radius-md); font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: var(--space-2); color: var(--ivory-mid); }
+    .topbar-btn.primary { background: var(--burgundy); border-color: var(--burgundy); color: var(--ivory); box-shadow: var(--shadow-burgundy); }
+    .content { flex: 1; background: var(--forest-dark); }
+  </style>
+
+  <div class="app">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-name">Mind<em>Log</em></div>
+        <div class="brand-tagline">Clinical Intelligence</div>
+      </div>
+      <div class="nav-section">
+        <div class="nav-section-label">Overview</div>
+        <div class="nav-item active"><span>📊</span> Population</div>
+        <div class="nav-item"><span>👥</span> All Patients <span class="nav-badge">146</span></div>
+        <div class="nav-item"><span>🔔</span> Alerts <span class="nav-badge critical">12</span></div>
+      </div>
+      <div class="nav-section">
+        <div class="nav-section-label">Clinical Tools</div>
+        <div class="nav-item"><span>📈</span> Population Trends</div>
+        <div class="nav-item"><span>📄</span> Reports</div>
+      </div>
+      <div class="sidebar-footer">
+        <button class="btn-signout">⏻ Sign Out</button>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <div class="main">
+      <header class="topbar">
+        <div class="topbar-title-group">
+          <div class="topbar-title">Population Overview</div>
+          <div class="topbar-subtitle">Monday, February 24, 2026 · 146 patients</div>
+        </div>
+        <div class="search-bar">
+          <span>🔍</span>
+          <input type="text" placeholder="Search patients...">
+        </div>
+        <button class="topbar-btn primary">12 Critical Alerts</button>
+        <button class="topbar-btn">✏️ Note</button>
+      </header>
+
+      <main class="content">
+        <div class="dashboard">
+          <!-- Metric Cards -->
+          <div class="metric-row">
+            <div class="metric-card critical">
+              <div class="metric-label">Critical Alerts</div>
+              <div class="metric-value critical">12</div>
+              <div class="metric-delta">Requires review</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-label">Active Today</div>
+              <div class="metric-value">121 / 146</div>
+              <div class="metric-delta">of 146 patients logged</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-label">Avg Mood</div>
+              <div class="metric-value">7.8</div>
+              <div class="metric-delta">Today's caseload</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-label">Avg Sleep</div>
+              <div class="metric-value">6.2h</div>
+              <div class="metric-delta">Last 7 days</div>
+            </div>
+            <div class="metric-card success">
+              <div class="metric-label">Check-In Rate</div>
+              <div class="metric-value success">83%</div>
+              <div class="metric-delta">Today</div>
+            </div>
+          </div>
+
+          <!-- Alert Strip -->
+          <div class="alert-strip">
+            <div class="alert-strip-icon">⚠️</div>
+            <div class="alert-strip-content">
+              <div class="alert-strip-title">Anthony Walker reported suicidal ideation</div>
+              <div class="alert-strip-meta">safety_symptom_present · 2h ago · Anthony Walker</div>
+            </div>
+            <div class="alert-strip-action">Review Now →</div>
+          </div>
+
+          <!-- Two Column Layout -->
+          <div class="two-col">
+            <!-- Left Column -->
+            <div>
+              <!-- Mood Heatmap -->
+              <div class="panel">
+                <div class="panel-header">
+                  <div>
+                    <div class="panel-title">Today's Mood — Caseload</div>
+                    <div class="panel-subtitle">One cell per patient · Border = crisis</div>
+                  </div>
+                  <div class="panel-action">All patients →</div>
+                </div>
+                <div class="panel-body">
+                  <div class="mood-grid">
+                    <!-- Sample mood cells -->
+                    <div class="mood-cell mood-8"></div>
+                    <div class="mood-cell mood-7"></div>
+                    <div class="mood-cell mood-9"></div>
+                    <div class="mood-cell mood-6"></div>
+                    <div class="mood-cell mood-4 crisis"></div>
+                    <div class="mood-cell mood-10"></div>
+                    <div class="mood-cell mood-8"></div>
+                    <div class="mood-cell mood-none"></div>
+                    <div class="mood-cell mood-7"></div>
+                    <div class="mood-cell mood-9"></div>
+                    <div class="mood-cell mood-5"></div>
+                    <div class="mood-cell mood-3 crisis"></div>
+                    <div class="mood-cell mood-8"></div>
+                    <div class="mood-cell mood-6"></div>
+                    <div class="mood-cell mood-none"></div>
+                    <div class="mood-cell mood-7"></div>
+                    <div class="mood-cell mood-9"></div>
+                    <div class="mood-cell mood-8"></div>
+                    <div class="mood-cell mood-10"></div>
+                    <div class="mood-cell mood-7"></div>
+                    <div class="mood-cell mood-6"></div>
+                    <div class="mood-cell mood-8"></div>
+                    <div class="mood-cell mood-none"></div>
+                    <div class="mood-cell mood-9"></div>
+                    <div class="mood-cell mood-7"></div>
+                    <div class="mood-cell mood-8"></div>
+                    <div class="mood-cell mood-5"></div>
+                    <div class="mood-cell mood-none"></div>
+                    <div class="mood-cell mood-10"></div>
+                    <div class="mood-cell mood-9"></div>
+                  </div>
+                  <div class="mood-legend">
+                    <div class="mood-legend-item"><div class="mood-legend-dot mood-1"></div>1</div>
+                    <div class="mood-legend-item"><div class="mood-legend-dot mood-3"></div>3</div>
+                    <div class="mood-legend-item"><div class="mood-legend-dot mood-5"></div>5</div>
+                    <div class="mood-legend-item"><div class="mood-legend-dot mood-7"></div>7</div>
+                    <div class="mood-legend-item"><div class="mood-legend-dot mood-9"></div>9</div>
+                    <div class="mood-legend-item"><div class="mood-legend-dot mood-none"></div>Not logged</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Mood Distribution -->
+              <div class="panel">
+                <div class="panel-header">
+                  <div>
+                    <div class="panel-title">Mood Distribution — Today</div>
+                    <div class="panel-subtitle">Reported by 121 patients</div>
+                  </div>
+                </div>
+                <div style="padding: var(--space-2) 0;">
+                  <div class="dist-row">
+                    <div class="dist-label">High (8–10)</div>
+                    <div class="dist-bar-track">
+                      <div class="dist-bar-fill mood-9" style="width: 65%;"></div>
+                    </div>
+                    <div class="dist-value">78</div>
+                  </div>
+                  <div class="dist-row">
+                    <div class="dist-label">Good (6–7)</div>
+                    <div class="dist-bar-track">
+                      <div class="dist-bar-fill mood-7" style="width: 15%;"></div>
+                    </div>
+                    <div class="dist-value">18</div>
+                  </div>
+                  <div class="dist-row">
+                    <div class="dist-label">Moderate (4–5)</div>
+                    <div class="dist-bar-track">
+                      <div class="dist-bar-fill mood-5" style="width: 17%;"></div>
+                    </div>
+                    <div class="dist-value">20</div>
+                  </div>
+                  <div class="dist-row">
+                    <div class="dist-label">Low (1–3)</div>
+                    <div class="dist-bar-track">
+                      <div class="dist-bar-fill mood-2" style="width: 4%;"></div>
+                    </div>
+                    <div class="dist-value">5</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Right Column -->
+            <div>
+              <!-- Active Alerts -->
+              <div class="panel">
+                <div class="panel-header">
+                  <div>
+                    <div class="panel-title">Active Alerts</div>
+                    <div class="panel-subtitle">Requires your attention</div>
+                  </div>
+                  <div class="panel-action">All →</div>
+                </div>
+                <div class="alert-item">
+                  <div class="alert-item-icon">🚨</div>
+                  <div class="alert-item-content">
+                    <div class="alert-item-title">Anthony Walker reported suicidal ideation</div>
+                    <div class="alert-item-patient">Anthony Walker</div>
+                    <div class="alert-item-meta">safety_symptom_present · 2h ago</div>
+                  </div>
+                </div>
+                <div class="alert-item">
+                  <div class="alert-item-icon">🚨</div>
+                  <div class="alert-item-content">
+                    <div class="alert-item-title">Betty King reported suicidal ideation</div>
+                    <div class="alert-item-patient">Betty King</div>
+                    <div class="alert-item-meta">safety_symptom_present · 3h ago</div>
+                  </div>
+                </div>
+                <div class="alert-item">
+                  <div class="alert-item-icon">🚨</div>
+                  <div class="alert-item-content">
+                    <div class="alert-item-title">Critical mood score reported</div>
+                    <div class="alert-item-patient">Christopher Lewis</div>
+                    <div class="alert-item-meta">SIM-SAFETY-001 · 4h ago</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Check-In Activity -->
+              <div class="panel">
+                <div class="panel-header">
+                  <div>
+                    <div class="panel-title">Check-In Activity</div>
+                    <div class="panel-subtitle">8 logged · 25 pending</div>
+                  </div>
+                </div>
+                <div class="checkin-item">
+                  <div class="checkin-avatar">BM</div>
+                  <div class="checkin-name">Moore, Barbara</div>
+                  <div class="checkin-mood mood-9"></div>
+                  <div class="checkin-time">just now</div>
+                </div>
+                <div class="checkin-item">
+                  <div class="checkin-avatar" style="background: var(--gold);">TH</div>
+                  <div class="checkin-name">Harris, Thomas</div>
+                  <div class="checkin-mood mood-9"></div>
+                  <div class="checkin-time">2m ago</div>
+                </div>
+                <div class="checkin-item">
+                  <div class="checkin-avatar" style="background: #2a7ab5;">RG</div>
+                  <div class="checkin-name">Gonzalez, Robert</div>
+                  <div class="checkin-mood mood-4"></div>
+                  <div class="checkin-time">5m ago</div>
+                </div>
+                <div class="checkin-item">
+                  <div class="checkin-avatar" style="background: #5A8A8A;">LS</div>
+                  <div class="checkin-name">Sanchez, Lisa</div>
+                  <div class="checkin-mood mood-10"></div>
+                  <div class="checkin-time">8m ago</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+</body>
+</html>

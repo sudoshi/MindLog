@@ -1,0 +1,47 @@
+# =============================================================================
+# ONBOARDING-03: Invite Code Validation — Invalid Code
+# Verifies that entering a bogus invite code triggers a validation error
+# indicating the code is invalid or expired. MindLog uses invite-only
+# registration, so every patient must have a valid clinician-issued code.
+# =============================================================================
+appId: com.mindlog.app
+
+---
+
+# Launch with a clean slate
+- launchApp:
+    clearState: true
+
+# Connect to Metro dev server (Expo Dev Client)
+- runFlow: ../../subflows/connect_dev_server.yaml
+
+# Wait for onboarding screen
+- extendedWaitUntil:
+    visible:
+      text: "MindLog"
+    timeout: 10000
+
+# Switch to the Register tab
+- tapOn:
+    id: "tab-register"
+
+# Enter an invalid invite code
+- tapOn:
+    id: "invite-code-input"
+- inputText: "INVALID_CODE_123"
+
+# Tap elsewhere to blur the input and trigger validation
+- tapOn:
+    text: "First Name"
+
+# Wait for async validation against the API
+- extendedWaitUntil:
+    visible:
+      text: "Invalid|expired"
+    timeout: 3000
+
+# Confirm the error message is visible
+- assertVisible:
+    text: "Invalid|expired"
+
+- takeScreenshot: screenshots/onboarding_invite_invalid

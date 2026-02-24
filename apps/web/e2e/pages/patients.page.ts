@@ -52,7 +52,7 @@ export class PatientsPage {
     this.streakFilterChip = page.locator('.filter-chip:has-text("Streak")');
 
     // Search and sort
-    this.searchInput = page.locator('input[placeholder*="Search"]');
+    this.searchInput = page.locator('[data-testid="patient-search"]');
     this.sortSelect = page.locator('.sort-select');
 
     // Table

@@ -1,0 +1,10 @@
+# =============================================================================
+# Subflow: Dismiss Expo developer menu modal
+# Taps "Continue" to dismiss the first-launch developer menu.
+# =============================================================================
+appId: com.mindlog.app
+
+---
+
+- tapOn:
+    text: "Continue"

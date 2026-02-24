@@ -64,7 +64,7 @@ function StatCard({
   valueColor?: string | undefined;
 }) {
   return (
-    <View style={statStyles.card}>
+    <View testID={`stat-${label.toLowerCase()}`} style={statStyles.card}>
       <View style={[statStyles.iconCircle, { backgroundColor: iconBg }]}>
         <Text style={statStyles.iconText}>{icon}</Text>
       </View>
@@ -317,6 +317,7 @@ export default function TodayScreen() {
                 return (
                   <Animated.View key={score} style={{ transform: [{ scale: scaleAnims[i]! }] }}>
                     <TouchableOpacity
+                      testID={`quick-mood-${score}`}
                       style={[
                         styles.quickMoodBtn,
                         isSelected && { borderColor: color, borderWidth: 2, backgroundColor: color + '22' },
@@ -372,6 +373,7 @@ export default function TodayScreen() {
           <Text style={styles.progressLabel}>{entry?.completion_pct ?? 0}% complete</Text>
 
           <TouchableOpacity
+            testID="checkin-cta-btn"
             style={[styles.ctaBtn, ctaDone ? styles.ctaBtnDone : null]}
             onPress={() => router.push('/checkin')}
             disabled={ctaDone}
@@ -407,6 +409,7 @@ export default function TodayScreen() {
         {/* Medication reminders */}
         {(medsLoading || meds.length > 0) && (
           <TouchableOpacity
+            testID="today-med-card"
             style={styles.medCard}
             onPress={() => router.push('/medications')}
             activeOpacity={0.8}
@@ -450,6 +453,7 @@ export default function TodayScreen() {
         {pendingAssessments.slice(0, 2).map((a) => (
           <TouchableOpacity
             key={a.scale}
+            testID={`assessment-banner-${a.scale}`}
             style={styles.assessmentBanner}
             onPress={() => router.push({ pathname: '/assessments/[scale]', params: { scale: a.scale } })}
             activeOpacity={0.8}
@@ -520,7 +524,7 @@ export default function TodayScreen() {
         )}
 
         {/* Safety card (always visible — SAF-002) */}
-        <View style={styles.safetyCard}>
+        <View testID="today-safety-card" style={styles.safetyCard}>
           <Text style={styles.safetyTitle}>Need immediate support?</Text>
           <Text style={styles.safetyLine}>📞 {CRISIS_CONTACTS.LIFELINE.name}</Text>
           <Text style={styles.safetyHighlight}>Call or text {CRISIS_CONTACTS.LIFELINE.phone}</Text>

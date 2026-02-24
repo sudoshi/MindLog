@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MindLog — Population Trends (Dark Theme)</title>
+  <link rel="stylesheet" href="tokens.css">
+  <style>
+    /* ==========================================================================
+       TRENDS PAGE — Dark Theme
+       ========================================================================== */
+
+    .trends-page {
+      padding: var(--space-6);
+      background: var(--forest-dark);
+      min-height: 100vh;
+    }
+
+    /* ==========================================================================
+       CHARTS
+       ========================================================================== */
+
+    .chart-panel {
+      background: var(--forest);
+      border: 1px solid var(--forest-accent);
+      border-radius: var(--radius-lg);
+      padding: var(--space-5);
+      margin-bottom: var(--space-5);
+    }
+
+    .panel-header {
+      margin-bottom: var(--space-4);
+    }
+
+    .panel-title {
+      font-family: var(--font-heading);
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--ivory);
+      margin: 0;
+    }
+
+    .panel-subtitle {
+      font-size: 12px;
+      color: var(--ivory-soft);
+      margin-top: 2px;
+    }
+
+    .chart-area {
+      height: 240px;
+      background: var(--forest-mid);
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .chart-placeholder {
+      text-align: center;
+      color: var(--ivory-soft);
+    }
+
+    .chart-placeholder-icon {
+      font-size: 32px;
+      margin-bottom: var(--space-2);
+    }
+
+    .chart-legend {
+      display: flex;
+      gap: var(--space-4);
+      margin-top: var(--space-3);
+      padding-top: var(--space-3);
+      border-top: 1px solid var(--forest-accent);
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      font-size: 12px;
+      color: var(--ivory-soft);
+    }
+
+    .legend-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 2px;
+    }
+
+    .legend-dot.burgundy { background: var(--burgundy); }
+    .legend-dot.gold { background: var(--gold); }
+    .legend-dot.info { background: var(--info); }
+    .legend-dot.success { background: var(--success); }
+
+    /* ==========================================================================
+       TWO COLUMN LAYOUT
+       ========================================================================== */
+
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-5);
+    }
+
+    /* ==========================================================================
+       DISTRIBUTION PANELS
+       ========================================================================== */
+
+    .distribution-panel {
+      background: var(--forest);
+      border: 1px solid var(--forest-accent);
+      border-radius: var(--radius-lg);
+      padding: var(--space-5);
+    }
+
+    .bar-chart {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-3);
+    }
+
+    .bar-row {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+    }
+
+    .bar-label {
+      width: 80px;
+      font-size: 12px;
+      color: var(--ivory-soft);
+      flex-shrink: 0;
+    }
+
+    .bar-track {
+      flex: 1;
+      height: 24px;
+      background: var(--forest-mid);
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      border-radius: var(--radius-sm);
+      transition: width 0.5s ease;
+    }
+
+    .bar-fill.low { background: var(--success); }
+    .bar-fill.moderate { background: var(--gold); }
+    .bar-fill.high { background: var(--warning); }
+    .bar-fill.critical { background: var(--critical); }
+
+    .bar-fill.mood-1 { background: hsl(0, 75%, 55%); }
+    .bar-fill.mood-2 { background: hsl(13, 75%, 55%); }
+    .bar-fill.mood-3 { background: hsl(27, 75%, 55%); }
+    .bar-fill.mood-4 { background: hsl(40, 75%, 55%); }
+    .bar-fill.mood-5 { background: hsl(53, 75%, 55%); }
+    .bar-fill.mood-6 { background: hsl(67, 75%, 55%); }
+    .bar-fill.mood-7 { background: #5BB8A0; }
+    .bar-fill.mood-8 { background: #34B8A8; }
+    .bar-fill.mood-9 { background: #2BB5C4; }
+    .bar-fill.mood-10 { background: #2DD4BF; }
+
+    .bar-value {
+      width: 50px;
+      text-align: right;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--ivory);
+      flex-shrink: 0;
+    }
+
+    /* ==========================================================================
+       METRICS ROW
+       ========================================================================== */
+
+    .metrics-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: var(--space-4);
+      margin-bottom: var(--space-5);
+    }
+
+    .metric-card {
+      background: var(--forest);
+      border: 1px solid var(--forest-accent);
+      border-radius: var(--radius-lg);
+      padding: var(--space-4) var(--space-5);
+      border-top: 3px solid var(--burgundy);
+    }
+
+    .metric-value {
+      font-size: 32px;
+      font-weight: 700;
+      color: var(--ivory);
+      line-height: 1;
+    }
+
+    .metric-label {
+      font-size: 12px;
+      color: var(--ivory-soft);
+      margin-top: var(--space-2);
+    }
+
+    .metric-trend {
+      font-size: 11px;
+      margin-top: var(--space-1);
+    }
+
+    .metric-trend.up { color: var(--success); }
+    .metric-trend.down { color: var(--critical); }
+    .metric-trend.neutral { color: var(--ivory-soft); }
+
+    /* ==========================================================================
+       STREAK DISTRIBUTION
+       ========================================================================== */
+
+    .streak-bars {
+      display: flex;
+      gap: 3px;
+      height: 120px;
+      align-items: flex-end;
+    }
+
+    .streak-bar {
+      flex: 1;
+      background: var(--burgundy);
+      border-radius: var(--radius-xs) var(--radius-xs) 0 0;
+      min-height: 4px;
+      transition: height 0.5s ease;
+    }
+
+    .streak-bar:hover {
+      background: var(--burgundy-light);
+      box-shadow: 0 0 10px var(--burgundy-glow);
+    }
+
+    .streak-labels {
+      display: flex;
+      justify-content: space-between;
+      margin-top: var(--space-2);
+      font-size: 10px;
+      color: var(--ivory-soft);
+    }
+
+    /* ==========================================================================
+       HEATMAP
+       ========================================================================== */
+
+    .heatmap-panel {
+      background: var(--forest);
+      border: 1px solid var(--forest-accent);
+      border-radius: var(--radius-lg);
+      padding: var(--space-5);
+    }
+
+    .heatmap-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 4px;
+    }
+
+    .heatmap-day-label {
+      text-align: center;
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--ivory-soft);
+      padding-bottom: var(--space-2);
+    }
+
+    .heatmap-cell {
+      aspect-ratio: 1;
+      border-radius: var(--radius-xs);
+      background: var(--forest-accent);
+    }
+
+    .heatmap-cell.level-1 { background: hsl(0, 60%, 40%); }
+    .heatmap-cell.level-2 { background: hsl(30, 60%, 45%); }
+    .heatmap-cell.level-3 { background: hsl(50, 65%, 50%); }
+    .heatmap-cell.level-4 { background: #3BA89E; }
+    .heatmap-cell.level-5 { background: #2BB5C4; }
+
+    .heatmap-legend {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      margin-top: var(--space-3);
+      justify-content: flex-end;
+      font-size: 10px;
+      color: var(--ivory-soft);
+    }
+
+    .heatmap-legend-scale {
+      display: flex;
+      gap: 2px;
+    }
+
+    .heatmap-legend-cell {
+      width: 12px;
+      height: 12px;
+      border-radius: 2px;
+    }
+  </style>
+</head>
+<body>
+  <main class="trends-page">
+    <!-- Metrics Row -->
+    <div class="metrics-row">
+      <div class="metric-card">
+        <div class="metric-value">6.8</div>
+        <div class="metric-label">Avg. Population Mood</div>
+        <div class="metric-trend up">+0.3 vs last week</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">78%</div>
+        <div class="metric-label">Check-in Rate</div>
+        <div class="metric-trend up">+5% vs last week</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">3</div>
+        <div class="metric-label">Patients in Crisis</div>
+        <div class="metric-trend down">-1 vs last week</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">12</div>
+        <div class="metric-label">Critical Alerts</div>
+        <div class="metric-trend neutral">Same as last week</div>
+      </div>
+    </div>
+
+    <!-- 30-Day Mood Trend Chart -->
+    <div class="chart-panel">
+      <div class="panel-header">
+        <h2 class="panel-title">30-Day Mood Trend</h2>
+        <p class="panel-subtitle">Population average from nightly snapshots</p>
+      </div>
+      <div class="chart-area">
+        <div class="chart-placeholder">
+          <div class="chart-placeholder-icon">📈</div>
+          <div>Line chart: Mood (burgundy) + Check-in Rate (gold)</div>
+        </div>
+      </div>
+      <div class="chart-legend">
+        <div class="legend-item">
+          <div class="legend-dot burgundy"></div>
+          <span>Avg Mood (1-10)</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot gold"></div>
+          <span>Check-in Rate (%)</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Two Column: Risk & Mood Distribution -->
+    <div class="two-col">
+      <!-- Risk Distribution -->
+      <div class="distribution-panel">
+        <div class="panel-header">
+          <h2 class="panel-title">Risk Level Distribution</h2>
+          <p class="panel-subtitle">Current patient caseload by risk</p>
+        </div>
+        <div class="bar-chart">
+          <div class="bar-row">
+            <span class="bar-label">Low</span>
+            <div class="bar-track">
+              <div class="bar-fill low" style="width: 45%;"></div>
+            </div>
+            <span class="bar-value">66</span>
+          </div>
+          <div class="bar-row">
+            <span class="bar-label">Moderate</span>
+            <div class="bar-track">
+              <div class="bar-fill moderate" style="width: 30%;"></div>
+            </div>
+            <span class="bar-value">44</span>
+          </div>
+          <div class="bar-row">
+            <span class="bar-label">High</span>
+            <div class="bar-track">
+              <div class="bar-fill high" style="width: 18%;"></div>
+            </div>
+            <span class="bar-value">26</span>
+          </div>
+          <div class="bar-row">
+            <span class="bar-label">Critical</span>
+            <div class="bar-track">
+              <div class="bar-fill critical" style="width: 7%;"></div>
+            </div>
+            <span class="bar-value">10</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mood Distribution -->
+      <div class="distribution-panel">
+        <div class="panel-header">
+          <h2 class="panel-title">Today's Mood Distribution</h2>
+          <p class="panel-subtitle">Patients who checked in today</p>
+        </div>
+        <div class="bar-chart">
+          <div class="bar-row">
+            <span class="bar-label">1-2</span>
+            <div class="bar-track">
+              <div class="bar-fill mood-2" style="width: 5%;"></div>
+            </div>
+            <span class="bar-value">4</span>
+          </div>
+          <div class="bar-row">
+            <span class="bar-label">3-4</span>
+            <div class="bar-track">
+              <div class="bar-fill mood-4" style="width: 15%;"></div>
+            </div>
+            <span class="bar-value">12</span>
+          </div>
+          <div class="bar-row">
+            <span class="bar-label">5-6</span>
+            <div class="bar-track">
+              <div class="bar-fill mood-6" style="width: 35%;"></div>
+            </div>
+            <span class="bar-value">28</span>
+          </div>
+          <div class="bar-row">
+            <span class="bar-label">7-8</span>
+            <div class="bar-track">
+              <div class="bar-fill mood-8" style="width: 32%;"></div>
+            </div>
+            <span class="bar-value">26</span>
+          </div>
+          <div class="bar-row">
+            <span class="bar-label">9-10</span>
+            <div class="bar-track">
+              <div class="bar-fill mood-10" style="width: 13%;"></div>
+            </div>
+            <span class="bar-value">10</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Two Column: Streak & Check-in Heatmap -->
+    <div class="two-col" style="margin-top: var(--space-5);">
+      <!-- Streak Distribution -->
+      <div class="distribution-panel">
+        <div class="panel-header">
+          <h2 class="panel-title">Tracking Streak Distribution</h2>
+          <p class="panel-subtitle">Consecutive days of check-ins</p>
+        </div>
+        <div class="streak-bars">
+          <div class="streak-bar" style="height: 40%;"></div>
+          <div class="streak-bar" style="height: 55%;"></div>
+          <div class="streak-bar" style="height: 70%;"></div>
+          <div class="streak-bar" style="height: 85%;"></div>
+          <div class="streak-bar" style="height: 100%;"></div>
+          <div class="streak-bar" style="height: 75%;"></div>
+          <div class="streak-bar" style="height: 60%;"></div>
+          <div class="streak-bar" style="height: 45%;"></div>
+          <div class="streak-bar" style="height: 30%;"></div>
+          <div class="streak-bar" style="height: 20%;"></div>
+          <div class="streak-bar" style="height: 15%;"></div>
+          <div class="streak-bar" style="height: 10%;"></div>
+          <div class="streak-bar" style="height: 8%;"></div>
+          <div class="streak-bar" style="height: 5%;"></div>
+        </div>
+        <div class="streak-labels">
+          <span>0 days</span>
+          <span>7 days</span>
+          <span>14+ days</span>
+        </div>
+      </div>
+
+      <!-- Weekly Check-in Heatmap -->
+      <div class="heatmap-panel">
+        <div class="panel-header">
+          <h2 class="panel-title">Weekly Check-in Heatmap</h2>
+          <p class="panel-subtitle">Population check-in rates by day (last 4 weeks)</p>
+        </div>
+        <div class="heatmap-grid">
+          <!-- Day labels -->
+          <div class="heatmap-day-label">Mon</div>
+          <div class="heatmap-day-label">Tue</div>
+          <div class="heatmap-day-label">Wed</div>
+          <div class="heatmap-day-label">Thu</div>
+          <div class="heatmap-day-label">Fri</div>
+          <div class="heatmap-day-label">Sat</div>
+          <div class="heatmap-day-label">Sun</div>
+          <!-- Week 1 -->
+          <div class="heatmap-cell level-4"></div>
+          <div class="heatmap-cell level-5"></div>
+          <div class="heatmap-cell level-4"></div>
+          <div class="heatmap-cell level-3"></div>
+          <div class="heatmap-cell level-4"></div>
+          <div class="heatmap-cell level-2"></div>
+          <div class="heatmap-cell level-2"></div>
+          <!-- Week 2 -->
+          <div class="heatmap-cell level-5"></div>
+          <div class="heatmap-cell level-4"></div>
+          <div class="heatmap-cell level-5"></div>
+          <div class="heatmap-cell level-4"></div>
+          <div class="heatmap-cell level-3"></div>
+          <div class="heatmap-cell level-1"></div>
+          <div class="heatmap-cell level-2"></div>
+          <!-- Week 3 -->
+          <div class="heatmap-cell level-3"></div>
+          <div class="heatmap-cell level-4"></div>
+          <div class="heatmap-cell level-4"></div>
+          <div class="heatmap-cell level-5"></div>
+          <div class="heatmap-cell level-4"></div>
+          <div class="heatmap-cell level-2"></div>
+          <div class="heatmap-cell level-1"></div>
+          <!-- Week 4 -->
+          <div class="heatmap-cell level-4"></div>
+          <div class="heatmap-cell level-5"></div>
+          <div class="heatmap-cell level-3"></div>
+          <div class="heatmap-cell level-4"></div>
+          <div class="heatmap-cell level-5"></div>
+          <div class="heatmap-cell level-3"></div>
+          <div class="heatmap-cell level-2"></div>
+        </div>
+        <div class="heatmap-legend">
+          <span>Less</span>
+          <div class="heatmap-legend-scale">
+            <div class="heatmap-legend-cell" style="background: var(--forest-accent);"></div>
+            <div class="heatmap-legend-cell level-1"></div>
+            <div class="heatmap-legend-cell level-2"></div>
+            <div class="heatmap-legend-cell level-3"></div>
+            <div class="heatmap-legend-cell level-4"></div>
+            <div class="heatmap-legend-cell level-5"></div>
+          </div>
+          <span>More</span>
+        </div>
+      </div>
+    </div>
+  </main>
+</body>
+</html>

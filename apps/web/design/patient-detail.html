@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MindLog — Patient Detail (Dark Theme)</title>
+  <link rel="stylesheet" href="tokens.css">
+  <style>
+    /* ==========================================================================
+       PATIENT DETAIL PAGE — Dark Theme
+       ========================================================================== */
+
+    .patient-detail {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      background: var(--forest-dark);
+    }
+
+    /* ==========================================================================
+       PATIENT HEADER
+       ========================================================================== */
+
+    .patient-header {
+      background: var(--forest);
+      border-bottom: 1px solid var(--forest-accent);
+      padding: var(--space-6);
+      display: flex;
+      gap: var(--space-5);
+      align-items: flex-start;
+    }
+
+    .patient-avatar {
+      width: 72px;
+      height: 72px;
+      border-radius: var(--radius-lg);
+      background: var(--burgundy);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--ivory);
+      flex-shrink: 0;
+      box-shadow: var(--shadow-burgundy);
+    }
+
+    .patient-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .patient-name-row {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      margin-bottom: var(--space-2);
+    }
+
+    .patient-name {
+      font-family: var(--font-heading);
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--ivory);
+      margin: 0;
+    }
+
+    .patient-preferred {
+      font-size: 14px;
+      color: var(--ivory-soft);
+      font-weight: 400;
+    }
+
+    .patient-badges {
+      display: flex;
+      gap: var(--space-2);
+      margin-bottom: var(--space-3);
+    }
+
+    .badge {
+      padding: 3px 10px;
+      border-radius: var(--radius-sm);
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: capitalize;
+    }
+
+    .badge.active {
+      background: var(--success-bg);
+      color: var(--success);
+      border: 1px solid var(--success-border);
+    }
+
+    .badge.crisis {
+      background: var(--critical-bg);
+      color: var(--critical);
+      border: 1px solid var(--critical-border);
+    }
+
+    .badge.risk-high {
+      background: var(--warning-bg);
+      color: var(--warning);
+      border: 1px solid var(--warning-border);
+    }
+
+    .badge.risk-low {
+      background: var(--success-bg);
+      color: var(--success);
+      border: 1px solid var(--success-border);
+    }
+
+    .badge.alerts {
+      background: var(--critical-bg);
+      color: var(--critical);
+      border: 1px solid var(--critical-border);
+    }
+
+    .patient-chips {
+      display: flex;
+      gap: var(--space-3);
+      flex-wrap: wrap;
+      margin-bottom: var(--space-4);
+    }
+
+    .chip {
+      font-size: 12px;
+      color: var(--ivory-soft);
+      background: var(--forest-mid);
+      padding: var(--space-1) var(--space-3);
+      border-radius: var(--radius-full);
+    }
+
+    .patient-actions {
+      display: flex;
+      gap: var(--space-3);
+      align-items: center;
+    }
+
+    .status-select {
+      padding: var(--space-2) var(--space-3);
+      background: var(--forest-mid);
+      border: 1px solid var(--forest-accent);
+      border-radius: var(--radius-md);
+      font-size: 13px;
+      color: var(--ivory-mid);
+      cursor: pointer;
+    }
+
+    .status-select:focus {
+      outline: none;
+      border-color: var(--gold);
+    }
+
+    .header-btn {
+      padding: var(--space-2) var(--space-4);
+      border-radius: var(--radius-md);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all var(--duration-fast);
+    }
+
+    .header-btn.primary {
+      background: var(--burgundy);
+      border: none;
+      color: var(--ivory);
+      box-shadow: var(--shadow-burgundy);
+    }
+
+    .header-btn.primary:hover {
+      background: var(--burgundy-light);
+    }
+
+    .header-btn.secondary {
+      background: var(--forest-mid);
+      border: 1px solid var(--forest-accent);
+      color: var(--ivory-mid);
+    }
+
+    .header-btn.secondary:hover {
+      background: var(--forest-light);
+      border-color: var(--gold-muted);
+      color: var(--ivory);
+    }
+
+    /* ==========================================================================
+       TAB BAR
+       ========================================================================== */
+
+    .tab-bar {
+      display: flex;
+      gap: 0;
+      background: var(--forest);
+      border-bottom: 1px solid var(--forest-accent);
+      padding: 0 var(--space-6);
+    }
+
+    .tab {
+      padding: var(--space-4) var(--space-5);
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--ivory-soft);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      transition: all var(--duration-fast);
+    }
+
+    .tab:hover {
+      color: var(--ivory);
+    }
+
+    .tab.active {
+      color: var(--gold);
+      border-bottom-color: var(--gold);
+      font-weight: 600;
+    }
+
+    .tab .count {
+      background: var(--forest-accent);
+      color: var(--ivory-soft);
+      padding: 1px 6px;
+      border-radius: var(--radius-full);
+      font-size: 10px;
+      margin-left: var(--space-2);
+    }
+
+    .tab.active .count {
+      background: var(--gold-pale);
+      color: var(--gold);
+    }
+
+    /* ==========================================================================
+       TAB CONTENT
+       ========================================================================== */
+
+    .tab-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: var(--space-6);
+      background: var(--forest-dark);
+    }
+
+    /* Overview Tab */
+    .overview-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-5);
+    }
+
+    .overview-card {
+      background: var(--forest);
+      border: 1px solid var(--forest-accent);
+      border-radius: var(--radius-lg);
+      padding: var(--space-5);
+    }
+
+    .overview-card.full-width {
+      grid-column: span 2;
+    }
+
+    .card-title {
+      font-family: var(--font-heading);
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--ivory-mid);
+      margin: 0 0 var(--space-4);
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+
+    .info-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-4);
+    }
+
+    .info-item dt {
+      font-size: 11px;
+      color: var(--ivory-soft);
+      margin-bottom: 2px;
+    }
+
+    .info-item dd {
+      font-size: 13px;
+      color: var(--ivory);
+      margin: 0;
+    }
+
+    .stat-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-4);
+    }
+
+    .stat-cell {
+      background: var(--forest-mid);
+      border-radius: var(--radius-md);
+      padding: var(--space-4);
+      text-align: center;
+    }
+
+    .stat-value {
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--burgundy-light);
+    }
+
+    .stat-value.gold {
+      color: var(--gold);
+    }
+
+    .stat-label {
+      font-size: 11px;
+      color: var(--ivory-soft);
+      margin-top: var(--space-1);
+    }
+
+    .care-team-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: var(--space-3);
+    }
+
+    .care-member {
+      background: var(--forest-mid);
+      border-radius: var(--radius-md);
+      padding: var(--space-4);
+    }
+
+    .care-member-name {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--ivory);
+    }
+
+    .care-member-email {
+      font-size: 12px;
+      color: var(--ivory-soft);
+      margin-top: 2px;
+    }
+
+    .care-member-roles {
+      display: flex;
+      gap: var(--space-2);
+      margin-top: var(--space-3);
+    }
+
+    .role-badge {
+      font-size: 10px;
+      padding: 2px 8px;
+      border-radius: var(--radius-sm);
+      background: var(--burgundy-bg);
+      color: var(--burgundy-light);
+      border: 1px solid var(--burgundy-border);
+    }
+
+    .role-badge.secondary {
+      background: var(--forest-light);
+      color: var(--ivory-soft);
+      border-color: var(--forest-accent);
+    }
+
+    /* ==========================================================================
+       QUICK ACTIONS FOOTER
+       ========================================================================== */
+
+    .quick-actions {
+      position: sticky;
+      bottom: 0;
+      background: var(--forest);
+      border-top: 1px solid var(--forest-accent);
+      padding: var(--space-3) var(--space-6);
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+    }
+
+    .quick-label {
+      font-size: 11px;
+      color: var(--ivory-soft);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-right: var(--space-2);
+    }
+
+    .quick-btn {
+      padding: var(--space-2) var(--space-4);
+      background: var(--forest-mid);
+      border: 1px solid var(--forest-accent);
+      border-radius: var(--radius-md);
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--ivory-mid);
+      cursor: pointer;
+      transition: all var(--duration-fast);
+    }
+
+    .quick-btn:hover {
+      background: var(--forest-light);
+      border-color: var(--gold-muted);
+      color: var(--ivory);
+    }
+
+    .quick-btn.primary {
+      background: var(--burgundy);
+      border-color: var(--burgundy);
+      color: var(--ivory);
+      box-shadow: var(--shadow-burgundy);
+    }
+
+    .quick-btn.primary:hover {
+      background: var(--burgundy-light);
+    }
+
+    .quick-btn.danger {
+      border-color: var(--critical-border);
+      color: var(--critical);
+    }
+
+    .quick-btn.danger:hover {
+      background: var(--critical-bg);
+    }
+
+    .patient-summary {
+      margin-left: auto;
+      font-size: 11px;
+      color: var(--ivory-soft);
+    }
+  </style>
+</head>
+<body>
+  <main class="patient-detail">
+    <!-- Patient Header -->
+    <div class="patient-header">
+      <div class="patient-avatar">SM</div>
+
+      <div class="patient-info">
+        <div class="patient-name-row">
+          <h1 class="patient-name">Sarah Mitchell</h1>
+          <span class="patient-preferred">"Sari"</span>
+        </div>
+
+        <div class="patient-badges">
+          <span class="badge active">Active</span>
+          <span class="badge risk-high">High Risk</span>
+          <span class="badge alerts">3 alerts</span>
+        </div>
+
+        <div class="patient-chips">
+          <span class="chip">MRN 00123456</span>
+          <span class="chip">Female</span>
+          <span class="chip">12d streak</span>
+          <span class="chip">Last seen 2h ago</span>
+        </div>
+
+        <div class="patient-actions">
+          <select class="status-select">
+            <option>Active</option>
+            <option>Crisis</option>
+            <option>Inactive</option>
+            <option>Discharged</option>
+          </select>
+          <select class="status-select">
+            <option>High Risk</option>
+            <option>Moderate Risk</option>
+            <option>Low Risk</option>
+            <option>Critical Risk</option>
+          </select>
+          <button class="header-btn primary">Generate Report</button>
+          <button class="header-btn secondary">All Patients</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab Bar -->
+    <div class="tab-bar">
+      <div class="tab active">Overview</div>
+      <div class="tab">Mood Trends</div>
+      <div class="tab">Journal</div>
+      <div class="tab">Notes <span class="count">5</span></div>
+      <div class="tab">Alerts <span class="count">3</span></div>
+      <div class="tab">Medications <span class="count">4</span></div>
+      <div class="tab">AI Insights</div>
+    </div>
+
+    <!-- Tab Content: Overview -->
+    <div class="tab-content">
+      <div class="overview-grid">
+        <!-- Patient Information -->
+        <div class="overview-card">
+          <h3 class="card-title">Patient Information</h3>
+          <dl class="info-grid">
+            <div class="info-item">
+              <dt>MRN</dt>
+              <dd>00123456</dd>
+            </div>
+            <div class="info-item">
+              <dt>Date of Birth</dt>
+              <dd>Mar 15, 1992 (age 33)</dd>
+            </div>
+            <div class="info-item">
+              <dt>Gender</dt>
+              <dd>Female</dd>
+            </div>
+            <div class="info-item">
+              <dt>Email</dt>
+              <dd>sarah.mitchell@email.com</dd>
+            </div>
+            <div class="info-item">
+              <dt>Phone</dt>
+              <dd>(555) 123-4567</dd>
+            </div>
+            <div class="info-item">
+              <dt>Enrolled</dt>
+              <dd>Jan 15, 2026</dd>
+            </div>
+          </dl>
+          <div style="margin-top: 16px; display: flex; gap: 8px; flex-wrap: wrap;">
+            <span class="badge active">Active</span>
+            <span class="badge risk-high">High Risk</span>
+            <span class="chip">App Installed</span>
+            <span class="chip">Onboarded</span>
+          </div>
+        </div>
+
+        <!-- Tracking Stats -->
+        <div class="overview-card">
+          <h3 class="card-title">Tracking Stats</h3>
+          <div class="stat-grid">
+            <div class="stat-cell">
+              <div class="stat-value">12</div>
+              <div class="stat-label">Current Streak (days)</div>
+            </div>
+            <div class="stat-cell">
+              <div class="stat-value gold">28</div>
+              <div class="stat-label">Longest Streak (days)</div>
+            </div>
+          </div>
+          <div style="margin-top: 14px; font-size: 13px; color: var(--ivory-soft);">
+            Last check-in: <span style="color: var(--success);">2h ago</span>
+          </div>
+          <div style="margin-top: 6px; font-size: 13px; color: var(--ivory-soft);">
+            Risk reviewed: <span style="color: var(--ivory);">Feb 20, 2026</span>
+          </div>
+          <button class="header-btn primary" style="width: 100%; margin-top: 20px;">
+            Generate Clinical Report
+          </button>
+        </div>
+
+        <!-- Invite Status -->
+        <div class="overview-card full-width">
+          <h3 class="card-title">Invite Status</h3>
+          <div style="display: flex; align-items: center; gap: 24px; flex-wrap: wrap;">
+            <div>
+              <div style="font-size: 11px; color: var(--ivory-soft); margin-bottom: 2px;">Status</div>
+              <span style="font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 6px; background: var(--success-bg); color: var(--success); border: 1px solid var(--success-border);">
+                Accepted
+              </span>
+            </div>
+            <div>
+              <div style="font-size: 11px; color: var(--ivory-soft); margin-bottom: 2px;">Sent to</div>
+              <div style="font-size: 13px; color: var(--ivory);">sarah.mitchell@email.com</div>
+            </div>
+            <div>
+              <div style="font-size: 11px; color: var(--ivory-soft); margin-bottom: 2px;">Accepted</div>
+              <div style="font-size: 13px; color: var(--ivory);">Jan 16, 2026</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Care Team -->
+        <div class="overview-card full-width">
+          <h3 class="card-title">Care Team (3)</h3>
+          <div class="care-team-grid">
+            <div class="care-member">
+              <div class="care-member-name">Dr. Sarah Anderson</div>
+              <div class="care-member-email">s.anderson@hospital.edu</div>
+              <div class="care-member-roles">
+                <span class="role-badge">Primary</span>
+                <span class="role-badge secondary">Psychiatrist</span>
+              </div>
+            </div>
+            <div class="care-member">
+              <div class="care-member-name">Dr. Michael Chen</div>
+              <div class="care-member-email">m.chen@hospital.edu</div>
+              <div class="care-member-roles">
+                <span class="role-badge secondary">Secondary</span>
+                <span class="role-badge secondary">Psychologist</span>
+              </div>
+            </div>
+            <div class="care-member">
+              <div class="care-member-name">Rachel Kim, RN</div>
+              <div class="care-member-email">r.kim@hospital.edu</div>
+              <div class="care-member-roles">
+                <span class="role-badge secondary">Covering</span>
+                <span class="role-badge secondary">Nurse</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick Actions Footer -->
+    <div class="quick-actions">
+      <span class="quick-label">Quick Actions</span>
+      <button class="quick-btn">Add Note</button>
+      <button class="quick-btn">Request Assessment</button>
+      <button class="quick-btn primary">Generate Report</button>
+      <button class="quick-btn danger">Escalate Alert</button>
+      <span class="patient-summary">Sarah Mitchell · MRN 00123456</span>
+    </div>
+  </main>
+</body>
+</html>

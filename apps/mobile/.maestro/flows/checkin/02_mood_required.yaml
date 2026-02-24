@@ -1,0 +1,45 @@
+# =============================================================================
+# CHECKIN-02: Mood Required Validation
+# Verifies that the Continue button is disabled on the mood step when no
+# mood score has been selected. Mood is the only required field in check-in.
+# =============================================================================
+appId: com.mindlog.app
+
+---
+
+# Launch with a clean slate
+- launchApp:
+    clearState: true
+
+# Connect to Metro dev server (Expo Dev Client)
+- runFlow: ../../subflows/connect_dev_server.yaml
+
+# Sign in as demo patient
+- runFlow: ../../subflows/sign_in.yaml
+
+# Tap the check-in CTA on the Today screen
+- tapOn:
+    id: "checkin-cta-btn"
+
+# ── STEP 1: MOOD ────────────────────────────────────────────────────────────
+- extendedWaitUntil:
+    visible:
+      text: "How are you feeling today?"
+    timeout: 8000
+
+# DO NOT select a mood score — attempt to tap Continue
+# The button should be disabled (mood is required before continuing)
+- tapOn:
+    id: "checkin-continue-btn"
+
+# Verify we are still on the mood step (navigation did not advance)
+- extendedWaitUntil:
+    visible:
+      text: "How are you feeling today?"
+    timeout: 3000
+
+# Verify the continue button remains visible (still on same step)
+- assertVisible:
+    id: "checkin-continue-btn"
+
+- takeScreenshot: screenshots/checkin_mood_required

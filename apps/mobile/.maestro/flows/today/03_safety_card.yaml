@@ -1,0 +1,49 @@
+# =============================================================================
+# TODAY-03: Safety Card
+# Verifies that the always-visible safety card at the bottom of Today screen
+# displays crisis contact information: 988 Lifeline and Crisis Text Line 741741.
+# =============================================================================
+appId: com.mindlog.app
+
+---
+
+# Launch with a clean slate
+- launchApp:
+    clearState: true
+
+# Connect to Metro dev server (Expo Dev Client)
+- runFlow: ../../subflows/connect_dev_server.yaml
+
+# Sign in as the demo patient
+- runFlow: ../../subflows/sign_in.yaml
+
+# Scroll to the bottom to fully reveal the safety card
+- scrollUntilVisible:
+    element:
+      id: "today-safety-card"
+    direction: DOWN
+    timeout: 10000
+
+# Safety card must be visible
+- assertVisible:
+    id: "today-safety-card"
+
+# Verify the safety prompt text
+- extendedWaitUntil:
+    visible:
+      text: "Need immediate support?"
+    timeout: 5000
+
+# 988 Suicide & Crisis Lifeline phone number
+- extendedWaitUntil:
+    visible:
+      text: "988"
+    timeout: 5000
+
+# Crisis Text Line short code
+- extendedWaitUntil:
+    visible:
+      text: "741741"
+    timeout: 5000
+
+- takeScreenshot: screenshots/today_safety_card

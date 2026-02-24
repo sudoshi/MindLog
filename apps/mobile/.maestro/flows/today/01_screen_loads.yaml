@@ -1,0 +1,70 @@
+# =============================================================================
+# TODAY-01: Screen Loads
+# Verifies that the Today screen renders its core elements after login:
+# greeting, daily check-in card, stat cards, and safety card with crisis info.
+# =============================================================================
+appId: com.mindlog.app
+
+---
+
+# Launch with a clean slate
+- launchApp:
+    clearState: true
+
+# Connect to Metro dev server (Expo Dev Client)
+- runFlow: ../../subflows/connect_dev_server.yaml
+
+# Sign in as the demo patient
+- runFlow: ../../subflows/sign_in.yaml
+
+# Greeting should contain "Good" (morning/afternoon/evening)
+- extendedWaitUntil:
+    visible:
+      text: "Good"
+    timeout: 10000
+
+# Daily Check-in card title
+- extendedWaitUntil:
+    visible:
+      text: "Daily Check-in"
+    timeout: 5000
+
+# Stat cards should be present in the header
+- extendedWaitUntil:
+    visible:
+      id: "stat-mood"
+    timeout: 5000
+
+- extendedWaitUntil:
+    visible:
+      id: "stat-streak"
+    timeout: 5000
+
+- extendedWaitUntil:
+    visible:
+      id: "stat-progress"
+    timeout: 5000
+
+- extendedWaitUntil:
+    visible:
+      id: "stat-today"
+    timeout: 5000
+
+# Scroll down to reveal the safety card at the bottom
+- scrollUntilVisible:
+    element:
+      id: "today-safety-card"
+    direction: DOWN
+    timeout: 10000
+
+# Safety card must be visible
+- assertVisible:
+    id: "today-safety-card"
+
+# Crisis number 988 must be displayed
+- extendedWaitUntil:
+    visible:
+      text: "988"
+    timeout: 5000
+
+- takeScreenshot: screenshots/today_screen_loaded

@@ -1,0 +1,37 @@
+# =============================================================================
+# EDGE-03: Fresh Launch / Deep Link Invite Resilience
+# Verifies that the app launches cleanly from a fresh (cleared) state without
+# crashing, and that the onboarding screen renders. This is a baseline guard
+# against deep link or invite token handling crashing the app on cold start.
+# =============================================================================
+appId: com.mindlog.app
+
+---
+
+# Launch with a fully clean slate (simulates first install)
+- launchApp:
+    clearState: true
+
+# Connect to Metro dev server (Expo Dev Client)
+- runFlow: ../../subflows/connect_dev_server.yaml
+
+# ── Onboarding screen must load ───────────────────────────────────────────
+# The app title should be visible on the onboarding / auth screen
+- extendedWaitUntil:
+    visible:
+      text: "MindLog"
+    timeout: 15000
+
+# ── Stability assertion ───────────────────────────────────────────────────
+# Verify the sign-in tab is present (app did not crash on cold start)
+- extendedWaitUntil:
+    visible:
+      id: "tab-signin"
+    timeout: 5000
+
+# Verify the create-account tab is also available
+- assertVisible:
+    id: "tab-create"
+    optional: true
+
+- takeScreenshot: screenshots/edge_deep_link

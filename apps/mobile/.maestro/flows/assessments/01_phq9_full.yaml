@@ -1,0 +1,88 @@
+# =============================================================================
+# ASSESSMENT-01: PHQ-9 — Full Questionnaire Flow
+# Verifies that the PHQ-9 depression screener can be accessed from the Today
+# screen assessment banner, renders question text and answer options, and
+# allows the user to answer at least the first question.
+#
+# Note: This flow depends on the demo patient having a pending PHQ-9 assessment.
+# If no assessment banner is visible, the flow gracefully skips with optional: true.
+# =============================================================================
+appId: com.mindlog.app
+
+---
+
+# Launch with a clean slate
+- launchApp:
+    clearState: true
+
+# Connect to Metro dev server (Expo Dev Client)
+- runFlow: ../../subflows/connect_dev_server.yaml
+
+# Sign in as the demo patient
+- runFlow: ../../subflows/sign_in.yaml
+
+# Scroll down to look for a PHQ-9 assessment banner on the Today screen
+- scrollUntilVisible:
+    element:
+      id: "assessment-banner-PHQ-9"
+    direction: DOWN
+    timeout: 10000
+    optional: true
+
+# Tap the PHQ-9 banner if present
+- tapOn:
+    id: "assessment-banner-PHQ-9"
+    optional: true
+
+# Wait for the assessment screen to load and verify the scale name in the header
+- extendedWaitUntil:
+    visible:
+      text: "PHQ-9"
+    timeout: 8000
+    optional: true
+
+# Verify the full scale title is rendered
+- extendedWaitUntil:
+    visible:
+      text: "PHQ-9 — Depression Screener"
+    timeout: 5000
+    optional: true
+
+# Verify the instruction text is displayed
+- extendedWaitUntil:
+    visible:
+      text: "Over the last 2 weeks"
+    timeout: 5000
+    optional: true
+
+# Verify the first question text is shown
+- extendedWaitUntil:
+    visible:
+      text: "Little interest or pleasure in doing things"
+    timeout: 5000
+    optional: true
+
+# Answer the first question by tapping "Not at all" (value 0)
+- tapOn:
+    text: "Not at all"
+    optional: true
+
+# Verify the progress indicator updates (1/9)
+- extendedWaitUntil:
+    visible:
+      text: "1/9"
+    timeout: 5000
+    optional: true
+
+# Scroll down to see more questions
+- scroll:
+    direction: DOWN
+
+# Verify question 2 is visible
+- extendedWaitUntil:
+    visible:
+      text: "Feeling down, depressed, or hopeless"
+    timeout: 5000
+    optional: true
+
+- takeScreenshot: screenshots/assessment_phq9

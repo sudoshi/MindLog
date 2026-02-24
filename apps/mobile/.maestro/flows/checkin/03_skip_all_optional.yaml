@@ -1,0 +1,114 @@
+# =============================================================================
+# CHECKIN-03: Skip All Optional Steps
+# Selects only the required mood score (5), then skips every remaining
+# optional step to verify the minimum viable check-in submission works.
+# =============================================================================
+appId: com.mindlog.app
+
+---
+
+# Launch with a clean slate
+- launchApp:
+    clearState: true
+
+# Connect to Metro dev server (Expo Dev Client)
+- runFlow: ../../subflows/connect_dev_server.yaml
+
+# Sign in as demo patient
+- runFlow: ../../subflows/sign_in.yaml
+
+# Tap the check-in CTA on the Today screen
+- tapOn:
+    id: "checkin-cta-btn"
+
+# ── STEP 1: MOOD (required) ─────────────────────────────────────────────────
+- extendedWaitUntil:
+    visible:
+      text: "How are you feeling today?"
+    timeout: 8000
+
+# Select mood score 5
+- tapOn:
+    id: "mood-btn-5"
+
+# Continue (skip sleep and exercise — leave them empty)
+- tapOn:
+    id: "checkin-continue-btn"
+
+# ── STEP 2: MANIA — skip ────────────────────────────────────────────────────
+- extendedWaitUntil:
+    visible:
+      text: "Energy"
+    timeout: 5000
+- tapOn:
+    id: "checkin-skip-btn"
+
+# ── STEP 3: WELLBEING — skip ────────────────────────────────────────────────
+- extendedWaitUntil:
+    visible:
+      text: "Wellbeing"
+    timeout: 5000
+- tapOn:
+    id: "checkin-skip-btn"
+
+# ── STEP 4: LIFESTYLE — skip ────────────────────────────────────────────────
+- extendedWaitUntil:
+    visible:
+      text: "Lifestyle"
+    timeout: 5000
+- tapOn:
+    id: "checkin-skip-btn"
+
+# ── STEP 5: WELLNESS — skip ─────────────────────────────────────────────────
+- extendedWaitUntil:
+    visible:
+      text: "strategies"
+    timeout: 5000
+- tapOn:
+    id: "checkin-skip-btn"
+
+# ── STEP 6: TRIGGERS — skip ─────────────────────────────────────────────────
+- extendedWaitUntil:
+    visible:
+      text: "triggers"
+    timeout: 5000
+- tapOn:
+    id: "checkin-skip-btn"
+
+# ── STEP 7: SYMPTOMS — skip ─────────────────────────────────────────────────
+- extendedWaitUntil:
+    visible:
+      text: "Symptoms"
+    timeout: 5000
+- tapOn:
+    id: "checkin-skip-btn"
+
+# ── STEP 8: JOURNAL — skip ──────────────────────────────────────────────────
+- extendedWaitUntil:
+    visible:
+      text: "Journal"
+    timeout: 5000
+- tapOn:
+    id: "checkin-skip-btn"
+
+# ── STEP 9: SUBMIT ──────────────────────────────────────────────────────────
+- extendedWaitUntil:
+    visible:
+      text: "Ready to submit?"
+    timeout: 5000
+
+# Verify mood score is displayed in the review summary
+- assertVisible:
+    text: "5/10"
+
+# Submit the minimal check-in
+- tapOn:
+    id: "checkin-submit-btn"
+
+# Wait for navigation back to the Today screen
+- extendedWaitUntil:
+    visible:
+      text: "Good"
+    timeout: 15000
+
+- takeScreenshot: screenshots/checkin_skip_all

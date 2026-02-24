@@ -1,0 +1,65 @@
+# =============================================================================
+# PROFILE-01: Screen Loads
+# Verifies that the Profile screen renders all core elements after login:
+# avatar, account info, streak stats, member-since date, settings section,
+# and the sign-out button.
+# =============================================================================
+appId: com.mindlog.app
+
+---
+
+# Launch with a clean slate
+- launchApp:
+    clearState: true
+
+# Connect to Metro dev server (Expo Dev Client)
+- runFlow: ../../subflows/connect_dev_server.yaml
+
+# Sign in as the demo patient
+- runFlow: ../../subflows/sign_in.yaml
+
+# Navigate to the Profile tab
+- tapOn:
+    text: "Profile"
+
+# Verify the Profile screen title
+- extendedWaitUntil:
+    visible:
+      text: "Profile"
+    timeout: 10000
+
+# Avatar should be rendered inside the account card
+- extendedWaitUntil:
+    visible:
+      id: "profile-avatar"
+    timeout: 5000
+
+# Sign-out button must be present
+- extendedWaitUntil:
+    visible:
+      id: "sign-out-btn"
+    timeout: 5000
+
+# Settings section heading
+- extendedWaitUntil:
+    visible:
+      text: "Settings"
+    timeout: 5000
+
+# Streak stats in the account card
+- extendedWaitUntil:
+    visible:
+      text: "Day streak"
+    timeout: 5000
+
+- extendedWaitUntil:
+    visible:
+      text: "Best streak"
+    timeout: 5000
+
+- extendedWaitUntil:
+    visible:
+      text: "Member since"
+    timeout: 5000
+
+- takeScreenshot: screenshots/profile_screen

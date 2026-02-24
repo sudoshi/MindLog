@@ -1,0 +1,769 @@
+/* =============================================================================
+   MindLog Component Styles — Cards
+   Metric cards, panels, and content containers
+   ============================================================================= */
+
+/* ==========================================================================
+   BASE PANEL
+   ========================================================================== */
+
+.panel {
+  background: var(--surface-raised);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: var(--space-4);
+}
+
+.panel-title {
+  font-family: var(--font-heading);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.panel-subtitle,
+.panel-sub {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.panel-action {
+  font-size: var(--text-sm);
+  color: var(--accent);
+  cursor: pointer;
+  font-weight: 500;
+  transition: color var(--duration-fast);
+}
+
+.panel-action:hover {
+  color: var(--accent-light);
+}
+
+.panel-footer {
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border-default);
+}
+
+/* Panel variants */
+.panel.no-padding {
+  padding: 0;
+}
+
+.panel.full-width {
+  grid-column: span 2;
+}
+
+/* ==========================================================================
+   METRIC CARDS
+   ========================================================================== */
+
+.metric-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--space-4);
+}
+
+.metric-card {
+  background: var(--surface-raised);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4) var(--space-5);
+  cursor: pointer;
+  transition: all var(--duration-normal);
+  position: relative;
+}
+
+.metric-card:hover {
+  border-color: var(--border-hover);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.metric-card.clickable:hover {
+  background: var(--surface-overlay);
+}
+
+/* Metric card with top border accent */
+.metric-card.accent {
+  border-top: 3px solid var(--primary);
+}
+
+/* Semantic metric cards */
+.metric-card.critical {
+  border-color: var(--critical-border);
+  background: var(--critical-bg);
+}
+
+.metric-card.critical:hover {
+  box-shadow: var(--shadow-critical);
+}
+
+.metric-card.warning {
+  border-color: var(--warning-border);
+  background: var(--warning-bg);
+}
+
+.metric-card.warning:hover {
+  box-shadow: var(--shadow-warning);
+}
+
+.metric-card.success {
+  border-color: var(--success-border);
+  background: var(--success-bg);
+}
+
+.metric-card.info {
+  border-color: var(--info-border);
+  background: var(--info-bg);
+}
+
+/* Metric card content */
+.metric-value {
+  font-size: var(--text-4xl);
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1;
+}
+
+.metric-value.sm {
+  font-size: var(--text-3xl);
+}
+
+.metric-value.lg {
+  font-size: var(--text-5xl);
+}
+
+.metric-label {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  margin-top: var(--space-2);
+}
+
+.metric-trend {
+  font-size: var(--text-xs);
+  margin-top: var(--space-1);
+}
+
+.metric-trend.up {
+  color: var(--success);
+}
+
+.metric-trend.down {
+  color: var(--critical);
+}
+
+.metric-trend.neutral {
+  color: var(--text-muted);
+}
+
+.metric-accent {
+  font-size: var(--text-xs);
+  margin-top: 2px;
+}
+
+.metric-accent.blue { color: var(--info); }
+.metric-accent.green { color: var(--success); }
+.metric-accent.red { color: var(--critical); }
+.metric-accent.orange { color: var(--warning); }
+
+/* ==========================================================================
+   STAT CARDS
+   ========================================================================== */
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-4);
+}
+
+.stat-cell {
+  background: var(--surface-overlay);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  text-align: center;
+}
+
+.stat-value {
+  font-size: var(--text-3xl);
+  font-weight: 700;
+  color: var(--primary-light);
+}
+
+.stat-value.accent {
+  color: var(--accent);
+}
+
+.stat-label {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  margin-top: var(--space-1);
+}
+
+/* ==========================================================================
+   OVERVIEW CARDS
+   ========================================================================== */
+
+.overview-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-5);
+}
+
+.overview-card {
+  background: var(--surface-raised);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+}
+
+.overview-card.full-width {
+  grid-column: span 2;
+}
+
+.card-title {
+  font-family: var(--font-heading);
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin: 0 0 var(--space-4);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+/* ==========================================================================
+   INFO GRID (Key-Value Pairs)
+   ========================================================================== */
+
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-4);
+}
+
+.info-item dt {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  margin-bottom: 2px;
+}
+
+.info-item dd {
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  margin: 0;
+}
+
+/* ==========================================================================
+   CHART PANELS
+   ========================================================================== */
+
+.chart-panel {
+  background: var(--surface-raised);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+}
+
+.chart-area {
+  height: 240px;
+  background: var(--surface-overlay);
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chart-placeholder {
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.chart-placeholder-icon {
+  font-size: 32px;
+  margin-bottom: var(--space-2);
+}
+
+.chart-legend {
+  display: flex;
+  gap: var(--space-4);
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-default);
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+.legend-dot.primary { background: var(--primary-light); }
+.legend-dot.burgundy { background: var(--primary); }
+.legend-dot.accent { background: var(--accent); }
+.legend-dot.gold { background: var(--accent); }
+.legend-dot.info { background: var(--info); }
+.legend-dot.success { background: var(--success); }
+.legend-dot.warning { background: var(--warning); }
+.legend-dot.critical { background: var(--critical); }
+
+/* ==========================================================================
+   DISTRIBUTION PANELS
+   ========================================================================== */
+
+.distribution-panel {
+  background: var(--surface-raised);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+}
+
+.bar-chart {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.bar-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.bar-label {
+  width: 80px;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.bar-track {
+  flex: 1;
+  height: 24px;
+  background: var(--surface-overlay);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.bar-fill {
+  height: 100%;
+  border-radius: var(--radius-sm);
+  transition: width 0.5s ease;
+}
+
+.bar-fill.low { background: var(--success); }
+.bar-fill.moderate { background: var(--accent); }
+.bar-fill.high { background: var(--warning); }
+.bar-fill.critical { background: var(--critical); }
+
+.bar-value {
+  width: 50px;
+  text-align: right;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+  flex-shrink: 0;
+}
+
+/* ==========================================================================
+   CARE TEAM CARDS
+   ========================================================================== */
+
+.care-team-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: var(--space-3);
+}
+
+.care-member {
+  background: var(--surface-overlay);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+}
+
+.care-member-name {
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.care-member-email {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.care-member-roles {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+/* ==========================================================================
+   PLACEHOLDER / EMPTY STATE
+   ========================================================================== */
+
+.placeholder-content,
+.empty-state {
+  background: var(--surface-raised);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  padding: var(--space-16);
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.empty-icon {
+  font-size: 48px;
+  margin-bottom: var(--space-4);
+}
+
+.empty-title {
+  font-family: var(--font-heading);
+  font-size: var(--text-xl);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 var(--space-2);
+}
+
+.empty-text {
+  font-size: var(--text-base);
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.empty-state-icon {
+  font-size: 32px;
+  margin-bottom: var(--space-2);
+}
+
+.empty-state-title {
+  font-family: var(--font-heading);
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: var(--space-1);
+}
+
+/* ==========================================================================
+   MINI BAR CHARTS (Inline distribution bars)
+   ========================================================================== */
+
+.mini-bar-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  border-radius: var(--radius-sm);
+  transition: background var(--duration-fast);
+}
+
+.mini-bar-row.clickable:hover {
+  background: var(--surface-overlay);
+  margin: 0 calc(-1 * var(--space-2));
+  padding-left: var(--space-2);
+  padding-right: var(--space-2);
+}
+
+.mini-bar-label {
+  width: 90px;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.mini-bar-track {
+  flex: 1;
+  height: 18px;
+  background: var(--surface-overlay);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.mini-bar-fill {
+  height: 100%;
+  border-radius: var(--radius-sm);
+  transition: width 0.4s ease-out;
+}
+
+.mini-bar-val {
+  width: 32px;
+  text-align: right;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+  flex-shrink: 0;
+}
+
+/* ==========================================================================
+   STAT PANEL (Alternative naming for stat cards)
+   ========================================================================== */
+
+.stat-panel-value {
+  font-size: var(--text-3xl);
+  font-weight: 700;
+  color: var(--primary-light);
+}
+
+.stat-panel-label {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  margin-top: var(--space-1);
+}
+
+/* ==========================================================================
+   PATIENT DETAIL HEADER
+   ========================================================================== */
+
+.patient-detail-header {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-5);
+  padding: var(--space-5);
+  background: var(--surface-raised);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--space-5);
+}
+
+.detail-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: var(--radius-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--text-2xl);
+  font-weight: 600;
+  color: var(--text-primary);
+  flex-shrink: 0;
+}
+
+.detail-meta {
+  flex: 1;
+  min-width: 0;
+}
+
+.detail-name {
+  font-family: var(--font-heading);
+  font-size: var(--text-2xl);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: var(--space-2);
+}
+
+.detail-badges {
+  display: flex;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.detail-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.detail-chip {
+  padding: var(--space-1) var(--space-3);
+  background: var(--surface-overlay);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+
+.detail-actions {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.detail-actions-btn {
+  padding: var(--space-2) var(--space-4);
+  background: var(--surface-overlay);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--duration-fast);
+}
+
+.detail-actions-btn:hover {
+  background: var(--surface-elevated);
+  border-color: var(--border-hover);
+  color: var(--text-primary);
+}
+
+.detail-actions-btn.primary {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-primary);
+}
+
+.detail-actions-btn.primary:hover {
+  background: var(--primary-light);
+}
+
+/* ==========================================================================
+   DETAIL TAB BAR
+   ========================================================================== */
+
+.detail-tab-bar {
+  display: flex;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  background: var(--surface-raised);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--space-5);
+  overflow-x: auto;
+}
+
+.detail-tab {
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--duration-fast);
+  white-space: nowrap;
+  border: none;
+  background: transparent;
+}
+
+.detail-tab:hover {
+  background: var(--surface-overlay);
+  color: var(--text-primary);
+}
+
+.detail-tab.active {
+  background: var(--primary);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-primary);
+}
+
+/* ==========================================================================
+   TAB CONTENT CARDS
+   ========================================================================== */
+
+.tab-card {
+  background: var(--surface-raised);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  margin-bottom: var(--space-4);
+}
+
+.tab-card.sm {
+  padding: var(--space-4);
+}
+
+.tab-card.mb {
+  margin-bottom: var(--space-5);
+}
+
+.tab-card.span-full {
+  grid-column: span 2;
+}
+
+.tab-section-title {
+  font-family: var(--font-heading);
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin: 0 0 var(--space-4);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.tab-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-4);
+}
+
+.tab-stat-cell {
+  background: var(--surface-overlay);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  text-align: center;
+}
+
+.tab-stat-value {
+  font-size: var(--text-3xl);
+  font-weight: 700;
+  color: var(--primary-light);
+}
+
+.tab-stat-label {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  margin-top: var(--space-1);
+}
+
+.tab-inner-card {
+  background: var(--surface-overlay);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  margin-bottom: var(--space-3);
+}
+
+.tab-inner-card:last-child {
+  margin-bottom: 0;
+}
+
+.tab-loading {
+  text-align: center;
+  padding: var(--space-8);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.tab-empty {
+  text-align: center;
+  padding: var(--space-8);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  background: var(--surface-overlay);
+  border-radius: var(--radius-md);
+}
+
+.tab-entry-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  border-bottom: 1px solid var(--border-default);
+  cursor: pointer;
+  transition: background var(--duration-fast);
+}
+
+.tab-entry-row:hover {
+  background: var(--surface-overlay);
+}
+
+.tab-entry-row:last-child {
+  border-bottom: none;
+}

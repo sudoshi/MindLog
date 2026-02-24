@@ -1,0 +1,45 @@
+# =============================================================================
+# INSIGHTS-01: Screen Loads
+# Verifies that the Insights tab loads successfully with the title, period
+# subtitle, and refresh button visible after data finishes loading.
+# =============================================================================
+appId: com.mindlog.app
+
+---
+
+# Launch with a clean slate
+- launchApp:
+    clearState: true
+
+# Connect to Metro dev server (Expo Dev Client)
+- runFlow: ../../subflows/connect_dev_server.yaml
+
+# Sign in as demo patient
+- runFlow:
+    file: ../../subflows/sign_in.yaml
+
+# Navigate to the Insights tab
+- tapOn:
+    text: "Insights"
+
+# Verify the Insights screen title is visible
+- extendedWaitUntil:
+    visible:
+      text: "Insights"
+    timeout: 8000
+
+# Verify the period subtitle
+- assertVisible:
+    text: "Your last 30 days"
+
+# Wait for data to finish loading (API call + render)
+- extendedWaitUntil:
+    visible:
+      id: "insights-refresh-btn"
+    timeout: 15000
+
+# Confirm the refresh button is present
+- assertVisible:
+    id: "insights-refresh-btn"
+
+- takeScreenshot: screenshots/insights_screen

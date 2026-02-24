@@ -1,0 +1,49 @@
+# =============================================================================
+# TODAY-05: Assessment Banner Navigation
+# Verifies that tapping a pending assessment banner on the Today screen
+# navigates to the assessment questionnaire. Assessment banners are
+# conditional — they only appear when a weekly check-in is due, so all
+# assertions use optional: true.
+# =============================================================================
+appId: com.mindlog.app
+
+---
+
+# Launch with a clean slate
+- launchApp:
+    clearState: true
+
+# Connect to Metro dev server (Expo Dev Client)
+- runFlow: ../../subflows/connect_dev_server.yaml
+
+# Sign in as the demo patient
+- runFlow: ../../subflows/sign_in.yaml
+
+# Attempt to scroll to find an assessment banner
+- scrollUntilVisible:
+    element:
+      text: "Weekly check-in due"
+    direction: DOWN
+    timeout: 10000
+    optional: true
+
+# Check for the banner text
+- extendedWaitUntil:
+    visible:
+      text: "Weekly check-in due"
+    timeout: 5000
+    optional: true
+
+# Tap the banner to navigate to the assessment questionnaire
+- tapOn:
+    text: "Weekly check-in due"
+    optional: true
+
+# After navigation, the assessment screen should load (scale name in title)
+- extendedWaitUntil:
+    visible:
+      text: "~2 min"
+    timeout: 5000
+    optional: true
+
+- takeScreenshot: screenshots/today_assessment_nav

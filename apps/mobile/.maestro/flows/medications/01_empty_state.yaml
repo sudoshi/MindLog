@@ -1,0 +1,74 @@
+# =============================================================================
+# MEDICATIONS-01: Medications Screen — Loading & Content
+# Verifies that the Medications screen loads after navigating from the Today
+# screen. Checks for the screen title, the "+" Add button, and either
+# medication cards (demo patient) or the "No medications yet" empty state.
+# =============================================================================
+appId: com.mindlog.app
+
+---
+
+# Launch with a clean slate
+- launchApp:
+    clearState: true
+
+# Connect to Metro dev server (Expo Dev Client)
+- runFlow: ../../subflows/connect_dev_server.yaml
+
+# Sign in as the demo patient
+- runFlow: ../../subflows/sign_in.yaml
+
+# Attempt to navigate to medications via the med card on Today screen
+- scrollUntilVisible:
+    element:
+      id: "today-med-card"
+    direction: DOWN
+    timeout: 10000
+    optional: true
+
+# Tap the medication card if visible
+- tapOn:
+    id: "today-med-card"
+    optional: true
+
+# Verify the Medications screen title is visible
+- extendedWaitUntil:
+    visible:
+      text: "Medications"
+    timeout: 8000
+
+# Verify the "+ Add" button is present in the header
+- extendedWaitUntil:
+    visible:
+      id: "meds-add-btn"
+    timeout: 5000
+
+# Check for medication cards (demo patient likely has medications)
+# The progress banner shows "X / Y taken today" when meds exist
+- extendedWaitUntil:
+    visible:
+      text: "taken today"
+    timeout: 5000
+    optional: true
+
+# Alternatively, check for the empty state if no meds are assigned
+- extendedWaitUntil:
+    visible:
+      text: "No medications yet"
+    timeout: 3000
+    optional: true
+
+# Scroll down to verify the safety footer is rendered
+- scrollUntilVisible:
+    element:
+      text: "Crisis? Call or text 988"
+    direction: DOWN
+    timeout: 10000
+
+# Safety footer must always be visible
+- extendedWaitUntil:
+    visible:
+      text: "Crisis? Call or text 988"
+    timeout: 5000
+
+- takeScreenshot: screenshots/medications_screen

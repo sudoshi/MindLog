@@ -1,0 +1,22 @@
+# =============================================================================
+# Subflow: Connect to Metro dev server (Expo Dev Client)
+# Handles two scenarios after app launch:
+#   1. Developer menu modal (first launch) → tap "Continue"
+#   2. Dev Client launcher (after clearState) → tap Metro URL
+# Uses conditional runFlow (when: visible:) to handle either case.
+# =============================================================================
+appId: com.mindlog.app
+
+---
+
+# Case 1: Developer menu modal appears (first launch, no clearState)
+- runFlow:
+    when:
+      visible: "Continue"
+    file: dismiss_dev_menu.yaml
+
+# Case 2: Dev Client launcher appears (after clearState wipes Metro config)
+- runFlow:
+    when:
+      visible: "Development servers"
+    file: tap_metro_url.yaml

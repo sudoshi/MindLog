@@ -187,7 +187,7 @@ export function QuickNotePanel({ open, onClose }: QuickNotePanelProps) {
 
           {/* Success flash */}
           {saved && (
-            <div style={{ fontSize: 12, color: 'var(--safe)', background: 'rgba(42,157,143,0.1)', padding: '8px 12px', borderRadius: 6, textAlign: 'center' }}>
+            <div style={{ fontSize: 12, color: 'var(--safe)', background: 'rgba(45,212,191,0.1)', padding: '8px 12px', borderRadius: 6, textAlign: 'center' }}>
               ✓ Note saved
             </div>
           )}

@@ -1,0 +1,44 @@
+# =============================================================================
+# SAFETY-03: Crisis Contacts on Onboarding Screen (Pre-Auth)
+# CRITICAL — FDA SaMD / HIPAA safety-critical test.
+# Verifies that crisis contact information is accessible BEFORE a user signs
+# in. A person in crisis who has not yet created an account must still be able
+# to find the 988 Suicide & Crisis Lifeline number on the onboarding screen.
+# =============================================================================
+appId: com.mindlog.app
+
+---
+
+# Launch with a clean slate — do NOT sign in
+- launchApp:
+    clearState: true
+
+# Connect to Metro dev server (Expo Dev Client)
+- runFlow: ../../subflows/connect_dev_server.yaml
+
+# ── Onboarding screen must load ───────────────────────────────────────────
+- extendedWaitUntil:
+    visible:
+      text: "MindLog"
+    timeout: 15000
+
+# Scroll down on the onboarding screen to reveal crisis information
+- scrollUntilVisible:
+    element:
+      text: "In crisis?"
+    direction: DOWN
+    timeout: 10000
+
+# ── MANDATORY: Crisis prompt text ──────────────────────────────────────────
+- extendedWaitUntil:
+    visible:
+      text: "In crisis?"
+    timeout: 5000
+
+# ── MANDATORY: 988 Suicide & Crisis Lifeline ──────────────────────────────
+- extendedWaitUntil:
+    visible:
+      text: "988"
+    timeout: 5000
+
+- takeScreenshot: screenshots/safety_onboarding_crisis

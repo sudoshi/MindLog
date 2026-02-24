@@ -1,4 +1,5 @@
-import './styles/theme.css';
+// Theme loader - conditionally loads new or legacy theme based on VITE_USE_NEW_THEME
+import './styles';
 import * as Sentry from '@sentry/react';
 import type { ErrorEvent } from '@sentry/react';
 import { StrictMode } from 'react';

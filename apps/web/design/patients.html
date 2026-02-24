@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MindLog — All Patients (Dark Theme)</title>
+  <link rel="stylesheet" href="tokens.css">
+  <style>
+    /* Include shell styles — Dark Theme */
+    .app { display: flex; min-height: 100vh; }
+    .sidebar { width: 260px; background: var(--charcoal); position: fixed; top: 0; left: 0; bottom: 0; z-index: 100; display: flex; flex-direction: column; border-right: 1px solid var(--forest-accent); }
+    .sidebar-brand { padding: var(--space-6); border-bottom: 1px solid var(--forest-accent); }
+    .brand-name { font-family: var(--font-display); font-size: 22px; color: var(--ivory); }
+    .brand-name em { color: var(--gold); font-style: normal; }
+    .brand-tagline { font-size: 11px; color: var(--ivory-soft); text-transform: uppercase; letter-spacing: 0.5px; margin-top: var(--space-2); }
+    .nav-section { padding: var(--space-4); }
+    .nav-section-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; color: var(--ivory-ghost); padding: 0 var(--space-3); margin-bottom: var(--space-2); }
+    .nav-item { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3); border-radius: var(--radius-md); color: var(--ivory-mid); font-size: 13px; cursor: pointer; position: relative; transition: all var(--duration-fast); }
+    .nav-item:hover { background: var(--forest); color: var(--ivory); }
+    .nav-item.active { background: var(--burgundy-bg); color: var(--ivory); }
+    .nav-item.active::before { content: ''; position: absolute; left: 0; top: 6px; bottom: 6px; width: 3px; background: var(--burgundy); border-radius: 0 2px 2px 0; }
+    .nav-badge { margin-left: auto; padding: 2px 8px; border-radius: var(--radius-full); font-size: 10px; font-weight: 700; background: var(--forest-accent); color: var(--ivory-mid); }
+    .nav-badge.critical { background: var(--burgundy); color: var(--ivory); box-shadow: 0 0 10px var(--burgundy-glow); }
+    .nav-badge.warning { background: var(--gold); color: var(--forest-darkest); }
+    .sidebar-footer { margin-top: auto; padding: var(--space-4); border-top: 1px solid var(--forest-accent); }
+    .btn-signout { width: 100%; padding: var(--space-3); background: transparent; border: 1px solid var(--forest-accent); border-radius: var(--radius-md); color: var(--ivory-mid); font-size: 12px; cursor: pointer; transition: all var(--duration-fast); }
+    .btn-signout:hover { background: var(--burgundy-bg); border-color: var(--burgundy); color: var(--ivory); }
+    .main { flex: 1; margin-left: 260px; display: flex; flex-direction: column; }
+    .topbar { height: 60px; background: var(--forest); border-bottom: 1px solid var(--forest-accent); display: flex; align-items: center; padding: 0 var(--space-6); gap: var(--space-4); position: sticky; top: 0; z-index: 50; }
+    .topbar-title-group { flex: 1; }
+    .topbar-title { font-family: var(--font-heading); font-size: 18px; font-weight: 600; color: var(--ivory); }
+    .topbar-subtitle { font-size: 12px; color: var(--ivory-soft); }
+    .content { flex: 1; background: var(--forest-dark); }
+
+    /* ==========================================================================
+       PATIENTS PAGE SPECIFIC STYLES — Dark Theme
+       ========================================================================== */
+
+    .patients-page {
+      padding: var(--space-6);
+    }
+
+    .page-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: var(--space-4);
+    }
+
+    .patient-count {
+      font-size: 13px;
+      color: var(--ivory-soft);
+    }
+
+    .patient-count .warning {
+      color: var(--warning);
+    }
+
+    .btn-invite {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      padding: var(--space-3) var(--space-5);
+      background: linear-gradient(135deg, var(--burgundy), var(--burgundy-dark));
+      border: none;
+      border-radius: var(--radius-md);
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--ivory);
+      cursor: pointer;
+      box-shadow: var(--shadow-burgundy);
+      transition: all var(--duration-normal);
+    }
+
+    .btn-invite:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px var(--burgundy-glow);
+      background: linear-gradient(135deg, var(--burgundy-light), var(--burgundy));
+    }
+
+    /* Filter Bar */
+    .filter-bar {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      margin-bottom: var(--space-5);
+      flex-wrap: wrap;
+    }
+
+    .filter-chip {
+      padding: var(--space-2) var(--space-4);
+      background: var(--forest);
+      border: 1px solid var(--forest-accent);
+      border-radius: var(--radius-full);
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--ivory-mid);
+      cursor: pointer;
+      transition: all var(--duration-fast);
+    }
+
+    .filter-chip:hover {
+      border-color: var(--gold-muted);
+      background: var(--forest-mid);
+      color: var(--ivory);
+    }
+
+    .filter-chip.active {
+      background: var(--burgundy);
+      border-color: var(--burgundy);
+      color: var(--ivory);
+    }
+
+    .filter-chip.critical {
+      color: var(--critical);
+      border-color: var(--critical-border);
+    }
+
+    .filter-chip.critical.active {
+      background: var(--critical);
+      color: var(--ivory);
+    }
+
+    .filter-spacer {
+      flex: 1;
+    }
+
+    .search-input {
+      padding: var(--space-2) var(--space-4);
+      background: var(--forest);
+      border: 1px solid var(--forest-accent);
+      border-radius: var(--radius-md);
+      font-size: 13px;
+      color: var(--ivory);
+      width: 200px;
+      transition: all var(--duration-normal);
+    }
+
+    .search-input::placeholder {
+      color: var(--ivory-ghost);
+    }
+
+    .search-input:focus {
+      outline: none;
+      border-color: var(--gold);
+      box-shadow: 0 0 0 3px var(--gold-pale);
+    }
+
+    .sort-select {
+      padding: var(--space-2) var(--space-4);
+      background: var(--forest);
+      border: 1px solid var(--forest-accent);
+      border-radius: var(--radius-md);
+      font-size: 12px;
+      color: var(--ivory-mid);
+      cursor: pointer;
+    }
+
+    /* Patient Table */
+    .patient-table {
+      width: 100%;
+      background: var(--forest);
+      border: 1px solid var(--forest-accent);
+      border-radius: var(--radius-lg);
+      border-collapse: separate;
+      border-spacing: 0;
+      overflow: hidden;
+    }
+
+    .patient-table thead {
+      background: var(--forest-mid);
+    }
+
+    .patient-table th {
+      padding: var(--space-3) var(--space-4);
+      text-align: left;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--ivory-soft);
+      border-bottom: 1px solid var(--forest-accent);
+      cursor: pointer;
+    }
+
+    .patient-table th:hover {
+      color: var(--gold);
+    }
+
+    .patient-table tbody tr {
+      cursor: pointer;
+      transition: background var(--duration-fast);
+    }
+
+    .patient-table tbody tr:hover {
+      background: var(--forest-mid);
+    }
+
+    .patient-table tbody tr.crisis {
+      background: var(--critical-bg);
+    }
+
+    .patient-table tbody tr.crisis:hover {
+      background: rgba(232, 90, 107, 0.18);
+    }
+
+    .patient-table td {
+      padding: var(--space-3) var(--space-4);
+      border-bottom: 1px solid var(--forest-accent);
+      font-size: 13px;
+      vertical-align: middle;
+      color: var(--ivory);
+    }
+
+    .patient-table tbody tr:last-child td {
+      border-bottom: none;
+    }
+
+    .patient-name {
+      font-weight: 600;
+      color: var(--ivory);
+    }
+
+    .patient-mrn {
+      font-size: 11px;
+      color: var(--ivory-soft);
+      font-family: var(--font-mono);
+      margin-top: var(--space-1);
+    }
+
+    /* Badges */
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: var(--radius-full);
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+
+    .badge-risk-critical {
+      background: var(--critical-bg);
+      color: var(--critical);
+      border: 1px solid var(--critical-border);
+    }
+
+    .badge-risk-high {
+      background: rgba(245, 158, 11, 0.15);
+      color: #F59E0B;
+      border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+
+    .badge-risk-moderate {
+      background: var(--warning-bg);
+      color: var(--warning);
+      border: 1px solid var(--warning-border);
+    }
+
+    .badge-risk-low {
+      background: var(--success-bg);
+      color: var(--success);
+      border: 1px solid var(--success-border);
+    }
+
+    .badge-crisis {
+      background: var(--critical);
+      color: var(--ivory);
+    }
+
+    .badge-active {
+      background: var(--success-bg);
+      color: var(--success);
+      border: 1px solid var(--success-border);
+    }
+
+    .badge-inactive {
+      background: var(--forest-mid);
+      color: var(--ivory-soft);
+      border: 1px solid var(--forest-accent);
+    }
+
+    /* Mood Display */
+    .mood-display {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+    }
+
+    .mood-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+    }
+
+    .mood-value {
+      font-weight: 700;
+      font-size: 15px;
+    }
+
+    /* Streak */
+    .streak {
+      color: var(--ivory-soft);
+    }
+
+    .streak.hot {
+      color: var(--warning);
+    }
+
+    /* Alert Badge */
+    .alert-badge {
+      padding: 2px 8px;
+      border-radius: var(--radius-sm);
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .alert-badge.critical {
+      background: var(--critical-bg);
+      color: var(--critical);
+    }
+
+    .alert-badge.warning {
+      background: var(--warning-bg);
+      color: var(--warning);
+    }
+
+    /* Pagination */
+    .pagination {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: var(--space-3);
+      margin-top: var(--space-4);
+      font-size: 12px;
+      color: var(--ivory-soft);
+    }
+
+    .pagination-count {
+      margin-right: auto;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-name">Mind<em>Log</em></div>
+        <div class="brand-tagline">Clinical Intelligence</div>
+      </div>
+      <div class="nav-section">
+        <div class="nav-section-label">Overview</div>
+        <div class="nav-item"><span>📊</span> Population</div>
+        <div class="nav-item active"><span>👥</span> All Patients <span class="nav-badge warning">146</span></div>
+        <div class="nav-item"><span>🔔</span> Alerts <span class="nav-badge critical">12</span></div>
+      </div>
+      <div class="nav-section">
+        <div class="nav-section-label">Clinical Tools</div>
+        <div class="nav-item"><span>📈</span> Population Trends</div>
+        <div class="nav-item"><span>📄</span> Reports</div>
+      </div>
+      <div class="sidebar-footer">
+        <button class="btn-signout">⏻ Sign Out</button>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <div class="main">
+      <header class="topbar">
+        <div class="topbar-title-group">
+          <div class="topbar-title">All Patients</div>
+          <div class="topbar-subtitle">Your caseload — filter and sort</div>
+        </div>
+      </header>
+
+      <main class="content">
+        <div class="patients-page">
+          <!-- Page Header -->
+          <div class="page-header">
+            <div class="patient-count">
+              146 patients on your caseload
+              <span class="warning">· 3 pending invites</span>
+            </div>
+            <button class="btn-invite">
+              <span>+</span>
+              Invite Patient
+            </button>
+          </div>
+
+          <!-- Filter Bar -->
+          <div class="filter-bar">
+            <div class="filter-chip active">All (146)</div>
+            <div class="filter-chip critical">⚠ Crisis (4)</div>
+            <div class="filter-chip">High risk (12)</div>
+            <div class="filter-chip">Not logged (25)</div>
+            <div class="filter-chip">🔥 Streak 7d+ (38)</div>
+            <div class="filter-spacer"></div>
+            <input type="text" class="search-input" placeholder="Search by name or MRN...">
+            <select class="sort-select">
+              <option>Sort: Risk level</option>
+              <option>Sort: Mood (worst first)</option>
+              <option>Sort: Streak</option>
+              <option>Sort: Last check-in</option>
+              <option>Sort: Name</option>
+            </select>
+          </div>
+
+          <!-- Patient Table -->
+          <table class="patient-table">
+            <thead>
+              <tr>
+                <th>Patient ↕</th>
+                <th>Risk ↕</th>
+                <th>Status</th>
+                <th>Today's Mood ↕</th>
+                <th>Streak ↕</th>
+                <th>Last Check-in ↕</th>
+                <th>Alerts</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="crisis">
+                <td>
+                  <div class="patient-name">Walker, Anthony</div>
+                  <div class="patient-mrn">MRN-2847</div>
+                </td>
+                <td><span class="badge badge-risk-critical">critical</span></td>
+                <td><span class="badge badge-crisis">crisis</span></td>
+                <td>
+                  <div class="mood-display">
+                    <div class="mood-dot" style="background: #d08020;"></div>
+                    <span class="mood-value" style="color: #d08020;">4</span>
+                  </div>
+                </td>
+                <td class="streak hot">🔥 14d</td>
+                <td style="color: var(--ivory-soft);">2h ago</td>
+                <td><span class="alert-badge critical">3</span></td>
+              </tr>
+              <tr class="crisis">
+                <td>
+                  <div class="patient-name">King, Betty</div>
+                  <div class="patient-mrn">MRN-3912</div>
+                </td>
+                <td><span class="badge badge-risk-critical">critical</span></td>
+                <td><span class="badge badge-crisis">crisis</span></td>
+                <td>
+                  <div class="mood-display">
+                    <div class="mood-dot" style="background: #e05a2a;"></div>
+                    <span class="mood-value" style="color: #e05a2a;">3</span>
+                  </div>
+                </td>
+                <td class="streak hot">🔥 8d</td>
+                <td style="color: var(--ivory-soft);">3h ago</td>
+                <td><span class="alert-badge critical">2</span></td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="patient-name">Lewis, Christopher</div>
+                  <div class="patient-mrn">MRN-1456</div>
+                </td>
+                <td><span class="badge badge-risk-high">high</span></td>
+                <td><span class="badge badge-active">active</span></td>
+                <td>
+                  <div class="mood-display">
+                    <div class="mood-dot" style="background: #c0392b;"></div>
+                    <span class="mood-value" style="color: #c0392b;">2</span>
+                  </div>
+                </td>
+                <td class="streak">4d</td>
+                <td style="color: var(--ivory-soft);">4h ago</td>
+                <td><span class="alert-badge critical">1</span></td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="patient-name">Moore, Barbara</div>
+                  <div class="patient-mrn">MRN-7823</div>
+                </td>
+                <td><span class="badge badge-risk-moderate">moderate</span></td>
+                <td><span class="badge badge-active">active</span></td>
+                <td>
+                  <div class="mood-display">
+                    <div class="mood-dot" style="background: #2a7ab5;"></div>
+                    <span class="mood-value" style="color: #2a7ab5;">9</span>
+                  </div>
+                </td>
+                <td class="streak hot">🔥 21d</td>
+                <td style="color: var(--ivory-soft);">just now</td>
+                <td style="color: var(--ivory-soft);">—</td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="patient-name">Harris, Thomas</div>
+                  <div class="patient-mrn">MRN-5291</div>
+                </td>
+                <td><span class="badge badge-risk-low">low</span></td>
+                <td><span class="badge badge-active">active</span></td>
+                <td>
+                  <div class="mood-display">
+                    <div class="mood-dot" style="background: #2a7ab5;"></div>
+                    <span class="mood-value" style="color: #2a7ab5;">9</span>
+                  </div>
+                </td>
+                <td class="streak hot">🔥 12d</td>
+                <td style="color: var(--ivory-soft);">2m ago</td>
+                <td style="color: var(--ivory-soft);">—</td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="patient-name">Gonzalez, Robert</div>
+                  <div class="patient-mrn">MRN-4567</div>
+                </td>
+                <td><span class="badge badge-risk-moderate">moderate</span></td>
+                <td><span class="badge badge-active">active</span></td>
+                <td>
+                  <div class="mood-display">
+                    <div class="mood-dot" style="background: #c9972a;"></div>
+                    <span class="mood-value" style="color: #c9972a;">4</span>
+                  </div>
+                </td>
+                <td class="streak">3d</td>
+                <td style="color: var(--ivory-soft);">5m ago</td>
+                <td><span class="alert-badge warning">1</span></td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="patient-name">Sanchez, Lisa</div>
+                  <div class="patient-mrn">MRN-8934</div>
+                </td>
+                <td><span class="badge badge-risk-low">low</span></td>
+                <td><span class="badge badge-active">active</span></td>
+                <td>
+                  <div class="mood-display">
+                    <div class="mood-dot" style="background: #2a5ab5;"></div>
+                    <span class="mood-value" style="color: #2a5ab5;">10</span>
+                  </div>
+                </td>
+                <td class="streak hot">🔥 45d</td>
+                <td style="color: var(--ivory-soft);">8m ago</td>
+                <td style="color: var(--ivory-soft);">—</td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="patient-name">Williams, John</div>
+                  <div class="patient-mrn">MRN-2156</div>
+                </td>
+                <td><span class="badge badge-risk-low">low</span></td>
+                <td><span class="badge badge-active">active</span></td>
+                <td style="color: var(--ivory-soft);">—</td>
+                <td class="streak">1d</td>
+                <td style="color: var(--ivory-soft);">Yesterday</td>
+                <td style="color: var(--ivory-soft);">—</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <!-- Pagination -->
+          <div class="pagination">
+            <span class="pagination-count">Showing 8 of 146 patients</span>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+</body>
+</html>

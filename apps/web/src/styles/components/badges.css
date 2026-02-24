@@ -1,0 +1,369 @@
+/* =============================================================================
+   MindLog Component Styles — Badges
+   Status badges, risk indicators, and labels
+   ============================================================================= */
+
+/* ==========================================================================
+   BASE BADGE
+   ========================================================================== */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 3px 10px;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  text-transform: capitalize;
+  white-space: nowrap;
+}
+
+/* Pill variant */
+.badge-pill {
+  border-radius: var(--radius-full);
+  padding: 2px 8px;
+}
+
+/* Small variant */
+.badge-sm {
+  padding: 2px 6px;
+  font-size: 10px;
+}
+
+/* Large variant */
+.badge-lg {
+  padding: 4px 12px;
+  font-size: var(--text-sm);
+}
+
+/* ==========================================================================
+   STATUS BADGES
+   ========================================================================== */
+
+.badge-active,
+.badge-status-active {
+  background: var(--success-bg);
+  color: var(--success);
+  border: 1px solid var(--success-border);
+}
+
+.badge-inactive,
+.badge-status-inactive {
+  background: var(--surface-overlay);
+  color: var(--text-muted);
+  border: 1px solid var(--border-default);
+}
+
+.badge-crisis,
+.badge-status-crisis {
+  background: var(--critical);
+  color: var(--text-primary);
+  border: 1px solid var(--critical);
+}
+
+.badge-discharged,
+.badge-status-discharged {
+  background: var(--surface-overlay);
+  color: var(--text-ghost);
+  border: 1px solid var(--border-default);
+}
+
+.badge-pending {
+  background: var(--warning-bg);
+  color: var(--warning);
+  border: 1px solid var(--warning-border);
+}
+
+/* ==========================================================================
+   RISK LEVEL BADGES
+   ========================================================================== */
+
+.badge-risk-critical {
+  background: var(--critical-bg);
+  color: var(--critical);
+  border: 1px solid var(--critical-border);
+}
+
+.badge-risk-high {
+  background: rgba(245, 158, 11, 0.15);
+  color: #F59E0B;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.badge-risk-moderate {
+  background: var(--warning-bg);
+  color: var(--warning);
+  border: 1px solid var(--warning-border);
+}
+
+.badge-risk-low {
+  background: var(--success-bg);
+  color: var(--success);
+  border: 1px solid var(--success-border);
+}
+
+.badge-risk-minimal {
+  background: var(--surface-overlay);
+  color: var(--text-muted);
+  border: 1px solid var(--border-default);
+}
+
+/* ==========================================================================
+   SEVERITY BADGES
+   ========================================================================== */
+
+.severity-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+}
+
+.severity-badge.critical {
+  background: rgba(232, 90, 107, 0.2);
+  color: var(--critical);
+  border: 1px solid var(--critical-border);
+}
+
+.severity-badge.warning {
+  background: rgba(229, 168, 75, 0.2);
+  color: var(--warning);
+  border: 1px solid var(--warning-border);
+}
+
+.severity-badge.info {
+  background: rgba(96, 165, 250, 0.2);
+  color: var(--info);
+  border: 1px solid var(--info-border);
+}
+
+.severity-badge.success {
+  background: rgba(45, 212, 191, 0.2);
+  color: var(--success);
+  border: 1px solid var(--success-border);
+}
+
+/* ==========================================================================
+   ALERT BADGES (Counts)
+   ========================================================================== */
+
+.alert-badge {
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  font-weight: 700;
+}
+
+.alert-badge.critical {
+  background: var(--critical-bg);
+  color: var(--critical);
+}
+
+.alert-badge.warning {
+  background: var(--warning-bg);
+  color: var(--warning);
+}
+
+.alert-badge.info {
+  background: var(--info-bg);
+  color: var(--info);
+}
+
+/* ==========================================================================
+   ROLE BADGES
+   ========================================================================== */
+
+.role-badge {
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+}
+
+.role-badge.primary {
+  background: var(--primary-bg);
+  color: var(--primary-light);
+  border: 1px solid var(--primary-border);
+}
+
+.role-badge.secondary {
+  background: var(--surface-elevated);
+  color: var(--text-muted);
+  border: 1px solid var(--border-default);
+}
+
+.role-tag {
+  font-size: var(--text-xs);
+  padding: 2px 10px;
+  border-radius: var(--radius-full);
+  font-weight: 600;
+}
+
+.role-tag.admin {
+  background: var(--primary-bg);
+  color: var(--primary-light);
+  border: 1px solid var(--primary-border);
+}
+
+.role-tag.psychiatrist {
+  background: var(--success-bg);
+  color: var(--success);
+  border: 1px solid var(--success-border);
+}
+
+.role-tag.nurse {
+  background: var(--info-bg);
+  color: var(--info);
+  border: 1px solid var(--info-border);
+}
+
+/* ==========================================================================
+   ACTIVITY BADGES
+   ========================================================================== */
+
+.activity-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 10px;
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
+
+.activity-badge.success {
+  background: var(--success-bg);
+  color: var(--success);
+  border: 1px solid var(--success-border);
+}
+
+.activity-badge.warning {
+  background: var(--warning-bg);
+  color: var(--warning);
+  border: 1px solid var(--warning-border);
+}
+
+.activity-badge.error {
+  background: var(--critical-bg);
+  color: var(--critical);
+  border: 1px solid var(--critical-border);
+}
+
+/* ==========================================================================
+   CHIPS (Inline metadata)
+   ========================================================================== */
+
+.chip {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  background: var(--surface-overlay);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-full);
+}
+
+.chip-group {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+/* ==========================================================================
+   MOOD DOT
+   ========================================================================== */
+
+.mood-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.mood-dot.lg {
+  width: 16px;
+  height: 16px;
+}
+
+.mood-dot.sm {
+  width: 8px;
+  height: 8px;
+}
+
+.mood-display {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.mood-value {
+  font-weight: 700;
+  font-size: var(--text-md);
+}
+
+/* ==========================================================================
+   STREAK INDICATOR
+   ========================================================================== */
+
+.streak {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.streak.hot {
+  color: var(--warning);
+}
+
+.streak.cold {
+  color: var(--text-ghost);
+}
+
+/* ==========================================================================
+   STATUS DOTS
+   ========================================================================== */
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.status-dot.success {
+  background: var(--success);
+  box-shadow: 0 0 8px var(--success-glow);
+}
+
+.status-dot.warning {
+  background: var(--warning);
+  box-shadow: 0 0 8px var(--warning-glow);
+}
+
+.status-dot.error {
+  background: var(--critical);
+  box-shadow: 0 0 8px var(--critical-glow);
+}
+
+.status-dot.info {
+  background: var(--info);
+  box-shadow: 0 0 8px var(--info-glow);
+}
+
+.status-dot.neutral {
+  background: var(--text-ghost);
+}
+
+/* MFA Status */
+.mfa-check {
+  color: var(--success);
+}
+
+.mfa-required {
+  font-size: var(--text-xs);
+  color: var(--critical);
+  font-weight: 600;
+}

@@ -1,0 +1,30 @@
+# =============================================================================
+# Subflow: Sign out from any screen
+# Navigates to Profile tab and confirms sign out
+# =============================================================================
+appId: com.mindlog.app
+
+---
+
+# Navigate to Profile tab
+- tapOn:
+    text: "Profile"
+
+- extendedWaitUntil:
+    visible:
+      text: "Profile"
+    timeout: 5000
+
+# Tap sign out
+- tapOn:
+    id: "sign-out-btn"
+
+# Confirm the alert dialog
+- tapOn:
+    text: "Sign Out"
+
+# Verify we're back on onboarding
+- extendedWaitUntil:
+    visible:
+      text: "MindLog"
+    timeout: 10000

@@ -1,0 +1,95 @@
+# =============================================================================
+# SAFETY-04: Crisis Contacts in Check-in (SI Disclosure)
+# CRITICAL — FDA SaMD / HIPAA safety-critical test.
+# Verifies that when a patient discloses suicidal ideation during check-in,
+# the safety banner immediately displays the 988 Suicide & Crisis Lifeline
+# number. Additionally verifies that crisis text line 741741 is visible in
+# the crisis note section.
+# =============================================================================
+appId: com.mindlog.app
+
+---
+
+# Launch with a clean slate
+- launchApp:
+    clearState: true
+
+# Connect to Metro dev server (Expo Dev Client)
+- runFlow: ../../subflows/connect_dev_server.yaml
+
+# Sign in as the demo patient
+- runFlow: ../../subflows/sign_in.yaml
+
+# Tap the check-in CTA on the Today screen
+- tapOn:
+    id: "checkin-cta-btn"
+
+# ── STEP 1: MOOD — select low mood ────────────────────────────────────────
+- extendedWaitUntil:
+    visible:
+      text: "How are you feeling today?"
+    timeout: 8000
+
+# Select mood score 3 (low) — typical context for SI disclosure
+- tapOn:
+    id: "mood-btn-3"
+
+# Continue to next step
+- tapOn:
+    id: "checkin-continue-btn"
+
+# ── STEP 2: MANIA — skip ──────────────────────────────────────────────────
+- extendedWaitUntil:
+    visible:
+      text: "Energy"
+    timeout: 5000
+
+- tapOn:
+    id: "checkin-skip-btn"
+
+# ── STEP 3: WELLBEING — Safety Check section ──────────────────────────────
+- extendedWaitUntil:
+    visible:
+      text: "Wellbeing"
+    timeout: 5000
+
+# Scroll down to the Safety Check section
+- scrollUntilVisible:
+    element:
+      text: "Safety Check"
+    direction: DOWN
+    timeout: 8000
+
+# Tap SI option 1 (passive thoughts)
+- tapOn:
+    id: "si-option-1"
+
+# ── MANDATORY: Safety banner visible ──────────────────────────────────────
+- extendedWaitUntil:
+    visible:
+      id: "checkin-safety-banner"
+    timeout: 5000
+
+# ── MANDATORY: 988 on the safety banner ───────────────────────────────────
+- extendedWaitUntil:
+    visible:
+      text: "988"
+    timeout: 5000
+
+# Scroll further down to see the full crisis note with text line info
+- scroll:
+    direction: DOWN
+
+# ── MANDATORY: 988 in crisis note section ─────────────────────────────────
+- extendedWaitUntil:
+    visible:
+      text: "988"
+    timeout: 5000
+
+# ── MANDATORY: 741741 Crisis Text Line ────────────────────────────────────
+- extendedWaitUntil:
+    visible:
+      text: "741741"
+    timeout: 5000
+
+- takeScreenshot: screenshots/safety_checkin_crisis

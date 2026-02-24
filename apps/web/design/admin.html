@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MindLog — Admin Panel (Dark Theme)</title>
+  <link rel="stylesheet" href="tokens.css">
+  <style>
+    /* ==========================================================================
+       ADMIN PAGE — Dark Theme
+       ========================================================================== */
+
+    .admin-page {
+      min-height: 100vh;
+      background: var(--forest-dark);
+    }
+
+    /* ==========================================================================
+       ACCESS DENIED STATE
+       ========================================================================== */
+
+    .access-denied {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 60vh;
+      padding: var(--space-8);
+    }
+
+    .access-denied-content {
+      text-align: center;
+      max-width: 400px;
+    }
+
+    .access-denied-icon {
+      width: 64px;
+      height: 64px;
+      border-radius: var(--radius-lg);
+      background: var(--critical-bg);
+      border: 1px solid var(--critical-border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto var(--space-5);
+      font-size: 28px;
+    }
+
+    .access-denied-title {
+      font-family: var(--font-heading);
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--ivory);
+      margin: 0 0 var(--space-2);
+    }
+
+    .access-denied-text {
+      font-size: 14px;
+      color: var(--ivory-soft);
+      line-height: 1.5;
+      margin: 0 0 var(--space-6);
+    }
+
+    .access-denied-btn {
+      padding: var(--space-3) var(--space-6);
+      background: var(--burgundy);
+      color: var(--ivory);
+      border: none;
+      border-radius: var(--radius-md);
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background var(--duration-fast);
+      box-shadow: var(--shadow-burgundy);
+    }
+
+    .access-denied-btn:hover {
+      background: var(--burgundy-light);
+    }
+
+    /* ==========================================================================
+       ADMIN HEADER
+       ========================================================================== */
+
+    .admin-header {
+      background: var(--forest);
+      border-bottom: 1px solid var(--forest-accent);
+      padding: var(--space-4) var(--space-6);
+    }
+
+    .admin-title-row {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      margin-bottom: var(--space-4);
+    }
+
+    .admin-logo {
+      width: 40px;
+      height: 40px;
+      border-radius: var(--radius-md);
+      background: linear-gradient(135deg, var(--burgundy), var(--gold));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--ivory);
+      font-weight: 800;
+      font-size: 16px;
+      box-shadow: var(--shadow-burgundy);
+    }
+
+    .admin-title {
+      font-family: var(--font-heading);
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--ivory);
+      margin: 0;
+    }
+
+    .admin-subtitle {
+      font-size: 12px;
+      color: var(--ivory-soft);
+      margin: 2px 0 0;
+    }
+
+    /* ==========================================================================
+       ADMIN TABS
+       ========================================================================== */
+
+    .admin-tabs {
+      display: flex;
+      gap: var(--space-2);
+      flex-wrap: wrap;
+    }
+
+    .admin-tab {
+      padding: var(--space-2) var(--space-4);
+      background: transparent;
+      border: 1px solid var(--forest-accent);
+      border-radius: var(--radius-md);
+      font-size: 13px;
+      font-weight: 400;
+      color: var(--ivory-mid);
+      cursor: pointer;
+      transition: all var(--duration-fast);
+    }
+
+    .admin-tab:hover {
+      background: var(--forest-mid);
+      border-color: var(--gold-muted);
+      color: var(--ivory);
+    }
+
+    .admin-tab.active {
+      background: var(--burgundy);
+      border-color: var(--burgundy);
+      color: var(--ivory);
+      font-weight: 600;
+    }
+
+    /* ==========================================================================
+       ADMIN CONTENT
+       ========================================================================== */
+
+    .admin-content {
+      padding: var(--space-6);
+    }
+
+    /* Metric Cards */
+    .metric-row {
+      display: flex;
+      gap: var(--space-4);
+      margin-bottom: var(--space-6);
+      flex-wrap: wrap;
+    }
+
+    .metric-card {
+      flex: 1;
+      min-width: 180px;
+      background: var(--forest);
+      border: 1px solid var(--forest-accent);
+      border-radius: var(--radius-md);
+      padding: var(--space-5);
+    }
+
+    .metric-value {
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--ivory);
+      line-height: 1.1;
+    }
+
+    .metric-label {
+      font-size: 12px;
+      color: var(--ivory-soft);
+      margin-top: var(--space-1);
+    }
+
+    .metric-accent {
+      font-size: 11px;
+      margin-top: 2px;
+    }
+
+    .metric-accent.blue { color: var(--info); }
+    .metric-accent.teal { color: var(--success); }
+    .metric-accent.red { color: var(--critical); }
+    .metric-accent.orange { color: var(--warning); }
+
+    /* Two Column Grid */
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-4);
+    }
+
+    /* Panel */
+    .panel {
+      background: var(--forest);
+      border: 1px solid var(--forest-accent);
+      border-radius: var(--radius-lg);
+      padding: var(--space-5);
+    }
+
+    .panel-title {
+      font-family: var(--font-heading);
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--ivory);
+      margin: 0 0 var(--space-4);
+    }
+
+    /* Activity List */
+    .activity-item {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      padding: var(--space-2) 0;
+      border-bottom: 1px solid var(--forest-accent);
+    }
+
+    .activity-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .activity-dot.success { background: var(--success); box-shadow: 0 0 8px var(--success-glow); }
+    .activity-dot.warning { background: var(--warning); box-shadow: 0 0 8px var(--warning-glow); }
+    .activity-dot.error { background: var(--critical); box-shadow: 0 0 8px var(--critical-glow); }
+
+    .activity-content {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .activity-text {
+      font-size: 13px;
+      color: var(--ivory);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .activity-meta {
+      font-size: 11px;
+      color: var(--ivory-soft);
+    }
+
+    .activity-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 2px 10px;
+      border-radius: var(--radius-full);
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .activity-badge.success {
+      background: var(--success-bg);
+      color: var(--success);
+      border: 1px solid var(--success-border);
+    }
+
+    .activity-badge.warning {
+      background: var(--warning-bg);
+      color: var(--warning);
+      border: 1px solid var(--warning-border);
+    }
+
+    /* Status Row */
+    .status-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: var(--space-3) 0;
+      border-bottom: 1px solid var(--forest-accent);
+    }
+
+    .status-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--ivory);
+    }
+
+    .status-sublabel {
+      font-size: 11px;
+      color: var(--ivory-soft);
+    }
+
+    .status-value {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--ivory);
+    }
+
+    .status-value.teal { color: var(--success); }
+    .status-value.red { color: var(--critical); }
+    .status-value.orange { color: var(--warning); }
+
+    /* ==========================================================================
+       USERS TABLE
+       ========================================================================== */
+
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: var(--space-4);
+    }
+
+    .section-title {
+      font-family: var(--font-heading);
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--ivory);
+      margin: 0;
+    }
+
+    .section-subtitle {
+      font-size: 13px;
+      color: var(--ivory-soft);
+      margin: 4px 0 0;
+    }
+
+    .section-actions {
+      display: flex;
+      gap: var(--space-2);
+    }
+
+    .btn {
+      padding: var(--space-2) var(--space-4);
+      border-radius: var(--radius-md);
+      font-size: 13px;
+      cursor: pointer;
+      transition: all var(--duration-fast);
+    }
+
+    .btn.secondary {
+      background: var(--forest-mid);
+      border: 1px solid var(--forest-accent);
+      color: var(--ivory-mid);
+    }
+
+    .btn.secondary:hover {
+      background: var(--forest-light);
+      border-color: var(--gold-muted);
+      color: var(--ivory);
+    }
+
+    .btn.primary {
+      background: var(--burgundy);
+      border: none;
+      color: var(--ivory);
+      font-weight: 600;
+      box-shadow: var(--shadow-burgundy);
+    }
+
+    .btn.primary:hover {
+      background: var(--burgundy-light);
+    }
+
+    /* Data Table */
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .data-table th {
+      text-align: left;
+      padding: var(--space-3) var(--space-4);
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--ivory-soft);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      background: var(--forest-mid);
+      border-bottom: 1px solid var(--forest-accent);
+    }
+
+    .data-table td {
+      padding: var(--space-3) var(--space-4);
+      font-size: 13px;
+      color: var(--ivory);
+      border-bottom: 1px solid var(--forest-accent);
+    }
+
+    .user-name {
+      font-weight: 600;
+    }
+
+    .user-email {
+      font-size: 11px;
+      color: var(--ivory-soft);
+    }
+
+    .role-tag {
+      font-size: 11px;
+      padding: 2px 10px;
+      border-radius: var(--radius-full);
+      font-weight: 600;
+    }
+
+    .role-tag.admin {
+      background: var(--burgundy-bg);
+      color: var(--burgundy-light);
+      border: 1px solid var(--burgundy-border);
+    }
+
+    .role-tag.psychiatrist {
+      background: var(--success-bg);
+      color: var(--success);
+      border: 1px solid var(--success-border);
+    }
+
+    .role-tag.nurse {
+      background: var(--info-bg);
+      color: var(--info);
+      border: 1px solid var(--info-border);
+    }
+
+    .mfa-check {
+      color: var(--success);
+    }
+
+    .mfa-required {
+      font-size: 11px;
+      color: var(--critical);
+      font-weight: 600;
+    }
+
+    /* Pagination Footer */
+    .table-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: var(--space-3) var(--space-4);
+      border-top: 1px solid var(--forest-accent);
+      font-size: 12px;
+      color: var(--ivory-soft);
+    }
+
+    .pagination-btns {
+      display: flex;
+      gap: var(--space-2);
+    }
+
+    .page-btn {
+      padding: var(--space-1) var(--space-3);
+      background: var(--forest-mid);
+      border: 1px solid var(--forest-accent);
+      border-radius: var(--radius-sm);
+      font-size: 12px;
+      color: var(--ivory-mid);
+      cursor: pointer;
+      transition: all var(--duration-fast);
+    }
+
+    .page-btn:hover:not(:disabled) {
+      background: var(--forest-light);
+      border-color: var(--gold-muted);
+      color: var(--ivory);
+    }
+
+    .page-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* ==========================================================================
+       AUDIT LOG
+       ========================================================================== */
+
+    .filter-chips {
+      display: flex;
+      gap: var(--space-2);
+      margin-bottom: var(--space-4);
+      flex-wrap: wrap;
+    }
+
+    .filter-chip {
+      padding: var(--space-2) var(--space-4);
+      background: var(--forest);
+      border: 1px solid var(--forest-accent);
+      border-radius: var(--radius-full);
+      font-size: 12px;
+      color: var(--ivory-mid);
+      cursor: pointer;
+      transition: all var(--duration-fast);
+    }
+
+    .filter-chip:hover {
+      background: var(--forest-mid);
+      border-color: var(--gold-muted);
+      color: var(--ivory);
+    }
+
+    .filter-chip.active {
+      background: var(--burgundy);
+      border-color: var(--burgundy);
+      color: var(--ivory);
+    }
+
+    .audit-entry {
+      display: flex;
+      align-items: flex-start;
+      gap: var(--space-3);
+      padding: var(--space-3) var(--space-5);
+      border-bottom: 1px solid var(--forest-accent);
+    }
+
+    .audit-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      margin-top: 5px;
+      flex-shrink: 0;
+    }
+
+    .audit-dot.success { background: var(--success); box-shadow: 0 0 8px var(--success-glow); }
+    .audit-dot.warning { background: var(--warning); box-shadow: 0 0 8px var(--warning-glow); }
+    .audit-dot.error { background: var(--critical); box-shadow: 0 0 8px var(--critical-glow); }
+
+    .audit-content {
+      flex: 1;
+    }
+
+    .audit-action {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--ivory);
+    }
+
+    .audit-meta {
+      font-size: 11px;
+      color: var(--ivory-soft);
+      margin-top: 3px;
+      display: flex;
+      gap: var(--space-3);
+      flex-wrap: wrap;
+    }
+
+    .audit-meta strong {
+      color: var(--ivory-mid);
+    }
+  </style>
+</head>
+<body>
+  <!-- ==========================================================================
+       ACCESS DENIED STATE (for non-admin users)
+       ========================================================================== -->
+  <!--
+  <div class="admin-page">
+    <div class="access-denied">
+      <div class="access-denied-content">
+        <div class="access-denied-icon">🔒</div>
+        <h1 class="access-denied-title">Admin Access Required</h1>
+        <p class="access-denied-text">
+          This section is restricted to system administrators. If you believe you should have access, please contact your organization's admin.
+        </p>
+        <button class="access-denied-btn">Return to Dashboard</button>
+      </div>
+    </div>
+  </div>
+  -->
+
+  <!-- ==========================================================================
+       ADMIN PANEL (for admin users)
+       ========================================================================== -->
+  <div class="admin-page">
+    <!-- Admin Header -->
+    <div class="admin-header">
+      <div class="admin-title-row">
+        <div class="admin-logo">M</div>
+        <div>
+          <h1 class="admin-title">MindLog Admin Console</h1>
+          <p class="admin-subtitle">HIPAA-Compliant Administration</p>
+        </div>
+      </div>
+
+      <div class="admin-tabs">
+        <div class="admin-tab active">Dashboard</div>
+        <div class="admin-tab">FHIR Endpoints</div>
+        <div class="admin-tab">Users</div>
+        <div class="admin-tab">Roles & RBAC</div>
+        <div class="admin-tab">Audit Log</div>
+        <div class="admin-tab">Security</div>
+      </div>
+    </div>
+
+    <!-- Admin Content: Dashboard -->
+    <div class="admin-content">
+      <!-- Metric Cards -->
+      <div class="metric-row">
+        <div class="metric-card">
+          <div class="metric-value">146</div>
+          <div class="metric-label">Total Patients</div>
+          <div class="metric-accent blue">128 active</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-value">7</div>
+          <div class="metric-label">Clinicians</div>
+          <div class="metric-accent teal">2 admins</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-value">12</div>
+          <div class="metric-label">Critical Alerts</div>
+          <div class="metric-accent red">8 warnings</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-value">247</div>
+          <div class="metric-label">Audit Events (24h)</div>
+          <div class="metric-accent orange">34 PHI access</div>
+        </div>
+      </div>
+
+      <!-- Two Column Layout -->
+      <div class="two-col">
+        <!-- Recent Activity -->
+        <div class="panel">
+          <h3 class="panel-title">Recent Activity</h3>
+          <div class="activity-item">
+            <div class="activity-dot success"></div>
+            <div class="activity-content">
+              <div class="activity-text">Read patient record</div>
+              <div class="activity-meta">s.anderson@hospital.edu · 5m ago</div>
+            </div>
+            <span class="activity-badge success">Success</span>
+          </div>
+          <div class="activity-item">
+            <div class="activity-dot success"></div>
+            <div class="activity-content">
+              <div class="activity-text">Created clinical note</div>
+              <div class="activity-meta">m.chen@hospital.edu · 12m ago</div>
+            </div>
+            <span class="activity-badge success">Success</span>
+          </div>
+          <div class="activity-item">
+            <div class="activity-dot warning"></div>
+            <div class="activity-content">
+              <div class="activity-text">Updated patient risk level</div>
+              <div class="activity-meta">r.kim@hospital.edu · 24m ago</div>
+            </div>
+            <span class="activity-badge warning">Warning</span>
+          </div>
+          <div class="activity-item">
+            <div class="activity-dot success"></div>
+            <div class="activity-content">
+              <div class="activity-text">Acknowledged alert</div>
+              <div class="activity-meta">s.anderson@hospital.edu · 45m ago</div>
+            </div>
+            <span class="activity-badge success">Success</span>
+          </div>
+        </div>
+
+        <!-- System Status -->
+        <div class="panel">
+          <h3 class="panel-title">System Status</h3>
+          <div class="status-row">
+            <div>
+              <div class="status-label">Patients in Crisis</div>
+              <div class="status-sublabel">Require immediate attention</div>
+            </div>
+            <span class="status-value red">3</span>
+          </div>
+          <div class="status-row">
+            <div>
+              <div class="status-label">Active Clinicians</div>
+              <div class="status-sublabel">Users with active accounts</div>
+            </div>
+            <span class="status-value">7</span>
+          </div>
+          <div class="status-row">
+            <div>
+              <div class="status-label">Alerts (24h)</div>
+              <div class="status-sublabel">Total alerts generated</div>
+            </div>
+            <span class="status-value">24</span>
+          </div>
+          <div class="status-row" style="border-bottom: none;">
+            <div>
+              <div class="status-label">Audit Errors (24h)</div>
+              <div class="status-sublabel">System error events</div>
+            </div>
+            <span class="status-value teal">0</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================================================
+       USERS TAB CONTENT (alternative view)
+       ========================================================================== -->
+  <!--
+  <div class="admin-content">
+    <div class="section-header">
+      <div>
+        <h2 class="section-title">User Management</h2>
+        <p class="section-subtitle">HIPAA-compliant user lifecycle with RBAC and MFA enforcement</p>
+      </div>
+      <div class="section-actions">
+        <button class="btn secondary">Import from LDAP</button>
+        <button class="btn primary">+ Add Manual User</button>
+      </div>
+    </div>
+
+    <div class="panel" style="padding: 0; overflow: hidden;">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>User</th>
+            <th>Role</th>
+            <th>Title</th>
+            <th>NPI</th>
+            <th>MFA</th>
+            <th>Patients</th>
+            <th>Last Login</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              <div class="user-name">Dr. Sarah Anderson</div>
+              <div class="user-email">s.anderson@hospital.edu</div>
+            </td>
+            <td><span class="role-tag admin">admin</span></td>
+            <td>Psychiatrist</td>
+            <td style="font-family: var(--font-mono); font-size: 11px;">1234567890</td>
+            <td><span class="mfa-check">✓</span></td>
+            <td>42</td>
+            <td>5m ago</td>
+            <td><span class="activity-badge success">Active</span></td>
+            <td><button class="btn secondary" style="padding: 4px 10px; font-size: 11px;">Edit</button></td>
+          </tr>
+          <tr>
+            <td>
+              <div class="user-name">Dr. Michael Chen</div>
+              <div class="user-email">m.chen@hospital.edu</div>
+            </td>
+            <td><span class="role-tag psychiatrist">psychiatrist</span></td>
+            <td>Psychologist</td>
+            <td style="font-family: var(--font-mono); font-size: 11px;">0987654321</td>
+            <td><span class="mfa-check">✓</span></td>
+            <td>38</td>
+            <td>2h ago</td>
+            <td><span class="activity-badge success">Active</span></td>
+            <td><button class="btn secondary" style="padding: 4px 10px; font-size: 11px;">Edit</button></td>
+          </tr>
+          <tr>
+            <td>
+              <div class="user-name">Rachel Kim, RN</div>
+              <div class="user-email">r.kim@hospital.edu</div>
+            </td>
+            <td><span class="role-tag nurse">nurse</span></td>
+            <td>Care Coordinator</td>
+            <td style="font-family: var(--font-mono); font-size: 11px; color: var(--ivory-soft);">—</td>
+            <td><span class="mfa-required">REQUIRED</span></td>
+            <td>28</td>
+            <td>1d ago</td>
+            <td><span class="activity-badge success">Active</span></td>
+            <td><button class="btn secondary" style="padding: 4px 10px; font-size: 11px;">Edit</button></td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="table-footer">
+        <span>Showing 3 of 7 users</span>
+        <div class="pagination-btns">
+          <button class="page-btn" disabled>Previous</button>
+          <button class="page-btn">Next</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  -->
+
+  <!-- ==========================================================================
+       AUDIT LOG TAB CONTENT (alternative view)
+       ========================================================================== -->
+  <!--
+  <div class="admin-content">
+    <div class="section-header">
+      <div>
+        <h2 class="section-title">Audit Log</h2>
+        <p class="section-subtitle">HIPAA §164.312(b) compliant audit controls — immutable, 6-year retention, AES-256 encrypted</p>
+      </div>
+      <button class="btn secondary">Export CSV</button>
+    </div>
+
+    <div class="filter-chips">
+      <div class="filter-chip active">All</div>
+      <div class="filter-chip">Read</div>
+      <div class="filter-chip">Create</div>
+      <div class="filter-chip">Update</div>
+      <div class="filter-chip">Delete</div>
+      <div class="filter-chip">Export</div>
+    </div>
+
+    <div class="panel" style="padding: 0;">
+      <div class="audit-entry">
+        <div class="audit-dot success"></div>
+        <div class="audit-content">
+          <div class="audit-action">Read patient record (a1b2c3d4...)</div>
+          <div class="audit-meta">
+            <span>User: <strong>s.anderson@hospital.edu</strong></span>
+            <span>Action: <strong>read</strong></span>
+            <span>Resource: <strong>patient</strong></span>
+            <span>Time: <strong>Feb 23, 2:45 PM</strong></span>
+          </div>
+        </div>
+        <span class="activity-badge success">Success</span>
+      </div>
+      <div class="audit-entry">
+        <div class="audit-dot success"></div>
+        <div class="audit-content">
+          <div class="audit-action">Create clinical note (e5f6g7h8...)</div>
+          <div class="audit-meta">
+            <span>User: <strong>m.chen@hospital.edu</strong></span>
+            <span>Action: <strong>create</strong></span>
+            <span>Resource: <strong>clinical_note</strong></span>
+            <span>Time: <strong>Feb 23, 2:32 PM</strong></span>
+          </div>
+        </div>
+        <span class="activity-badge success">Success</span>
+      </div>
+      <div class="audit-entry">
+        <div class="audit-dot warning"></div>
+        <div class="audit-content">
+          <div class="audit-action">Update patient risk level (i9j0k1l2...)</div>
+          <div class="audit-meta">
+            <span>User: <strong>r.kim@hospital.edu</strong></span>
+            <span>Action: <strong>update</strong></span>
+            <span>Resource: <strong>patient</strong></span>
+            <span>IP: <strong>192.168.1.45</strong></span>
+            <span>Time: <strong>Feb 23, 2:18 PM</strong></span>
+          </div>
+        </div>
+        <span class="activity-badge warning">Warning</span>
+      </div>
+      <div class="table-footer">
+        <span>Showing 50 of 247 entries</span>
+        <div class="pagination-btns">
+          <button class="page-btn" disabled>Previous</button>
+          <button class="page-btn">Next</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  -->
+</body>
+</html>

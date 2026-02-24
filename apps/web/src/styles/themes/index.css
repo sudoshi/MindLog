@@ -1,0 +1,59 @@
+/* =============================================================================
+   MindLog Design System — Theme Index
+   Single entry point for loading theme tokens
+   ============================================================================= */
+
+/* Base tokens (theme-agnostic: spacing, typography, animations) */
+@import './tokens-base.css';
+
+/* Dark theme tokens (default) */
+@import './tokens-dark.css';
+
+/* Compatibility layer for legacy variable names */
+@import './compat.css';
+
+/*
+   THEME SWITCHING
+   ===============
+
+   The theme system uses CSS custom properties scoped to data-theme attribute.
+
+   Default: Dark theme is applied to :root (no attribute needed)
+
+   To switch themes programmatically:
+
+   // Set dark theme (default)
+   document.documentElement.dataset.theme = 'dark';
+
+   // Future: Set light theme
+   document.documentElement.dataset.theme = 'light';
+
+   // Remove theme attribute (falls back to :root = dark)
+   delete document.documentElement.dataset.theme;
+
+
+   ADDING NEW THEMES
+   =================
+
+   1. Create new token file (e.g., tokens-light.css)
+   2. Scope all variables with [data-theme="light"] { ... }
+   3. Import the new theme file here
+
+   Example:
+   @import './tokens-light.css';
+
+
+   ACCESSING THEME IN JAVASCRIPT
+   =============================
+
+   // Get current theme
+   const theme = document.documentElement.dataset.theme || 'dark';
+
+   // Check if dark mode
+   const isDark = !document.documentElement.dataset.theme ||
+                  document.documentElement.dataset.theme === 'dark';
+
+   // Get CSS variable value
+   const primaryColor = getComputedStyle(document.documentElement)
+     .getPropertyValue('--primary').trim();
+*/

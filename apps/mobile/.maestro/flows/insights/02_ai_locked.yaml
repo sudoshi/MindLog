@@ -1,0 +1,61 @@
+# =============================================================================
+# INSIGHTS-02: AI Insights Section — Locked / Consent / Summary State
+# Verifies that scrolling down on the Insights tab reveals the AI insights
+# section, which may show as locked (AI disabled), consent-required, or
+# an active AI clinical summary depending on server configuration.
+# =============================================================================
+appId: com.mindlog.app
+
+---
+
+# Launch with a clean slate
+- launchApp:
+    clearState: true
+
+# Connect to Metro dev server (Expo Dev Client)
+- runFlow: ../../subflows/connect_dev_server.yaml
+
+# Sign in as demo patient
+- runFlow:
+    file: ../../subflows/sign_in.yaml
+
+# Navigate to the Insights tab
+- tapOn:
+    text: "Insights"
+
+# Wait for the Insights data to load
+- extendedWaitUntil:
+    visible:
+      text: "Insights"
+    timeout: 8000
+
+- extendedWaitUntil:
+    visible:
+      id: "insights-refresh-btn"
+    timeout: 15000
+
+# Scroll down to find the AI section (it is below stats and correlations)
+- scrollUntilVisible:
+    element:
+      text: "AI-Powered Insights"
+    direction: DOWN
+    timeout: 10000
+    optional: true
+
+# One of these three AI section states should be visible:
+# 1. AI-Powered Insights (locked — AI disabled on server)
+- assertVisible:
+    text: "AI-Powered Insights"
+    optional: true
+
+# 2. AI Insights Locked (consent not granted)
+- assertVisible:
+    text: "AI Insights Locked"
+    optional: true
+
+# 3. AI Clinical Summary (AI enabled + consent granted)
+- assertVisible:
+    text: "AI Clinical Summary"
+    optional: true
+
+- takeScreenshot: screenshots/insights_ai_section

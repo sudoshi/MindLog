@@ -1,0 +1,60 @@
+# =============================================================================
+# INSIGHTS-03: Correlations Card — "What moves your mood"
+# Verifies that scrolling to the correlations section shows the mood
+# correlation analysis card with Sleep and Exercise factors (when enough
+# check-in data exists).
+# =============================================================================
+appId: com.mindlog.app
+
+---
+
+# Launch with a clean slate
+- launchApp:
+    clearState: true
+
+# Connect to Metro dev server (Expo Dev Client)
+- runFlow: ../../subflows/connect_dev_server.yaml
+
+# Sign in as demo patient
+- runFlow:
+    file: ../../subflows/sign_in.yaml
+
+# Navigate to the Insights tab
+- tapOn:
+    text: "Insights"
+
+# Wait for the Insights data to load
+- extendedWaitUntil:
+    visible:
+      text: "Insights"
+    timeout: 8000
+
+- extendedWaitUntil:
+    visible:
+      id: "insights-refresh-btn"
+    timeout: 15000
+
+# Scroll down to the correlations card
+- scrollUntilVisible:
+    element:
+      text: "What moves your mood"
+    direction: DOWN
+    timeout: 10000
+
+# Assert the correlations card title is visible (optional in case patient
+# has fewer than 7 check-ins, which triggers a "more data needed" message)
+- assertVisible:
+    text: "What moves your mood"
+    optional: true
+
+# Check for the Sleep correlation row
+- assertVisible:
+    text: "Sleep"
+    optional: true
+
+# Check for the Exercise correlation row
+- assertVisible:
+    text: "Exercise"
+    optional: true
+
+- takeScreenshot: screenshots/insights_correlations

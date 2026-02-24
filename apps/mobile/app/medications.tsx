@@ -202,7 +202,7 @@ export default function MedicationsScreen() {
             </Text>
           )}
         </View>
-        <TouchableOpacity style={styles.addBtn} onPress={() => setShowAddModal(true)}>
+        <TouchableOpacity testID="meds-add-btn" style={styles.addBtn} onPress={() => setShowAddModal(true)}>
           <Text style={styles.addBtnText}>+ Add</Text>
         </TouchableOpacity>
       </View>
@@ -348,6 +348,7 @@ function MedCard({ med, toggling, onToggle }: MedCardProps) {
         ) : (
           <View style={styles.actionBtns}>
             <TouchableOpacity
+              testID={`med-taken-${med.id}`}
               style={[styles.actionBtn, taken && styles.actionBtnActive]}
               onPress={() => onToggle(med, true)}
             >
@@ -356,6 +357,7 @@ function MedCard({ med, toggling, onToggle }: MedCardProps) {
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
+              testID={`med-skip-${med.id}`}
               style={[styles.actionBtn, skipped && styles.actionBtnSkip]}
               onPress={() => onToggle(med, false)}
             >
@@ -413,6 +415,7 @@ function AddMedicationModal({
             {/* Name */}
             <Text style={styles.fieldLabel}>Medication name *</Text>
             <TextInput
+              testID="add-med-name"
               style={styles.fieldInput}
               placeholder="e.g. Sertraline"
               placeholderTextColor="#4a5568"
@@ -492,6 +495,7 @@ function AddMedicationModal({
               <Text style={styles.cancelBtnText}>Cancel</Text>
             </TouchableOpacity>
             <TouchableOpacity
+              testID="add-med-submit"
               style={[styles.submitBtn, (!newName.trim() || adding) && styles.submitBtnDisabled]}
               onPress={onSubmit}
               disabled={!newName.trim() || adding}

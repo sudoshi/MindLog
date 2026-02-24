@@ -203,7 +203,7 @@ export function LoginPage() {
               width: '100%',
               padding: '12px 0',
               marginTop: 24,
-              background: loading ? 'rgba(16,185,129,0.6)' : 'var(--safe)',
+              background: loading ? 'rgba(45,212,191,0.6)' : 'var(--safe)',
               color: '#fff',
               border: 'none',
               borderRadius: 8,

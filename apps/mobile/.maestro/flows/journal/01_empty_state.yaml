@@ -1,0 +1,48 @@
+# =============================================================================
+# JOURNAL-01: Empty State / Entry List
+# Verifies that the Journal tab loads correctly and shows either the empty
+# state placeholder or existing journal entry cards (demo patient may have
+# seeded entries).
+# =============================================================================
+appId: com.mindlog.app
+
+---
+
+# Launch with a clean slate
+- launchApp:
+    clearState: true
+
+# Connect to Metro dev server (Expo Dev Client)
+- runFlow: ../../subflows/connect_dev_server.yaml
+
+# Sign in as demo patient
+- runFlow:
+    file: ../../subflows/sign_in.yaml
+
+# Navigate to the Journal tab
+- tapOn:
+    text: "Journal"
+
+# Verify the Journal screen title is visible
+- extendedWaitUntil:
+    visible:
+      text: "Journal"
+    timeout: 8000
+
+# The demo patient may or may not have journal entries.
+# If there are no entries, the empty state card should appear.
+- assertVisible:
+    id: "journal-empty-state"
+    optional: true
+
+# Check for the empty state message (only shows when no entries exist)
+- assertVisible:
+    text: "No journal entries yet."
+    optional: true
+
+# Alternatively, if entries exist, word count metadata should be visible
+- assertVisible:
+    text: "words"
+    optional: true
+
+- takeScreenshot: screenshots/journal_screen

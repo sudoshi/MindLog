@@ -1,0 +1,47 @@
+# =============================================================================
+# AUTH-01: Sign In — Happy Path
+# Verifies that a patient can sign in with valid demo credentials
+# and lands on the Today screen with a greeting.
+# =============================================================================
+appId: com.mindlog.app
+
+---
+
+# Launch with a clean slate
+- launchApp:
+    clearState: true
+
+# Connect to Metro dev server (Expo Dev Client)
+- runFlow: ../../subflows/connect_dev_server.yaml
+
+# Verify onboarding screen loaded
+- extendedWaitUntil:
+    visible:
+      text: "MindLog"
+    timeout: 10000
+
+# Switch to the Sign In tab
+- tapOn:
+    id: "tab-signin"
+
+# Enter demo patient email
+- tapOn:
+    id: "email-input"
+- inputText: ${PATIENT_EMAIL}
+
+# Enter demo patient password
+- tapOn:
+    id: "password-input"
+- inputText: ${PATIENT_PASSWORD}
+
+# Submit sign-in form
+- tapOn:
+    id: "sign-in-btn"
+
+# Wait for the Today screen greeting (e.g. "Good morning", "Good afternoon")
+- extendedWaitUntil:
+    visible:
+      text: "Good"
+    timeout: 15000
+
+- takeScreenshot: screenshots/auth_sign_in_success

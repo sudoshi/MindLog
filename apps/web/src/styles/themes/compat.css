@@ -1,0 +1,147 @@
+/* =============================================================================
+   MindLog Design System — Compatibility Layer
+   Maps legacy variable names to new token system for gradual migration
+   ============================================================================= */
+
+:root,
+[data-theme="dark"] {
+  /* ─────────────────────────────────────────────────────────────────────────
+     LEGACY COLOR ALIASES (Old → New)
+     ───────────────────────────────────────────────────────────────────────── */
+
+  /* Burgundy/Crimson aliases */
+  --burgundy: var(--primary);
+  --burgundy-dark: var(--primary-dark);
+  --burgundy-light: var(--primary-light);
+  --burgundy-glow: var(--primary-glow);
+  --burgundy-bg: var(--primary-bg);
+  --burgundy-border: var(--primary-border);
+
+  /* Legacy crimson (from original design) */
+  --crimson: var(--primary);
+  --crimson-dark: var(--primary-dark);
+  --crimson-light: var(--primary-light);
+
+  /* Gold aliases */
+  --gold: var(--accent);
+  --gold-muted: var(--accent-muted);
+  --gold-light: var(--accent-light);
+  --gold-pale: var(--accent-pale);
+  --gold-bg: var(--accent-bg);
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     LEGACY SURFACE ALIASES
+     ───────────────────────────────────────────────────────────────────────── */
+
+  /* Dark grey surfaces (legacy forest-* names preserved for compatibility) */
+  --forest-darkest: var(--surface-darkest);
+  --forest-dark: var(--surface-base);
+  --forest: var(--surface-raised);
+  --forest-mid: var(--surface-overlay);
+  --forest-light: var(--surface-elevated);
+  --forest-accent: var(--surface-accent);
+
+  /* Sidebar */
+  --charcoal: var(--sidebar-bg);
+  --charcoal-light: var(--sidebar-bg-light);
+
+  /* Legacy neutral names */
+  --parchment: var(--surface-base);
+  --white: var(--surface-raised);
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     LEGACY TEXT ALIASES
+     ───────────────────────────────────────────────────────────────────────── */
+
+  --ivory: var(--text-primary);
+  --ivory-mid: var(--text-secondary);
+  --ivory-soft: var(--text-muted);
+  --ivory-ghost: var(--text-ghost);
+
+  /* Legacy dark-on-light names (inverted for dark theme) */
+  --black: var(--text-primary);
+  --slate: var(--text-secondary);
+  --graphite: var(--text-muted);
+  --silver: var(--text-ghost);
+  --pearl: var(--border-default);
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     LEGACY SEMANTIC ALIASES
+     ───────────────────────────────────────────────────────────────────────── */
+
+  /* Status colors - old names */
+  --safe: var(--success);
+  --safe-bg: var(--success-bg);
+  --safe-border: var(--success-border);
+  --safe-glow: var(--success-glow);
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     LEGACY SHADOW ALIASES
+     ───────────────────────────────────────────────────────────────────────── */
+
+  --shadow-crimson: var(--shadow-primary);
+  --shadow-burgundy: var(--shadow-primary);
+  --shadow-gold: var(--shadow-accent);
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     LEGACY GLASS ALIASES (for existing glassmorphism code)
+     ───────────────────────────────────────────────────────────────────────── */
+
+  --glass-sidebar: rgba(12, 15, 24, 0.88);
+  --glass-topbar: rgba(12, 15, 24, 0.76);
+  --glass-panel: rgba(12, 15, 24, 0.65);
+  --glass-card: rgba(255, 255, 255, 0.03);
+  --glass-02: rgba(255, 255, 255, 0.07);
+  --glass-hi: rgba(255, 255, 255, 0.08);
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     LEGACY LAYOUT ALIASES
+     ───────────────────────────────────────────────────────────────────────── */
+
+  /* Ink colors (from existing theme.css) */
+  --ink: var(--text-primary);
+  --ink-mid: var(--text-secondary);
+  --ink-soft: var(--text-muted);
+  --ink-faint: var(--text-ghost);
+
+  /* Border aliases */
+  --border1: var(--border-default);
+  --border2: var(--border-hover);
+  --border3: var(--border-subtle);
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     LEGACY RADIUS ALIASES
+     ───────────────────────────────────────────────────────────────────────── */
+
+  --r-xs: var(--radius-xs);
+  --r-sm: var(--radius-sm);
+  --r-md: var(--radius-md);
+  --r-lg: var(--radius-lg);
+  --r-xl: var(--radius-xl);
+  --r-2xl: var(--radius-2xl);
+  --r-full: var(--radius-full);
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     MOOD COLOR ALIASES (Short names used in legacy code)
+     ───────────────────────────────────────────────────────────────────────── */
+
+  --m1: var(--mood-1);
+  --m2: var(--mood-2);
+  --m3: var(--mood-3);
+  --m4: var(--mood-4);
+  --m5: var(--mood-5);
+  --m6: var(--mood-6);
+  --m7: var(--mood-7);
+  --m8: var(--mood-8);
+  --m9: var(--mood-9);
+  --m10: var(--mood-10);
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     GENERIC ALIASES (Shorthand names used in inline styles)
+     ───────────────────────────────────────────────────────────────────────── */
+
+  --bg: var(--surface-base);
+  --border: var(--border-default);
+  --panel: var(--surface-raised);
+  --ink-ghost: var(--text-ghost);
+}

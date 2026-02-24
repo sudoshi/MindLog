@@ -1,0 +1,61 @@
+# =============================================================================
+# ONBOARDING-01: Create Account Form — Structure Validation
+# Verifies that tapping the Register tab reveals all expected form fields
+# for invite-only patient registration: invite code, name, DOB, email, password.
+# =============================================================================
+appId: com.mindlog.app
+
+---
+
+# Launch with a clean slate
+- launchApp:
+    clearState: true
+
+# Connect to Metro dev server (Expo Dev Client)
+- runFlow: ../../subflows/connect_dev_server.yaml
+
+# Verify onboarding screen loaded with branding
+- extendedWaitUntil:
+    visible:
+      text: "MindLog"
+    timeout: 10000
+
+- assertVisible:
+    text: "Your mental wellness companion"
+
+# Switch to the Register tab
+- tapOn:
+    id: "tab-register"
+
+# --- Invite Code field ---
+- assertVisible:
+    text: "Invite Code"
+
+- assertVisible:
+    id: "invite-code-input"
+
+# --- First Name field ---
+- assertVisible:
+    text: "First Name"
+
+# --- Last Name field ---
+- assertVisible:
+    text: "Last Name"
+
+# --- Date of Birth field ---
+- assertVisible:
+    text: "Date of Birth"
+
+# --- Email field ---
+- assertVisible:
+    text: "Email"
+
+# --- Password field ---
+- assertVisible:
+    text: "Password"
+
+# --- Register button ---
+- assertVisible:
+    id: "register-btn"
+
+- takeScreenshot: screenshots/onboarding_create_account_form

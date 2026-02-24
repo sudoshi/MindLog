@@ -1,0 +1,15 @@
+# =============================================================================
+# Subflow: Navigate to a specific tab
+# Usage: runFlow with env TAB_NAME set to tab label
+# =============================================================================
+appId: com.mindlog.app
+
+---
+
+- tapOn:
+    text: ${TAB_NAME}
+
+- extendedWaitUntil:
+    visible:
+      text: ${TAB_NAME}
+    timeout: 5000

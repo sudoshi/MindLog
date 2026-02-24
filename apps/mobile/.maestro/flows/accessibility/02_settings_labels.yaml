@@ -1,0 +1,56 @@
+# =============================================================================
+# ACCESSIBILITY-02: Settings / Profile Screen Accessibility Labels
+# Verifies that the Profile tab exposes all key settings rows with readable
+# text labels: Notifications, Privacy & Consent, Biometric Lock, and the
+# sign-out button. Each row must be identifiable by assistive technology.
+# FDA SaMD — WCAG 2.1 AA compliance checkpoint.
+# =============================================================================
+appId: com.mindlog.app
+
+---
+
+# Launch with a clean slate
+- launchApp:
+    clearState: true
+
+# Connect to Metro dev server (Expo Dev Client)
+- runFlow: ../../subflows/connect_dev_server.yaml
+
+# Sign in as the demo patient
+- runFlow: ../../subflows/sign_in.yaml
+
+# Navigate to the Profile tab
+- tapOn:
+    text: "Profile"
+
+# Wait for the Profile screen to render
+- extendedWaitUntil:
+    visible:
+      text: "Profile"
+    timeout: 8000
+
+# ── Settings row: Notifications ────────────────────────────────────────────
+- extendedWaitUntil:
+    visible:
+      text: "Notifications"
+    timeout: 5000
+
+# ── Settings row: Privacy & Consent ────────────────────────────────────────
+- extendedWaitUntil:
+    visible:
+      text: "Privacy & Consent"
+    timeout: 5000
+
+# ── Settings row: Biometric Lock ──────────────────────────────────────────
+- extendedWaitUntil:
+    visible:
+      text: "Biometric Lock"
+    timeout: 5000
+
+# ── Sign-out button ───────────────────────────────────────────────────────
+- extendedWaitUntil:
+    visible:
+      id: "sign-out-btn"
+    timeout: 5000
+
+- takeScreenshot: screenshots/a11y_settings

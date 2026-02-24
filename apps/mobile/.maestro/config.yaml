@@ -1,0 +1,17 @@
+# =============================================================================
+# Maestro E2E Configuration — MindLog Mobile
+# =============================================================================
+
+appId: com.mindlog.app
+
+# Demo environment credentials
+env:
+  PATIENT_EMAIL: "alice@mindlogdemo.com"
+  PATIENT_PASSWORD: "Demo@Patient1!"
+  CLINICIAN_EMAIL: "dr.kim@mindlogdemo.com"
+  CLINICIAN_PASSWORD: "Demo@Clinic1!"
+  API_BASE: "http://10.0.2.2:3000"
+
+# Global settings
+onFlowStart:
+  - clearState

@@ -79,7 +79,7 @@ export default function ProfileScreen() {
             <ActivityIndicator color={DESIGN_TOKENS.COLOR_PRIMARY} />
           ) : (
             <>
-              <View style={styles.avatarCircle}>
+              <View testID="profile-avatar" style={styles.avatarCircle}>
                 <Text style={styles.avatarInitial}>
                   {(profile?.preferred_name ?? profile?.first_name ?? profile?.email ?? '?').charAt(0).toUpperCase()}
                 </Text>
@@ -133,7 +133,7 @@ export default function ProfileScreen() {
         </View>
 
         {/* ---- Safety resources ---- */}
-        <View style={styles.safetyCard}>
+        <View testID="profile-crisis-card" style={styles.safetyCard}>
           <Text style={styles.safetyTitle}>Crisis Resources (US)</Text>
           <Text style={styles.safetyLine}>📞 {CRISIS_CONTACTS.LIFELINE.name}</Text>
           <Text style={styles.safetyHighlight}>Call or text {CRISIS_CONTACTS.LIFELINE.phone}</Text>
@@ -146,7 +146,7 @@ export default function ProfileScreen() {
         </View>
 
         {/* ---- Sign out ---- */}
-        <TouchableOpacity style={styles.signOutBtn} onPress={handleSignOut}>
+        <TouchableOpacity testID="sign-out-btn" style={styles.signOutBtn} onPress={handleSignOut}>
           <Text style={styles.signOutText}>Sign Out</Text>
         </TouchableOpacity>
 

@@ -1,0 +1,42 @@
+# =============================================================================
+# TODAY-04: Medication Card Navigation
+# Verifies that tapping the medication card on the Today screen navigates
+# to the Medications screen. The medication card is conditional — it only
+# appears if the patient has active prescriptions, so all assertions after
+# scrolling use optional: true.
+# =============================================================================
+appId: com.mindlog.app
+
+---
+
+# Launch with a clean slate
+- launchApp:
+    clearState: true
+
+# Connect to Metro dev server (Expo Dev Client)
+- runFlow: ../../subflows/connect_dev_server.yaml
+
+# Sign in as the demo patient
+- runFlow: ../../subflows/sign_in.yaml
+
+# Attempt to scroll to the medication card (may not exist for this patient)
+- scrollUntilVisible:
+    element:
+      id: "today-med-card"
+    direction: DOWN
+    timeout: 10000
+    optional: true
+
+# Tap the medication card if it is present
+- tapOn:
+    id: "today-med-card"
+    optional: true
+
+# If navigation occurred, the Medications screen title should appear
+- extendedWaitUntil:
+    visible:
+      text: "Medications"
+    timeout: 5000
+    optional: true
+
+- takeScreenshot: screenshots/today_med_nav

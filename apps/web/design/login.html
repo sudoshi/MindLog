@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MindLog — Login (Dark Theme)</title>
+  <link rel="stylesheet" href="tokens.css">
+  <style>
+    /* ==========================================================================
+       LOGIN PAGE — Dark Theme
+       ========================================================================== */
+
+    .login-page {
+      display: flex;
+      min-height: 100vh;
+    }
+
+    /* ==========================================================================
+       LEFT PANEL — BRANDING (Burgundy gradient)
+       ========================================================================== */
+
+    .brand-panel {
+      flex: 1 1 55%;
+      background: linear-gradient(135deg, var(--burgundy-dark) 0%, var(--burgundy) 50%, var(--burgundy-light) 100%);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: var(--space-16);
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Decorative elements */
+    .brand-panel::before {
+      content: '';
+      position: absolute;
+      top: 10%;
+      left: 5%;
+      width: 200px;
+      height: 200px;
+      border: 1px solid rgba(201, 162, 39, 0.15);
+      border-radius: 50%;
+    }
+
+    .brand-panel::after {
+      content: '';
+      position: absolute;
+      bottom: 15%;
+      right: 10%;
+      width: 120px;
+      height: 120px;
+      background: rgba(201, 162, 39, 0.08);
+      border-radius: 50%;
+    }
+
+    .brand-content {
+      position: relative;
+      z-index: 1;
+      text-align: center;
+      max-width: 480px;
+    }
+
+    .brand-logo-mark {
+      width: 80px;
+      height: 80px;
+      margin: 0 auto var(--space-8);
+      background: rgba(0, 0, 0, 0.2);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(201, 162, 39, 0.3);
+      border-radius: var(--radius-xl);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .brand-logo-mark svg {
+      width: 40px;
+      height: 40px;
+      fill: none;
+      stroke: var(--gold);
+      stroke-width: 1.5;
+    }
+
+    .brand-title {
+      font-family: var(--font-display);
+      font-size: 56px;
+      font-weight: 400;
+      color: var(--ivory);
+      margin: 0 0 var(--space-4);
+      letter-spacing: -1px;
+    }
+
+    .brand-subtitle {
+      font-size: 18px;
+      color: rgba(240, 237, 232, 0.85);
+      margin: 0 0 var(--space-10);
+      font-weight: 300;
+      line-height: 1.6;
+    }
+
+    .feature-pills {
+      display: flex;
+      gap: var(--space-4);
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .feature-pill {
+      padding: var(--space-3) var(--space-5);
+      background: rgba(201, 162, 39, 0.15);
+      backdrop-filter: blur(5px);
+      border: 1px solid rgba(201, 162, 39, 0.25);
+      border-radius: var(--radius-full);
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--gold-light);
+    }
+
+    .brand-footer {
+      position: absolute;
+      bottom: var(--space-8);
+      left: 0;
+      right: 0;
+      text-align: center;
+    }
+
+    .institution-badges {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--space-8);
+      margin-bottom: var(--space-4);
+    }
+
+    .institution-badge {
+      font-size: 12px;
+      color: rgba(240, 237, 232, 0.7);
+      font-weight: 500;
+    }
+
+    .security-line {
+      font-size: 11px;
+      color: rgba(240, 237, 232, 0.5);
+    }
+
+    /* ==========================================================================
+       RIGHT PANEL — LOGIN FORM (Dark Teal)
+       ========================================================================== */
+
+    .form-panel {
+      flex: 1 1 45%;
+      min-width: 400px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: var(--space-10);
+      background: var(--forest-dark);
+    }
+
+    .login-form-container {
+      width: 100%;
+      max-width: 380px;
+    }
+
+    .form-header {
+      margin-bottom: var(--space-10);
+    }
+
+    .form-title {
+      font-family: var(--font-heading);
+      font-size: 28px;
+      font-weight: 600;
+      color: var(--ivory);
+      margin: 0 0 var(--space-2);
+    }
+
+    .form-subtitle {
+      font-size: 15px;
+      color: var(--ivory-soft);
+      margin: 0;
+    }
+
+    .form-group {
+      margin-bottom: var(--space-5);
+    }
+
+    .form-label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--ivory-mid);
+      margin-bottom: var(--space-2);
+    }
+
+    .form-input {
+      display: block;
+      width: 100%;
+      padding: var(--space-4) var(--space-4);
+      background: var(--forest);
+      border: 2px solid var(--forest-accent);
+      border-radius: var(--radius-lg);
+      font-size: 15px;
+      color: var(--ivory);
+      transition: all var(--duration-normal);
+    }
+
+    .form-input:focus {
+      outline: none;
+      border-color: var(--gold);
+      box-shadow: 0 0 0 3px var(--gold-pale);
+    }
+
+    .form-input::placeholder {
+      color: var(--ivory-ghost);
+    }
+
+    .checkbox-group {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      margin-bottom: var(--space-6);
+    }
+
+    .checkbox-custom {
+      width: 20px;
+      height: 20px;
+      border: 2px solid var(--forest-accent);
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all var(--duration-fast);
+      background: var(--forest);
+    }
+
+    .checkbox-custom.checked {
+      background: var(--burgundy);
+      border-color: var(--burgundy);
+    }
+
+    .checkbox-custom svg {
+      width: 12px;
+      height: 12px;
+      stroke: var(--ivory);
+      stroke-width: 3;
+      display: none;
+    }
+
+    .checkbox-custom.checked svg {
+      display: block;
+    }
+
+    .checkbox-label {
+      font-size: 14px;
+      color: var(--ivory-soft);
+      cursor: pointer;
+    }
+
+    .error-message {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      padding: var(--space-3) var(--space-4);
+      background: var(--critical-bg);
+      border: 1px solid var(--critical-border);
+      border-radius: var(--radius-md);
+      margin-bottom: var(--space-5);
+    }
+
+    .error-icon {
+      color: var(--critical);
+      font-size: 16px;
+    }
+
+    .error-text {
+      font-size: 14px;
+      color: var(--critical);
+    }
+
+    .btn-submit {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--space-3);
+      width: 100%;
+      padding: var(--space-4) var(--space-6);
+      background: linear-gradient(135deg, var(--burgundy), var(--burgundy-dark));
+      border: none;
+      border-radius: var(--radius-lg);
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--ivory);
+      cursor: pointer;
+      transition: all var(--duration-normal);
+      box-shadow: var(--shadow-burgundy);
+    }
+
+    .btn-submit:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 24px var(--burgundy-glow);
+      background: linear-gradient(135deg, var(--burgundy-light), var(--burgundy));
+    }
+
+    .btn-submit:active {
+      transform: translateY(0);
+    }
+
+    .btn-submit:disabled {
+      background: var(--forest-accent);
+      box-shadow: none;
+      cursor: not-allowed;
+    }
+
+    .mfa-notice {
+      margin-top: var(--space-8);
+      padding: var(--space-4);
+      background: var(--success-bg);
+      border: 1px solid var(--success-border);
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: flex-start;
+      gap: var(--space-3);
+    }
+
+    .mfa-icon {
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+
+    .mfa-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--success);
+      margin: 0 0 var(--space-1);
+    }
+
+    .mfa-text {
+      font-size: 12px;
+      color: var(--success);
+      opacity: 0.8;
+      margin: 0;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+  <main class="login-page">
+    <!-- Left Panel: Branding -->
+    <div class="brand-panel">
+      <div class="brand-content">
+        <div class="brand-logo-mark">
+          <svg viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="10" />
+            <path d="M12 6v6l4 2" />
+          </svg>
+        </div>
+
+        <h1 class="brand-title">MindLog</h1>
+
+        <p class="brand-subtitle">
+          Clinical Intelligence Platform for<br>
+          Academic Medical Centers
+        </p>
+
+        <div class="feature-pills">
+          <span class="feature-pill">Population Health</span>
+          <span class="feature-pill">Real-time Alerts</span>
+          <span class="feature-pill">HIPAA Compliant</span>
+        </div>
+      </div>
+
+      <div class="brand-footer">
+        <div class="institution-badges">
+          <span class="institution-badge">Harvard Medical School</span>
+          <span class="institution-badge">•</span>
+          <span class="institution-badge">Stanford Medicine</span>
+        </div>
+        <div class="security-line">Secure • Encrypted • SOC 2 Type II</div>
+      </div>
+    </div>
+
+    <!-- Right Panel: Login Form -->
+    <div class="form-panel">
+      <div class="login-form-container">
+        <div class="form-header">
+          <h2 class="form-title">Welcome back</h2>
+          <p class="form-subtitle">Sign in to access your clinical dashboard</p>
+        </div>
+
+        <form>
+          <div class="form-group">
+            <label class="form-label">Email address</label>
+            <input type="email" class="form-input" placeholder="you@institution.edu">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Password</label>
+            <input type="password" class="form-input" placeholder="••••••••••">
+          </div>
+
+          <div class="checkbox-group">
+            <div class="checkbox-custom checked">
+              <svg viewBox="0 0 12 12" fill="none">
+                <path d="M2 6L5 9L10 3" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <span class="checkbox-label">Remember me on this device</span>
+          </div>
+
+          <!-- Error state (hidden by default) -->
+          <!--
+          <div class="error-message">
+            <span class="error-icon">⚠</span>
+            <span class="error-text">Invalid email or password</span>
+          </div>
+          -->
+
+          <button type="submit" class="btn-submit">
+            Sign in
+          </button>
+        </form>
+
+        <div class="mfa-notice">
+          <span class="mfa-icon">🛡️</span>
+          <div>
+            <p class="mfa-title">Multi-factor authentication required</p>
+            <p class="mfa-text">All clinician accounts require MFA for HIPAA compliance</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</body>
+</html>
