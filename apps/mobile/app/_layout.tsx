@@ -237,7 +237,9 @@ export default function RootLayout() {
     }
   }, [ready, isAuthenticated, intakeComplete]);
 
-  if (!ready || (!fontsLoaded && !fontError)) return null;
+  // Always render the Stack navigator — Expo Router requires a navigator on the
+  // first render. SplashScreen stays visible until ready + fonts are loaded,
+  // so the user never sees an empty frame.
 
   return (
     <DatabaseProvider database={database}>
