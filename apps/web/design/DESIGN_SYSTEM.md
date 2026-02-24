@@ -146,6 +146,39 @@ Base unit: **4px**
 
 ---
 
+## Panel Gradients
+
+Panels use subtle diagonal gradient overlays for depth and elegance, layered on top of their solid background color.
+
+### Gradient Tokens
+
+| Token | Value | Usage |
+|-------|-------|-------|
+| `--gradient-panel` | `linear-gradient(135deg, rgba(255,255,255,0.025) 0%, rgba(255,255,255,0.005) 100%)` | Primary panels, cards, tab-cards |
+| `--gradient-panel-raised` | `linear-gradient(135deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.01) 100%)` | Elevated cards (metric, detail header) |
+| `--gradient-panel-inset` | `linear-gradient(135deg, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.05) 100%)` | Nested/inset cards (stat-cell, inner-card) |
+
+### Top-Edge Shimmer
+
+Primary panels (`.panel`, `.metric-card`) include a 1px horizontal shimmer pseudo-element at the top edge for a subtle highlight effect.
+
+---
+
+## Padding Tiers
+
+| Tier | Value | Token | Usage |
+|------|-------|-------|-------|
+| Compact | 16px | `--space-4` | Nested cards, inline items, dense data |
+| Standard | 20px | `--space-5` | All primary panels |
+| Spacious | 24px | `--space-6` | Page-level headers, hero sections |
+| Empty state | 48px | `--space-12` | Empty/placeholder panels |
+
+### Minimum Font Size
+
+All text must be **12px minimum**. The only exception is all-caps labels with increased `letter-spacing` (e.g., `text-transform: uppercase; letter-spacing: 0.8px`) which may use 11px.
+
+---
+
 ## CSS Architecture
 
 ### File Structure
@@ -552,6 +585,15 @@ npx playwright test e2e/theme/
 ---
 
 ## Changelog
+
+### v2.2 — Panel Elegance & Legibility Pass (February 2026)
+- Added `--gradient-panel`, `--gradient-panel-raised`, `--gradient-panel-inset` tokens
+- All panels now use subtle 135deg diagonal gradient overlays for depth
+- Top-edge shimmer highlight on `.panel` and `.metric-card` via `::before`
+- Inner cards (`.tab-inner-card`, `.care-member`) gained border + inset gradient
+- Standardised padding tiers: Compact (16px), Standard (20px), Spacious (24px), Empty (48px)
+- Minimum font size enforced at 12px (except uppercase labels with letter-spacing)
+- Updated wireframe HTMLs and design tokens to match
 
 ### v2.1 (February 2026)
 - Color palette update: dark crimson + gold + dark grey

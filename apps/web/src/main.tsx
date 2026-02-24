@@ -9,6 +9,7 @@ import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { BrowserRouter } from 'react-router-dom';
 import { App } from './App.js';
 import { authActions } from './stores/auth.js';
+import { themeActions } from './stores/theme.js';
 
 // Initialise Sentry before any React render (no-op if VITE_SENTRY_DSN is absent)
 const SENTRY_DSN = import.meta.env['VITE_SENTRY_DSN'] as string | undefined;
@@ -37,6 +38,7 @@ if (SENTRY_DSN) {
 // Restore a persisted session before the first render so AuthGuard sees the
 // correct state immediately (avoids a flash-redirect to /login for returning users).
 authActions.initFromStorage();
+themeActions.initFromStorage();
 
 const queryClient = new QueryClient({
   defaultOptions: {

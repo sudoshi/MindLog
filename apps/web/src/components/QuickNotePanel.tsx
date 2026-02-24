@@ -114,9 +114,9 @@ export function QuickNotePanel({ open, onClose }: QuickNotePanelProps) {
           <div>
             <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>Quick Note</div>
             {patientName ? (
-              <div style={{ fontSize: 11, color: 'var(--safe)', marginTop: 2 }}>{patientName}</div>
+              <div style={{ fontSize: 12, color: 'var(--safe)', marginTop: 2 }}>{patientName}</div>
             ) : (
-              <div style={{ fontSize: 11, color: 'var(--ink-soft)', marginTop: 2 }}>Navigate to a patient first</div>
+              <div style={{ fontSize: 12, color: 'var(--ink-soft)', marginTop: 2 }}>Navigate to a patient first</div>
             )}
           </div>
           <button
@@ -131,14 +131,14 @@ export function QuickNotePanel({ open, onClose }: QuickNotePanelProps) {
         <div style={{ flex: 1, padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 12, overflowY: 'auto' }}>
           {/* Note type */}
           <div>
-            <div style={{ fontSize: 11, color: 'var(--ink-soft)', marginBottom: 6 }}>Note Type</div>
+            <div style={{ fontSize: 12, color: 'var(--ink-soft)', marginBottom: 6 }}>Note Type</div>
             <select
               value={noteType}
               onChange={(e) => setNoteType(e.target.value)}
               data-testid="quick-note-type"
               style={{
                 width: '100%', background: 'var(--glass-01)', border: '1px solid var(--border)',
-                color: 'var(--ink)', borderRadius: 6, padding: '7px 10px', fontSize: 13, outline: 'none',
+                color: 'var(--ink)', borderRadius: 6, padding: '8px 12px', fontSize: 13, outline: 'none',
               }}
             >
               {NOTE_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
@@ -147,7 +147,7 @@ export function QuickNotePanel({ open, onClose }: QuickNotePanelProps) {
 
           {/* Text area */}
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-            <div style={{ fontSize: 11, color: 'var(--ink-soft)', marginBottom: 6 }}>
+            <div style={{ fontSize: 12, color: 'var(--ink-soft)', marginBottom: 6 }}>
               Note Content <span style={{ color: 'var(--ink-ghost)', fontWeight: 400 }}>Cmd+Enter to save</span>
             </div>
             <textarea
@@ -159,11 +159,11 @@ export function QuickNotePanel({ open, onClose }: QuickNotePanelProps) {
               style={{
                 flex: 1, minHeight: 220, resize: 'vertical',
                 background: 'var(--glass-01)', border: '1px solid var(--border)',
-                color: 'var(--ink)', borderRadius: 8, padding: '10px 12px',
+                color: 'var(--ink)', borderRadius: 8, padding: '12px 14px',
                 fontSize: 13, lineHeight: 1.6, outline: 'none', fontFamily: 'inherit',
               }}
             />
-            <div style={{ textAlign: 'right', fontSize: 10, color: 'var(--ink-ghost)', marginTop: 4 }}>
+            <div style={{ textAlign: 'right', fontSize: 12, color: 'var(--ink-ghost)', marginTop: 4 }}>
               {body.length} chars
             </div>
           </div>

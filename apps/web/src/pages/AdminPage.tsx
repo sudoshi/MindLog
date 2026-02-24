@@ -8,6 +8,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api.js';
 import { useAuthStore } from '../stores/auth.js';
+import { useThemeStore, themeActions } from '../stores/theme.js';
+import { PALETTES } from '../styles/palettes.js';
+import type { PaletteDefinition } from '../styles/palettes.js';
 
 // ---------------------------------------------------------------------------
 // Access Denied Component (for non-admin users)
@@ -1056,10 +1059,141 @@ function SecuritySection() {
 }
 
 // ---------------------------------------------------------------------------
+// Appearance Section
+// ---------------------------------------------------------------------------
+
+function PaletteSwatch({ palette, isActive, onSelect }: {
+  palette: PaletteDefinition;
+  isActive: boolean;
+  onSelect: () => void;
+}) {
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      onSelect();
+    }
+  };
+
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      aria-label={`${palette.name} palette${isActive ? ' (active)' : ''}`}
+      aria-pressed={isActive}
+      onClick={onSelect}
+      onKeyDown={handleKeyDown}
+      data-testid={`palette-swatch-${palette.id}`}
+      style={{
+        position: 'relative',
+        padding: 16,
+        borderRadius: 12,
+        border: isActive
+          ? '2px solid var(--accent)'
+          : '1px solid var(--border-default, var(--border2))',
+        background: 'var(--panel, var(--surface-raised))',
+        cursor: 'pointer',
+        transition: 'border-color 0.2s, box-shadow 0.2s',
+        boxShadow: isActive ? '0 0 0 3px var(--accent-pale, rgba(201,162,39,0.15))' : 'none',
+        outline: 'none',
+      }}
+    >
+      {/* Active checkmark */}
+      {isActive && (
+        <div style={{
+          position: 'absolute',
+          top: 10,
+          right: 10,
+          width: 22,
+          height: 22,
+          borderRadius: '50%',
+          background: 'var(--accent, #C9A227)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: '#fff',
+          fontSize: 12,
+          fontWeight: 700,
+        }}>
+          ✓
+        </div>
+      )}
+
+      {/* Color preview strip */}
+      <div style={{
+        display: 'flex',
+        gap: 4,
+        marginBottom: 12,
+        borderRadius: 6,
+        overflow: 'hidden',
+        height: 32,
+      }}>
+        <div style={{ flex: 1, background: palette.preview[0] }} title="Primary" />
+        <div style={{ flex: 1, background: palette.preview[1] }} title="Accent" />
+        <div style={{ flex: 1, background: palette.preview[2], border: '1px solid rgba(255,255,255,0.1)' }} title="Surface" />
+      </div>
+
+      {/* Name & description */}
+      <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', marginBottom: 2 }}>
+        {palette.name}
+      </div>
+      <div style={{ fontSize: 12, color: 'var(--ink-mid)', lineHeight: 1.4 }}>
+        {palette.description}
+      </div>
+    </div>
+  );
+}
+
+function AppearanceSection() {
+  const activePaletteId = useThemeStore((s) => s.paletteId);
+
+  return (
+    <div>
+      <h2 style={{ margin: '0 0 4px', fontSize: 18, fontWeight: 700, color: 'var(--ink)' }}>Appearance</h2>
+      <p style={{ margin: '0 0 20px', fontSize: 13, color: 'var(--ink-mid)' }}>
+        Choose a color palette for the dashboard. Changes apply immediately and persist across sessions.
+      </p>
+
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
+        gap: 14,
+        marginBottom: 20,
+      }} data-testid="palette-grid">
+        {PALETTES.map((palette) => (
+          <PaletteSwatch
+            key={palette.id}
+            palette={palette}
+            isActive={activePaletteId === palette.id}
+            onSelect={() => themeActions.setPalette(palette.id)}
+          />
+        ))}
+      </div>
+
+      <div className="panel" style={{
+        padding: 16,
+        display: 'flex',
+        gap: 10,
+        alignItems: 'flex-start',
+        fontSize: 12,
+        color: 'var(--ink-mid)',
+        lineHeight: 1.5,
+      }}>
+        <span style={{ fontSize: 16, flexShrink: 0, marginTop: 1 }}>🛡</span>
+        <span>
+          <strong style={{ color: 'var(--ink)' }}>Clinical safety note:</strong> Semantic colors for
+          risk levels, alerts, and status badges (red, orange, green, blue) remain consistent across
+          all palettes to preserve clinical meaning.
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Main Admin Page
 // ---------------------------------------------------------------------------
 
-type AdminSection = 'dashboard' | 'fhir' | 'users' | 'roles' | 'audit' | 'security';
+type AdminSection = 'dashboard' | 'fhir' | 'users' | 'roles' | 'audit' | 'security' | 'appearance';
 
 export function AdminPage() {
   const role = useAuthStore((s) => s.role);
@@ -1084,6 +1218,8 @@ export function AdminPage() {
         return <AuditLogSection />;
       case 'security':
         return <SecuritySection />;
+      case 'appearance':
+        return <AppearanceSection />;
       default:
         return <DashboardSection />;
     }
@@ -1120,6 +1256,7 @@ export function AdminPage() {
           <NavTab label="Roles & RBAC" active={activeSection === 'roles'} onClick={() => setActiveSection('roles')} testId="admin-tab-roles" />
           <NavTab label="Audit Log" active={activeSection === 'audit'} onClick={() => setActiveSection('audit')} testId="admin-tab-audit" />
           <NavTab label="Security" active={activeSection === 'security'} onClick={() => setActiveSection('security')} testId="admin-tab-security" />
+          <NavTab label="Appearance" active={activeSection === 'appearance'} onClick={() => setActiveSection('appearance')} testId="admin-tab-appearance" />
         </div>
       </div>
 

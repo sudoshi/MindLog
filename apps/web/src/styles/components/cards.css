@@ -9,9 +9,12 @@
 
 .panel {
   background: var(--surface-raised);
+  background-image: var(--gradient-panel);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-lg);
   padding: var(--space-5);
+  position: relative;
+  overflow: hidden;
 }
 
 .panel-header {
@@ -75,18 +78,32 @@
 
 .metric-card {
   background: var(--surface-raised);
+  background-image: var(--gradient-panel-raised);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-lg);
-  padding: var(--space-4) var(--space-5);
+  padding: var(--space-5);
   cursor: pointer;
   transition: all var(--duration-normal);
   position: relative;
+  overflow: hidden;
 }
 
 .metric-card:hover {
   border-color: var(--border-hover);
   transform: translateY(-2px);
   box-shadow: var(--shadow-md);
+}
+
+/* Top-edge shimmer highlight for primary panels */
+.panel::before,
+.metric-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.15) 30%, rgba(255,255,255,0.22) 50%, rgba(255,255,255,0.15) 70%, transparent 100%);
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 1;
 }
 
 .metric-card.clickable:hover {
@@ -188,6 +205,7 @@
 
 .stat-cell {
   background: var(--surface-overlay);
+  background-image: var(--gradient-panel-inset);
   border-radius: var(--radius-md);
   padding: var(--space-4);
   text-align: center;
@@ -221,6 +239,7 @@
 
 .overview-card {
   background: var(--surface-raised);
+  background-image: var(--gradient-panel);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-lg);
   padding: var(--space-5);
@@ -268,6 +287,7 @@
 
 .chart-panel {
   background: var(--surface-raised);
+  background-image: var(--gradient-panel);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-lg);
   padding: var(--space-5);
@@ -329,6 +349,7 @@
 
 .distribution-panel {
   background: var(--surface-raised);
+  background-image: var(--gradient-panel);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-lg);
   padding: var(--space-5);
@@ -393,6 +414,8 @@
 
 .care-member {
   background: var(--surface-overlay);
+  background-image: var(--gradient-panel-inset);
+  border: 1px solid var(--border-default);
   border-radius: var(--radius-md);
   padding: var(--space-4);
 }
@@ -422,9 +445,10 @@
 .placeholder-content,
 .empty-state {
   background: var(--surface-raised);
+  background-image: var(--gradient-panel);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-lg);
-  padding: var(--space-16);
+  padding: var(--space-12);
   text-align: center;
   color: var(--text-muted);
 }
@@ -535,8 +559,9 @@
   display: flex;
   align-items: flex-start;
   gap: var(--space-5);
-  padding: var(--space-5);
+  padding: var(--space-6);
   background: var(--surface-raised);
+  background-image: var(--gradient-panel-raised);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-lg);
   margin-bottom: var(--space-5);
@@ -634,6 +659,7 @@
   gap: var(--space-1);
   padding: var(--space-2);
   background: var(--surface-raised);
+  background-image: var(--gradient-panel);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-lg);
   margin-bottom: var(--space-5);
@@ -670,6 +696,7 @@
 
 .tab-card {
   background: var(--surface-raised);
+  background-image: var(--gradient-panel);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-lg);
   padding: var(--space-5);
@@ -706,6 +733,7 @@
 
 .tab-stat-cell {
   background: var(--surface-overlay);
+  background-image: var(--gradient-panel-inset);
   border-radius: var(--radius-md);
   padding: var(--space-4);
   text-align: center;
@@ -725,6 +753,8 @@
 
 .tab-inner-card {
   background: var(--surface-overlay);
+  background-image: var(--gradient-panel-inset);
+  border: 1px solid var(--border-default);
   border-radius: var(--radius-md);
   padding: var(--space-4);
   margin-bottom: var(--space-3);
@@ -747,6 +777,7 @@
   color: var(--text-muted);
   font-size: var(--text-sm);
   background: var(--surface-overlay);
+  background-image: var(--gradient-panel-inset);
   border-radius: var(--radius-md);
 }
 

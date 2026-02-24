@@ -323,7 +323,7 @@ function CaseloadMoodPanel({ caseload }: { caseload: CaseloadRow[] }) {
         </div>
         <div className="panel-action" onClick={() => navigate('/patients')}>All patients →</div>
       </div>
-      <div style={{ padding: '12px 16px' }}>
+      <div style={{ padding: '16px 20px' }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
           {sorted.map((row, idx) => (
             <div
@@ -343,12 +343,12 @@ function CaseloadMoodPanel({ caseload }: { caseload: CaseloadRow[] }) {
           {[1,3,5,7,9].map((m) => (
             <div key={m} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
               <div style={{ width: 10, height: 10, borderRadius: 2, background: moodVar(m) }} />
-              <span style={{ fontSize: 10, color: 'var(--ink-soft)' }}>{m}</span>
+              <span style={{ fontSize: 12, color: 'var(--ink-soft)' }}>{m}</span>
             </div>
           ))}
           <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
             <div style={{ width: 10, height: 10, borderRadius: 2, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)' }} />
-            <span style={{ fontSize: 10, color: 'var(--ink-soft)' }}>Not logged</span>
+            <span style={{ fontSize: 12, color: 'var(--ink-soft)' }}>Not logged</span>
           </div>
         </div>
       </div>
@@ -381,7 +381,7 @@ function MoodDistributionPanel({
         <div className="panel-title">Mood Distribution — Today</div>
         <div className="panel-sub">Reported by {logged.length} patients</div>
       </div>
-      <div style={{ padding: '8px 0' }}>
+      <div style={{ padding: '12px 0' }}>
         {MOOD_BUCKETS.map((b) => {
           const count = logged.filter((r) =>
             (r.todays_mood ?? 0) >= b.min && (r.todays_mood ?? 0) <= b.max
@@ -662,7 +662,7 @@ export function DashboardPage() {
 
       {/* Snapshot age footnote */}
       {snapshot && !snapshot.is_live && snapshot.snapshot_date && (
-        <div style={{ marginTop: 10, fontSize: 11, color: 'var(--ink-ghost)', textAlign: 'right' }}>
+        <div style={{ marginTop: 10, fontSize: 12, color: 'var(--ink-ghost)', textAlign: 'right' }}>
           KPI figures from nightly snapshot ({snapshot.snapshot_date}). Alert counts are live.
         </div>
       )}
