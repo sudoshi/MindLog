@@ -1268,6 +1268,24 @@ function RiskGaugeBar({ score }: { score: number | null }) {
   );
 }
 
+// ---------------------------------------------------------------------------
+// AI Chat types
+// ---------------------------------------------------------------------------
+
+interface Discussion {
+  id:            string;
+  title:         string;
+  message_count: number;
+  updated_at:    string;
+}
+
+interface ChatMsg {
+  id:         string;
+  role:       'clinician' | 'assistant';
+  content:    string;
+  created_at: string;
+}
+
 function AiInsightsTab({
   patientId, data, loading, unavailable, token, onTrigger,
 }: {
@@ -1278,9 +1296,54 @@ function AiInsightsTab({
   token:       string | null;
   onTrigger:   () => void;
 }) {
+  // Left panel state
   const [triggering, setTriggering] = useState(false);
   const [triggerMsg, setTriggerMsg] = useState<string | null>(null);
   const [expanded, setExpanded]     = useState<string | null>(null);
+
+  // Chat state
+  const [discussions, setDiscussions]               = useState<Discussion[]>([]);
+  const [activeDiscussionId, setActiveDiscussionId] = useState<string | null>(null);
+  const [chatMessages, setChatMessages]             = useState<ChatMsg[]>([]);
+  const [chatInput, setChatInput]                   = useState('');
+  const [chatSending, setChatSending]               = useState(false);
+  const [chatError, setChatError]                   = useState<string | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const textareaRef    = useRef<HTMLTextAreaElement>(null);
+
+  // Fetch discussions list
+  const fetchDiscussions = useCallback(async () => {
+    if (!token) return;
+    try {
+      const d = await api.get<{ discussions: Discussion[] }>(
+        `/insights/${patientId}/ai/discussions?limit=20`, token,
+      );
+      setDiscussions(d.discussions);
+    } catch { /* silent */ }
+  }, [token, patientId]);
+
+  useEffect(() => { void fetchDiscussions(); }, [fetchDiscussions]);
+
+  // Load discussion messages when active discussion changes
+  useEffect(() => {
+    if (!activeDiscussionId || !token) {
+      setChatMessages([]);
+      return;
+    }
+    (async () => {
+      try {
+        const d = await api.get<{ messages: ChatMsg[] }>(
+          `/insights/${patientId}/ai/discussions/${activeDiscussionId}`, token,
+        );
+        setChatMessages(d.messages);
+      } catch { setChatMessages([]); }
+    })();
+  }, [activeDiscussionId, token, patientId]);
+
+  // Auto-scroll to bottom when messages change
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatMessages, chatSending]);
 
   const triggerInsight = async () => {
     if (!token || triggering) return;
@@ -1295,6 +1358,70 @@ function AiInsightsTab({
       setTriggerMsg(`Failed: ${err.message ?? 'Unknown error'}`);
     } finally {
       setTriggering(false);
+    }
+  };
+
+  const sendMessage = async () => {
+    if (!token || !chatInput.trim() || chatSending) return;
+    const msg = chatInput.trim();
+    setChatInput('');
+    setChatSending(true);
+    setChatError(null);
+
+    // Optimistically show clinician message
+    const tempId = `temp-${Date.now()}`;
+    const optimisticMsg: ChatMsg = {
+      id: tempId,
+      role: 'clinician',
+      content: msg,
+      created_at: new Date().toISOString(),
+    };
+    setChatMessages((prev) => [...prev, optimisticMsg]);
+
+    try {
+      const result = await api.post<{
+        discussion_id: string;
+        clinician_message: ChatMsg;
+        assistant_message: ChatMsg;
+      }>(`/insights/${patientId}/ai/chat`, {
+        discussion_id: activeDiscussionId,
+        message: msg,
+      }, token);
+
+      // Replace optimistic message with real one and add assistant response
+      setChatMessages((prev) => [
+        ...prev.filter((m) => m.id !== tempId),
+        result.clinician_message,
+        result.assistant_message,
+      ]);
+
+      // If new discussion was created, update state
+      if (!activeDiscussionId) {
+        setActiveDiscussionId(result.discussion_id);
+        void fetchDiscussions();
+      }
+    } catch (e) {
+      const err = e as { message?: string };
+      setChatError(err.message ?? 'Failed to send message');
+      // Remove optimistic message on error
+      setChatMessages((prev) => prev.filter((m) => m.id !== tempId));
+      setChatInput(msg); // Restore input
+    } finally {
+      setChatSending(false);
+    }
+  };
+
+  const startNewDiscussion = () => {
+    setActiveDiscussionId(null);
+    setChatMessages([]);
+    setChatInput('');
+    setChatError(null);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      void sendMessage();
     }
   };
 
@@ -1322,92 +1449,67 @@ function AiInsightsTab({
     : null;
 
   return (
-    <div>
-      {/* Risk Score card */}
-      <div className="tab-card" style={{ marginBottom: 20 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
-          <div>
-            <h3 className="tab-section-title" style={{ margin: 0, marginBottom: 4 }}>Composite Risk Score</h3>
-            {updatedAt && (
-              <div style={{ fontSize: 11, color: SUB }}>Last computed {updatedAt}</div>
-            )}
+    <div style={{ display: 'flex', gap: 20, minHeight: 500 }}>
+      {/* ── Left Panel: Summary ── */}
+      <div style={{ width: 420, flexShrink: 0, overflowY: 'auto', maxHeight: 'calc(100vh - 280px)' }}>
+        {/* Risk Score card */}
+        <div className="tab-card" style={{ marginBottom: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+            <div>
+              <h3 className="tab-section-title" style={{ margin: 0, marginBottom: 4, fontSize: 14 }}>Composite Risk Score</h3>
+              {updatedAt && (
+                <div style={{ fontSize: 11, color: SUB }}>Last computed {updatedAt}</div>
+              )}
+            </div>
           </div>
-          <button
-            onClick={() => void triggerInsight()}
-            disabled={triggering}
-            style={{
-              background: `${PRIMARY}22`, border: `1px solid ${PRIMARY}55`,
-              color: PRIMARY, borderRadius: 8, padding: '7px 14px',
-              fontSize: 12, fontWeight: 600, cursor: triggering ? 'not-allowed' : 'pointer',
-              opacity: triggering ? 0.6 : 1,
-            }}
-          >
-            {triggering ? 'Generating…' : '✦ Generate Insight'}
-          </button>
+
+          <RiskGaugeBar score={data?.risk_score ?? null} />
+
+          {/* Risk factor breakdown (compact) */}
+          {data?.risk_score_factors && data.risk_score_factors.length > 0 && (
+            <div style={{ marginTop: 16 }}>
+              <div style={{ fontSize: 11, color: SUB, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>
+                Risk Factors
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+                {data.risk_score_factors.map((factor) => (
+                  <div
+                    key={factor.rule}
+                    style={{
+                      background:   factor.fired ? 'var(--glass-02)' : 'var(--glass-01)',
+                      border:       `1px solid ${factor.fired ? 'var(--critical)44' : 'var(--border)'}`,
+                      borderRadius: 6,
+                      padding:      '6px 10px',
+                      opacity:      factor.fired ? 1 : 0.55,
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: 11, fontWeight: 600, color: factor.fired ? TEXT : SUB }}>
+                        {factor.label}
+                      </span>
+                      <span style={{
+                        fontSize: 10, fontWeight: 700,
+                        color: factor.fired ? 'var(--critical)' : SUB,
+                      }}>
+                        {factor.fired ? `+${factor.weight}` : '—'}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
-        {triggerMsg && (
-          <div style={{
-            background: triggerMsg.startsWith('Failed') ? 'var(--critical-bg)' : 'var(--safe-bg)',
-            border: `1px solid ${triggerMsg.startsWith('Failed') ? 'var(--critical)' : 'var(--safe)'}44`,
-            borderRadius: 8, padding: '8px 14px', fontSize: 13,
-            color: triggerMsg.startsWith('Failed') ? 'var(--critical)' : 'var(--safe)',
-            marginBottom: 16,
-          }}>
-            {triggerMsg}
-          </div>
-        )}
-
-        <RiskGaugeBar score={data?.risk_score ?? null} />
-
-        {/* Risk factor breakdown */}
-        {data?.risk_score_factors && data.risk_score_factors.length > 0 && (
-          <div style={{ marginTop: 20 }}>
-            <div style={{ fontSize: 11, color: SUB, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10 }}>
-              Risk Factors
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 8 }}>
-              {data.risk_score_factors.map((factor) => (
-                <div
-                  key={factor.rule}
-                  style={{
-                    background:   factor.fired ? 'var(--glass-02)' : 'var(--glass-01)',
-                    border:       `1px solid ${factor.fired ? 'var(--critical)44' : 'var(--border)'}`,
-                    borderRadius: 8,
-                    padding:      '10px 14px',
-                    opacity:      factor.fired ? 1 : 0.55,
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                    <span style={{ fontSize: 12, fontWeight: 600, color: factor.fired ? TEXT : SUB }}>
-                      {factor.label}
-                    </span>
-                    <span style={{
-                      fontSize: 11, fontWeight: 700,
-                      color: factor.fired ? 'var(--critical)' : SUB,
-                      background: factor.fired ? 'var(--critical-bg)' : 'transparent',
-                      padding: '1px 6px', borderRadius: 4,
-                    }}>
-                      {factor.fired ? `+${factor.weight} pts` : 'Not fired'}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Latest AI insight */}
-      {latestInsight && (
-        <div className="tab-card" style={{ marginBottom: 20 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
-            <h3 className="tab-section-title" style={{ margin: 0 }}>
-              {latestInsight.insight_type === 'weekly_summary' ? 'Weekly Clinical Summary' :
-               latestInsight.insight_type === 'anomaly_detection' ? 'Anomaly Detection' :
-               'Trend Narrative'}
-            </h3>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+        {/* Latest AI insight (collapsed) */}
+        {latestInsight && (
+          <div className="tab-card" style={{ marginBottom: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <h3 className="tab-section-title" style={{ margin: 0, fontSize: 13 }}>
+                {latestInsight.insight_type === 'weekly_summary' ? 'Latest Summary' :
+                 latestInsight.insight_type === 'anomaly_detection' ? 'Anomaly Detection' :
+                 'Trend Narrative'}
+              </h3>
               <span style={{
                 background: `${PRIMARY}22`, border: `1px solid ${PRIMARY}44`,
                 borderRadius: 6, padding: '2px 8px', fontSize: 10, fontWeight: 800,
@@ -1415,117 +1517,260 @@ function AiInsightsTab({
               }}>
                 AI
               </span>
+            </div>
+            <div style={{ fontSize: 11, color: SUB, marginBottom: 10 }}>
+              {format(parseISO(latestInsight.generated_at), 'MMM d, yyyy')}
               {latestInsight.risk_delta !== null && latestInsight.risk_delta !== 0 && (
                 <span style={{
-                  fontSize: 12, fontWeight: 600,
+                  marginLeft: 8, fontWeight: 600,
                   color: (latestInsight.risk_delta ?? 0) > 0 ? 'var(--critical)' : 'var(--safe)',
                 }}>
-                  {(latestInsight.risk_delta ?? 0) > 0 ? '▲' : '▼'} {Math.abs(latestInsight.risk_delta ?? 0)} pts risk
+                  {(latestInsight.risk_delta ?? 0) > 0 ? '▲' : '▼'} {Math.abs(latestInsight.risk_delta ?? 0)} pts
                 </span>
               )}
             </div>
-          </div>
-          <div style={{ fontSize: 11, color: SUB, marginBottom: 16 }}>
-            {format(parseISO(latestInsight.generated_at), 'EEE, MMM d, yyyy \'at\' h:mm a')}
-            {' · '}
-            Period: {latestInsight.period_start} → {latestInsight.period_end}
-          </div>
 
-          {/* Key findings chips */}
-          {latestInsight.key_findings.length > 0 && (
-            <div style={{ marginBottom: 16 }}>
-              <div style={{ fontSize: 11, color: SUB, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10 }}>
-                Key Findings
+            {/* Key findings */}
+            {latestInsight.key_findings.length > 0 && (
+              <div style={{ marginBottom: 10 }}>
+                {latestInsight.key_findings.slice(0, 4).map((f, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 4 }}>
+                    <div style={{ width: 5, height: 5, borderRadius: 3, background: PRIMARY, marginTop: 5, flexShrink: 0 }} />
+                    <span style={{ fontSize: 12, color: TEXT, lineHeight: 1.5 }}>{f}</span>
+                  </div>
+                ))}
               </div>
-              {latestInsight.key_findings.map((f, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 8 }}>
-                  <div style={{ width: 6, height: 6, borderRadius: 3, background: PRIMARY, marginTop: 6, flexShrink: 0 }} />
-                  <span style={{ fontSize: 13, color: TEXT, lineHeight: 1.6 }}>{f}</span>
-                </div>
-              ))}
+            )}
+
+            {/* Expandable narrative */}
+            <button
+              onClick={() => setExpanded((p) => p === 'narrative' ? null : 'narrative')}
+              style={{
+                background: 'none', border: 'none', cursor: 'pointer',
+                color: PRIMARY, fontSize: 12, fontWeight: 600, padding: 0,
+              }}
+            >
+              {expanded === 'narrative' ? '▲ Hide narrative' : '▼ Show full narrative'}
+            </button>
+            {expanded === 'narrative' && (
+              <p style={{ fontSize: 13, color: TEXT, lineHeight: 1.6, margin: '8px 0 0', whiteSpace: 'pre-wrap' }}>
+                {latestInsight.narrative}
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Generate Insight button */}
+        <div className="tab-card" style={{ marginBottom: 16 }}>
+          <button
+            onClick={() => void triggerInsight()}
+            disabled={triggering}
+            style={{
+              width: '100%', background: `${PRIMARY}22`, border: `1px solid ${PRIMARY}55`,
+              color: PRIMARY, borderRadius: 8, padding: '10px 14px',
+              fontSize: 13, fontWeight: 600, cursor: triggering ? 'not-allowed' : 'pointer',
+              opacity: triggering ? 0.6 : 1,
+            }}
+          >
+            {triggering ? 'Generating…' : '✦ Generate Insight'}
+          </button>
+          {triggerMsg && (
+            <div style={{
+              marginTop: 10, borderRadius: 6, padding: '6px 10px', fontSize: 12,
+              background: triggerMsg.startsWith('Failed') ? 'var(--critical-bg)' : 'var(--safe-bg)',
+              color: triggerMsg.startsWith('Failed') ? 'var(--critical)' : 'var(--safe)',
+            }}>
+              {triggerMsg}
+            </div>
+          )}
+        </div>
+
+        {/* HIPAA disclaimer */}
+        <div style={{
+          background: 'var(--glass-01)', border: `1px solid ${BORDER}`,
+          borderRadius: 8, padding: '10px 12px',
+        }}>
+          <p style={{ fontSize: 11, color: SUB, margin: 0, lineHeight: 1.6, fontStyle: 'italic' }}>
+            ⚕ {data?.disclaimer ?? 'AI-generated content is for clinical decision support only. It does not constitute a diagnosis or replace clinical assessment.'}
+          </p>
+        </div>
+
+        {/* Empty state */}
+        {!loading && (!data || data.insights.length === 0) && (
+          <div style={{ textAlign: 'center', color: SUB, padding: '24px 0', fontSize: 12 }}>
+            No AI insights generated yet. Click "Generate Insight" to create the first summary.
+          </div>
+        )}
+      </div>
+
+      {/* ── Right Panel: AI Chat ── */}
+      <div style={{
+        flex: 1, minWidth: 400, display: 'flex', flexDirection: 'column',
+        background: 'var(--glass-01)', border: `1px solid ${BORDER}`,
+        borderRadius: 12, overflow: 'hidden',
+      }}>
+        {/* Chat header */}
+        <div style={{
+          padding: '12px 16px', borderBottom: `1px solid ${BORDER}`,
+          display: 'flex', alignItems: 'center', gap: 10,
+        }}>
+          <span style={{ fontSize: 14, fontWeight: 700, color: TEXT, flex: 1 }}>AI Assistant</span>
+
+          {/* Discussion selector */}
+          <select
+            value={activeDiscussionId ?? ''}
+            onChange={(e) => {
+              const val = e.target.value;
+              if (val === '') {
+                startNewDiscussion();
+              } else {
+                setActiveDiscussionId(val);
+              }
+            }}
+            className="sort-select"
+            style={{ maxWidth: 200, fontSize: 12 }}
+          >
+            <option value="">New Discussion</option>
+            {discussions.map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.title.length > 35 ? d.title.substring(0, 32) + '...' : d.title}
+              </option>
+            ))}
+          </select>
+
+          <button
+            onClick={startNewDiscussion}
+            style={{
+              background: `${PRIMARY}22`, border: `1px solid ${PRIMARY}44`,
+              borderRadius: 6, padding: '4px 10px', fontSize: 12,
+              color: PRIMARY, fontWeight: 600, cursor: 'pointer',
+            }}
+          >
+            + New
+          </button>
+        </div>
+
+        {/* Messages area */}
+        <div style={{
+          flex: 1, overflowY: 'auto', padding: 16,
+          display: 'flex', flexDirection: 'column', gap: 12,
+          maxHeight: 'calc(100vh - 420px)', minHeight: 300,
+        }}>
+          {chatMessages.length === 0 && !chatSending && (
+            <div style={{
+              display: 'flex', flexDirection: 'column', alignItems: 'center',
+              justifyContent: 'center', flex: 1, color: SUB, gap: 8, padding: 32,
+            }}>
+              <span style={{ fontSize: 28, opacity: 0.5 }}>✦</span>
+              <span style={{ fontSize: 13, textAlign: 'center', maxWidth: 300, lineHeight: 1.6 }}>
+                Ask questions about this patient's clinical data, trends, and trajectory.
+              </span>
             </div>
           )}
 
-          {/* Narrative */}
-          <div style={{ fontSize: 11, color: SUB, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10 }}>
-            Clinical Narrative
-          </div>
-          <p style={{ fontSize: 14, color: TEXT, lineHeight: 1.7, margin: 0, whiteSpace: 'pre-wrap' }}>
-            {latestInsight.narrative}
-          </p>
-        </div>
-      )}
-
-      {/* Historical insights accordion */}
-      {data && data.insights.length > 1 && (
-        <div className="tab-card">
-          <h3 className="tab-section-title">Insight History</h3>
-          {data.insights.slice(1).map((insight) => (
+          {chatMessages.map((msg) => (
             <div
-              key={insight.id}
+              key={msg.id}
               style={{
-                borderBottom: `1px solid ${BORDER}`,
-                paddingBottom: expanded === insight.id ? 16 : 0,
-                marginBottom: 12,
+                display: 'flex',
+                justifyContent: msg.role === 'clinician' ? 'flex-end' : 'flex-start',
               }}
             >
-              <button
-                onClick={() => setExpanded((p) => p === insight.id ? null : insight.id)}
-                style={{
-                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                  width: '100%', background: 'none', border: 'none', cursor: 'pointer',
-                  padding: '8px 0', textAlign: 'left',
-                }}
-              >
-                <div>
-                  <span style={{ fontSize: 13, fontWeight: 600, color: TEXT }}>
-                    {insight.insight_type === 'weekly_summary' ? 'Weekly Summary' : insight.insight_type}
-                  </span>
-                  <span style={{ fontSize: 11, color: SUB, marginLeft: 10 }}>
-                    {format(parseISO(insight.generated_at), 'MMM d, yyyy')}
-                  </span>
+              <div style={{
+                maxWidth: '80%',
+                padding: '10px 14px',
+                borderRadius: msg.role === 'clinician' ? '12px 12px 4px 12px' : '12px 12px 12px 4px',
+                background: msg.role === 'clinician' ? 'var(--glass-02)' : 'var(--glass-01)',
+                borderLeft: msg.role === 'assistant' ? `3px solid ${PRIMARY}` : 'none',
+                border: msg.role === 'clinician' ? `1px solid ${BORDER}` : `1px solid ${PRIMARY}33`,
+              }}>
+                <div style={{ fontSize: 13, color: TEXT, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
+                  {msg.content}
                 </div>
-                <span style={{ color: SUB, fontSize: 16 }}>{expanded === insight.id ? '▲' : '▼'}</span>
-              </button>
-
-              {expanded === insight.id && (
-                <div style={{ paddingTop: 8 }}>
-                  {insight.key_findings.length > 0 && (
-                    <div style={{ marginBottom: 12 }}>
-                      {insight.key_findings.map((f, i) => (
-                        <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 4 }}>
-                          <span style={{ color: PRIMARY }}>•</span>
-                          <span style={{ fontSize: 13, color: TEXT }}>{f}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  <p style={{ fontSize: 13, color: TEXT, lineHeight: 1.7, margin: 0, whiteSpace: 'pre-wrap' }}>
-                    {insight.narrative}
-                  </p>
+                <div style={{ fontSize: 10, color: SUB, marginTop: 4, textAlign: msg.role === 'clinician' ? 'right' : 'left' }}>
+                  {format(parseISO(msg.created_at), 'h:mm a')}
                 </div>
-              )}
+              </div>
             </div>
           ))}
-        </div>
-      )}
 
-      {/* HIPAA disclaimer */}
-      <div style={{
-        background: 'var(--glass-01)', border: `1px solid ${BORDER}`,
-        borderRadius: 10, padding: '12px 16px', marginTop: 8,
-      }}>
-        <p style={{ fontSize: 11, color: SUB, margin: 0, lineHeight: 1.7, fontStyle: 'italic' }}>
-          ⚕ {data?.disclaimer ?? 'AI-generated content is for clinical decision support only. It does not constitute a diagnosis or replace clinical assessment.'}
-        </p>
+          {/* Thinking indicator */}
+          {chatSending && (
+            <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+              <div style={{
+                padding: '10px 14px', borderRadius: '12px 12px 12px 4px',
+                background: 'var(--glass-01)', borderLeft: `3px solid ${PRIMARY}`,
+                border: `1px solid ${PRIMARY}33`,
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ color: PRIMARY, fontSize: 13, fontWeight: 600 }}>Thinking</span>
+                  <span style={{ color: PRIMARY, fontSize: 18, animation: 'pulse 1.5s ease-in-out infinite' }}>...</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div ref={messagesEndRef} />
+        </div>
+
+        {/* Error message */}
+        {chatError && (
+          <div style={{
+            margin: '0 16px', padding: '6px 10px', borderRadius: 6, fontSize: 12,
+            background: 'var(--critical-bg)', color: 'var(--critical)',
+          }}>
+            {chatError}
+          </div>
+        )}
+
+        {/* Input area */}
+        <div style={{
+          padding: '12px 16px', borderTop: `1px solid ${BORDER}`,
+          display: 'flex', gap: 10, alignItems: 'flex-end',
+        }}>
+          <textarea
+            ref={textareaRef}
+            value={chatInput}
+            onChange={(e) => setChatInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Ask about this patient..."
+            disabled={chatSending}
+            rows={1}
+            style={{
+              flex: 1, resize: 'none', background: 'var(--glass-02)',
+              border: `1px solid ${BORDER}`, borderRadius: 8,
+              padding: '8px 12px', fontSize: 13, color: TEXT,
+              lineHeight: 1.5, maxHeight: 96, overflow: 'auto',
+              outline: 'none', fontFamily: 'inherit',
+            }}
+            onInput={(e) => {
+              const el = e.currentTarget;
+              el.style.height = 'auto';
+              el.style.height = `${Math.min(el.scrollHeight, 96)}px`;
+            }}
+          />
+          <button
+            onClick={() => void sendMessage()}
+            disabled={chatSending || !chatInput.trim()}
+            style={{
+              background: chatSending || !chatInput.trim() ? `${PRIMARY}33` : PRIMARY,
+              border: 'none', borderRadius: 8, padding: '8px 16px',
+              color: chatSending || !chatInput.trim() ? `${PRIMARY}88` : '#fff',
+              fontSize: 13, fontWeight: 600,
+              cursor: chatSending || !chatInput.trim() ? 'not-allowed' : 'pointer',
+            }}
+          >
+            Send
+          </button>
+        </div>
+
+        {/* Chat footer disclaimer */}
+        <div style={{ padding: '6px 16px 10px', borderTop: `1px solid ${BORDER}22` }}>
+          <p style={{ fontSize: 10, color: SUB, margin: 0, fontStyle: 'italic', opacity: 0.7 }}>
+            ⚕ AI-generated · For clinical decision support only · Always apply clinical judgment
+          </p>
+        </div>
       </div>
-
-      {/* Empty state — no insights yet */}
-      {!loading && (!data || data.insights.length === 0) && (
-        <div style={{ textAlign: 'center', color: SUB, padding: '32px 0', fontSize: 13 }}>
-          No AI insights generated yet. Click "Generate Insight" to create the first summary.
-        </div>
-      )}
     </div>
   );
 }

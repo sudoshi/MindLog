@@ -8,7 +8,8 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { sql } from '@mindlog/db';
 import { aiGate } from '../../middleware/aiGate.js';
-import { aiInsightsQueue } from '../../workers/ai-insights-worker.js';
+import { aiInsightsQueue, HIPAA_PREAMBLE, buildClinicalSnapshot } from '../../workers/ai-insights-worker.js';
+import { generateChat, computeCostCents, type ChatMessage } from '../../services/llmClient.js';
 
 const InsightsQuerySchema = z.object({
   days: z.coerce.number().int().min(7).max(90).default(30),
@@ -17,6 +18,15 @@ const InsightsQuerySchema = z.object({
 const AiHistoryQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(20).default(10),
   type:  z.enum(['weekly_summary', 'trend_narrative', 'anomaly_detection', 'risk_stratification']).optional(),
+});
+
+const ChatBodySchema = z.object({
+  discussion_id: z.string().uuid().nullable().default(null),
+  message:       z.string().min(1).max(4000),
+});
+
+const DiscussionsQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(50).default(20),
 });
 
 export default async function insightsRoutes(fastify: FastifyInstance): Promise<void> {
@@ -239,7 +249,7 @@ export default async function insightsRoutes(fastify: FastifyInstance): Promise<
       SELECT granted FROM consent_records
       WHERE patient_id   = ${patientId}
         AND consent_type = 'ai_insights'
-      ORDER BY created_at DESC LIMIT 1
+      ORDER BY granted_at DESC LIMIT 1
     `;
 
     if (!consent?.granted) {
@@ -297,7 +307,7 @@ export default async function insightsRoutes(fastify: FastifyInstance): Promise<
     const [consent] = await sql<{ granted: boolean }[]>`
       SELECT granted FROM consent_records
       WHERE patient_id = ${patientId} AND consent_type = 'ai_insights'
-      ORDER BY created_at DESC LIMIT 1
+      ORDER BY granted_at DESC LIMIT 1
     `;
     if (!consent?.granted) {
       return reply.status(403).send({
@@ -422,7 +432,7 @@ export default async function insightsRoutes(fastify: FastifyInstance): Promise<
     const [consent] = await sql<{ granted: boolean }[]>`
       SELECT granted FROM consent_records
       WHERE patient_id = ${patientId} AND consent_type = 'ai_insights'
-      ORDER BY created_at DESC LIMIT 1
+      ORDER BY granted_at DESC LIMIT 1
     `;
     if (!consent?.granted) {
       return reply.status(409).send({
@@ -459,6 +469,267 @@ export default async function insightsRoutes(fastify: FastifyInstance): Promise<
         insight_type: jobType,
         period_days:  periodDays,
         message: 'AI insight generation queued. Results will appear in the AI Insights tab within a few minutes.',
+      },
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // POST /insights/:patientId/ai/chat — synchronous AI chat (clinician only)
+  // ---------------------------------------------------------------------------
+  fastify.post('/:patientId/ai/chat', { preHandler: [fastify.authenticate, aiGate] }, async (request, reply) => {
+    if (request.user.role !== 'clinician') {
+      return reply.status(403).send({ success: false, error: { code: 'FORBIDDEN', message: 'Clinician access only' } });
+    }
+
+    const { patientId } = request.params as { patientId: string };
+    const clinicianId   = request.user.sub;
+
+    // Verify care team
+    const [membership] = await sql<{ id: string }[]>`
+      SELECT id FROM care_team_members
+      WHERE clinician_id = ${clinicianId}
+        AND patient_id   = ${patientId}
+        AND unassigned_at IS NULL
+    `;
+    if (!membership) {
+      return reply.status(403).send({ success: false, error: { code: 'NOT_ON_CARE_TEAM', message: 'You are not on this patient\'s care team.' } });
+    }
+
+    // Verify patient consent
+    const [consent] = await sql<{ granted: boolean }[]>`
+      SELECT granted FROM consent_records
+      WHERE patient_id = ${patientId} AND consent_type = 'ai_insights'
+      ORDER BY granted_at DESC LIMIT 1
+    `;
+    if (!consent?.granted) {
+      return reply.status(409).send({
+        success: false,
+        error: { code: 'CONSENT_REQUIRED', message: 'Patient has not consented to AI insights.' },
+      });
+    }
+
+    const { discussion_id, message } = ChatBodySchema.parse(request.body);
+
+    // Create or fetch discussion
+    let discussionId = discussion_id;
+    if (!discussionId) {
+      const title = message.length > 60 ? message.substring(0, 57) + '...' : message;
+      const [created] = await sql<{ id: string }[]>`
+        INSERT INTO ai_discussions (patient_id, clinician_id, title)
+        VALUES (${patientId}, ${clinicianId}, ${title})
+        RETURNING id
+      `;
+      discussionId = created!.id;
+    }
+
+    // Load prior messages for context
+    const priorMessages = await sql<{ role: string; content: string }[]>`
+      SELECT role, content FROM ai_discussion_messages
+      WHERE discussion_id = ${discussionId}
+      ORDER BY created_at ASC
+    `;
+
+    // Build clinical context
+    const snapshot = await buildClinicalSnapshot(patientId, 30);
+    const systemPrompt = `${HIPAA_PREAMBLE}
+
+PATIENT CLINICAL CONTEXT (de-identified, ${snapshot.period_days}-day window):
+- Check-ins: ${snapshot.check_in_days}/${snapshot.period_days} days
+- Mood: avg ${snapshot.avg_mood ?? 'N/A'}/10, range ${snapshot.min_mood ?? 'N/A'}–${snapshot.max_mood ?? 'N/A'}
+- Coping: avg ${snapshot.avg_coping ?? 'N/A'}/10
+- Sleep: avg ${snapshot.avg_sleep_hours ?? 'N/A'} hours/night
+- Medication adherence: ${snapshot.med_adherence_pct != null ? `${snapshot.med_adherence_pct}%` : 'N/A'}
+- Composite risk score: ${snapshot.risk_score ?? 'not computed'}/100
+- Top triggers: ${snapshot.top_triggers.join(', ') || 'none recorded'}
+- Top symptoms: ${snapshot.top_symptoms.join(', ') || 'none recorded'}
+- Helpful strategies: ${snapshot.top_strategies.join(', ') || 'none recorded'}
+${snapshot.recent_assessments.length > 0
+  ? `- Recent assessments:\n${snapshot.recent_assessments.map((a) => `  • ${a.scale}: ${a.score} (${a.date})`).join('\n')}`
+  : ''}
+
+You are assisting a clinician reviewing this patient's data.
+Answer questions about the patient's clinical trajectory, suggest areas of focus,
+and help interpret trends. Be concise and clinical. Always recommend direct clinical assessment
+when making observations about patient care.`;
+
+    // Build message history for LLM
+    const chatHistory: ChatMessage[] = priorMessages.map((m) => ({
+      role:    m.role === 'clinician' ? 'user' as const : 'assistant' as const,
+      content: m.content,
+    }));
+    chatHistory.push({ role: 'user', content: message });
+
+    // Persist clinician message
+    const [clinicianMsg] = await sql<{ id: string; created_at: string }[]>`
+      INSERT INTO ai_discussion_messages (discussion_id, role, content)
+      VALUES (${discussionId}, 'clinician', ${message})
+      RETURNING id, created_at
+    `;
+
+    // Call LLM
+    const result = await generateChat(systemPrompt, chatHistory, { maxTokens: 1024, temperature: 0.3 });
+
+    // Persist assistant message
+    const [assistantMsg] = await sql<{ id: string; created_at: string }[]>`
+      INSERT INTO ai_discussion_messages
+        (discussion_id, role, content, model_id, input_tokens, output_tokens)
+      VALUES
+        (${discussionId}, 'assistant', ${result.text}, ${result.modelId},
+         ${result.inputTokens}, ${result.outputTokens})
+      RETURNING id, created_at
+    `;
+
+    // Update discussion counters
+    await sql`
+      UPDATE ai_discussions SET
+        message_count       = message_count + 2,
+        total_input_tokens  = total_input_tokens  + ${result.inputTokens},
+        total_output_tokens = total_output_tokens + ${result.outputTokens},
+        updated_at          = NOW()
+      WHERE id = ${discussionId}
+    `;
+
+    // Record usage
+    const [patient] = await sql<{ organisation_id: string }[]>`
+      SELECT organisation_id FROM patients WHERE id = ${patientId}
+    `;
+    if (patient) {
+      const monthYear = new Date().toISOString().substring(0, 7);
+      const costCents = computeCostCents(result);
+      await sql`
+        INSERT INTO ai_usage_log
+          (patient_id, org_id, month_year, insight_type, input_tokens, output_tokens, cost_cents)
+        VALUES
+          (${patientId}, ${patient.organisation_id}::UUID, ${monthYear}, 'discussion',
+           ${result.inputTokens}, ${result.outputTokens}, ${costCents})
+        ON CONFLICT (patient_id, month_year, insight_type) DO UPDATE SET
+          input_tokens   = ai_usage_log.input_tokens  + EXCLUDED.input_tokens,
+          output_tokens  = ai_usage_log.output_tokens + EXCLUDED.output_tokens,
+          cost_cents     = ai_usage_log.cost_cents    + EXCLUDED.cost_cents,
+          last_logged_at = NOW()
+      `;
+    }
+
+    return reply.send({
+      success: true,
+      data: {
+        discussion_id: discussionId,
+        clinician_message: {
+          id:         clinicianMsg!.id,
+          role:       'clinician',
+          content:    message,
+          created_at: clinicianMsg!.created_at,
+        },
+        assistant_message: {
+          id:         assistantMsg!.id,
+          role:       'assistant',
+          content:    result.text,
+          model_id:   result.modelId,
+          created_at: assistantMsg!.created_at,
+        },
+      },
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // GET /insights/:patientId/ai/discussions — list discussions for a patient
+  // ---------------------------------------------------------------------------
+  fastify.get('/:patientId/ai/discussions', { preHandler: [fastify.authenticate, aiGate] }, async (request, reply) => {
+    if (request.user.role !== 'clinician') {
+      return reply.status(403).send({ success: false, error: { code: 'FORBIDDEN', message: 'Clinician access only' } });
+    }
+
+    const { patientId } = request.params as { patientId: string };
+    const clinicianId   = request.user.sub;
+
+    // Verify care team
+    const [membership] = await sql<{ id: string }[]>`
+      SELECT id FROM care_team_members
+      WHERE clinician_id = ${clinicianId}
+        AND patient_id   = ${patientId}
+        AND unassigned_at IS NULL
+    `;
+    if (!membership) {
+      return reply.status(403).send({ success: false, error: { code: 'NOT_ON_CARE_TEAM', message: 'You are not on this patient\'s care team.' } });
+    }
+
+    const { limit } = DiscussionsQuerySchema.parse(request.query);
+
+    const discussions = await sql<{
+      id:            string;
+      title:         string;
+      message_count: number;
+      updated_at:    string;
+    }[]>`
+      SELECT id, title, message_count, updated_at
+      FROM ai_discussions
+      WHERE patient_id = ${patientId}
+      ORDER BY updated_at DESC
+      LIMIT ${limit}
+    `;
+
+    return reply.send({ success: true, data: { discussions } });
+  });
+
+  // ---------------------------------------------------------------------------
+  // GET /insights/:patientId/ai/discussions/:discussionId — full discussion
+  // ---------------------------------------------------------------------------
+  fastify.get('/:patientId/ai/discussions/:discussionId', { preHandler: [fastify.authenticate, aiGate] }, async (request, reply) => {
+    if (request.user.role !== 'clinician') {
+      return reply.status(403).send({ success: false, error: { code: 'FORBIDDEN', message: 'Clinician access only' } });
+    }
+
+    const { patientId, discussionId } = request.params as { patientId: string; discussionId: string };
+    const clinicianId = request.user.sub;
+
+    // Verify care team
+    const [membership] = await sql<{ id: string }[]>`
+      SELECT id FROM care_team_members
+      WHERE clinician_id = ${clinicianId}
+        AND patient_id   = ${patientId}
+        AND unassigned_at IS NULL
+    `;
+    if (!membership) {
+      return reply.status(403).send({ success: false, error: { code: 'NOT_ON_CARE_TEAM', message: 'You are not on this patient\'s care team.' } });
+    }
+
+    const [discussion] = await sql<{
+      id:           string;
+      title:        string;
+      patient_id:   string;
+      clinician_id: string;
+      created_at:   string;
+    }[]>`
+      SELECT id, title, patient_id, clinician_id, created_at
+      FROM ai_discussions
+      WHERE id = ${discussionId} AND patient_id = ${patientId}
+    `;
+
+    if (!discussion) {
+      return reply.status(404).send({ success: false, error: { code: 'NOT_FOUND', message: 'Discussion not found.' } });
+    }
+
+    const messages = await sql<{
+      id:         string;
+      role:       string;
+      content:    string;
+      created_at: string;
+    }[]>`
+      SELECT id, role, content, created_at
+      FROM ai_discussion_messages
+      WHERE discussion_id = ${discussionId}
+      ORDER BY created_at ASC
+    `;
+
+    return reply.send({
+      success: true,
+      data: {
+        id:           discussion.id,
+        title:        discussion.title,
+        patient_id:   discussion.patient_id,
+        clinician_id: discussion.clinician_id,
+        messages,
+        created_at:   discussion.created_at,
       },
     });
   });

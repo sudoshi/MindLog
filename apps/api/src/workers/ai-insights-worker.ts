@@ -62,7 +62,7 @@ export interface AiInsightJobData {
 // HIPAA preamble — prepended to every LLM prompt
 // ---------------------------------------------------------------------------
 
-const HIPAA_PREAMBLE = `You are a clinical decision support system integrated into an electronic mental health record platform.
+export const HIPAA_PREAMBLE = `You are a clinical decision support system integrated into an electronic mental health record platform.
 
 CRITICAL COMPLIANCE REQUIREMENTS:
 - You are a decision SUPPORT tool. Never produce definitive diagnoses.
@@ -82,7 +82,7 @@ async function hasAiConsent(patientId: string): Promise<boolean> {
     FROM consent_records
     WHERE patient_id    = ${patientId}
       AND consent_type  = 'ai_insights'
-    ORDER BY created_at DESC
+    ORDER BY granted_at DESC
     LIMIT 1
   `;
   return row?.granted === true;
@@ -119,7 +119,7 @@ async function recordUsage(
 // Data aggregation — builds a de-identified clinical summary for the prompt
 // ---------------------------------------------------------------------------
 
-interface ClinicalSnapshot {
+export interface ClinicalSnapshot {
   period_days:     number;
   avg_mood:        number | null;
   min_mood:        number | null;
@@ -135,7 +135,7 @@ interface ClinicalSnapshot {
   risk_score:      number | null;
 }
 
-async function buildClinicalSnapshot(
+export async function buildClinicalSnapshot(
   patientId: string,
   periodDays: number,
 ): Promise<ClinicalSnapshot> {
@@ -205,15 +205,15 @@ async function buildClinicalSnapshot(
   `;
 
   const assessments = await sql<{
-    scale_code:  string;
-    total_score: number;
+    scale:      string;
+    score:      number;
     assessed_at: string;
   }[]>`
-    SELECT scale_code, total_score, assessed_at::date::text AS assessed_at
+    SELECT scale, score, completed_at::date::text AS assessed_at
     FROM validated_assessments
-    WHERE patient_id   = ${patientId}
-      AND assessed_at >= ${since}
-    ORDER BY assessed_at DESC
+    WHERE patient_id    = ${patientId}
+      AND completed_at >= ${since}
+    ORDER BY completed_at DESC
     LIMIT 6
   `;
 
@@ -249,8 +249,8 @@ async function buildClinicalSnapshot(
     top_symptoms:      symptoms.map((s) => s.name),
     top_strategies:    strategies.map((s) => s.name),
     recent_assessments: assessments.map((a) => ({
-      scale: a.scale_code,
-      score: a.total_score,
+      scale: a.scale,
+      score: a.score,
       date:  a.assessed_at,
     })),
     med_adherence_pct: adherence?.pct ?? null,

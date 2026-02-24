@@ -60,11 +60,11 @@ async function evalCSSRS(
 ): Promise<RiskFactor> {
   const WEIGHT = 35;
   const [row] = await sql<{ max_score: number | null }[]>`
-    SELECT MAX(total_score)::int AS max_score
+    SELECT MAX(score)::int AS max_score
     FROM validated_assessments
-    WHERE patient_id   = ${patientId}
-      AND scale_code   = 'C-SSRS'
-      AND assessed_at >= ${since}::date
+    WHERE patient_id    = ${patientId}
+      AND scale         = 'C-SSRS'
+      AND completed_at >= ${since}::date
   `;
   const maxScore = row?.max_score ?? 0;
   const fired = maxScore >= 2;
@@ -84,11 +84,11 @@ async function evalPHQ9(
 ): Promise<RiskFactor> {
   const WEIGHT = 20;
   const [row] = await sql<{ max_score: number | null }[]>`
-    SELECT MAX(total_score)::int AS max_score
+    SELECT MAX(score)::int AS max_score
     FROM validated_assessments
-    WHERE patient_id   = ${patientId}
-      AND scale_code   = 'PHQ-9'
-      AND assessed_at >= ${since}::date
+    WHERE patient_id    = ${patientId}
+      AND scale         = 'PHQ-9'
+      AND completed_at >= ${since}::date
   `;
   const maxScore = row?.max_score ?? 0;
   const fired = maxScore >= 20;
@@ -163,11 +163,11 @@ async function evalASRM(
 ): Promise<RiskFactor> {
   const WEIGHT = 10;
   const [row] = await sql<{ max_score: number | null }[]>`
-    SELECT MAX(total_score)::int AS max_score
+    SELECT MAX(score)::int AS max_score
     FROM validated_assessments
-    WHERE patient_id   = ${patientId}
-      AND scale_code   = 'ASRM'
-      AND assessed_at >= ${since}::date
+    WHERE patient_id    = ${patientId}
+      AND scale         = 'ASRM'
+      AND completed_at >= ${since}::date
   `;
   const maxScore = row?.max_score ?? 0;
   const fired = maxScore >= 6;

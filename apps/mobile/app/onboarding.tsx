@@ -6,7 +6,7 @@
 import { useState, useCallback } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  Alert, ScrollView, ActivityIndicator,
+  Alert, ScrollView, ActivityIndicator, Image,
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -397,6 +397,10 @@ export default function OnboardingScreen() {
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+        <Image
+          source={require('../assets/images/icon.png')}
+          style={styles.brandIcon}
+        />
         <Text style={styles.brand}>MindLog</Text>
         <Text style={styles.tagline}>Your mental wellness companion</Text>
 
@@ -444,6 +448,7 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: BG },
   scroll: { flexGrow: 1, padding: 32, justifyContent: 'center' },
 
+  brandIcon: { width: 120, height: 120, borderRadius: 28, alignSelf: 'center', marginBottom: 12 },
   brand: { color: DESIGN_TOKENS.COLOR_PRIMARY, fontSize: 36, fontWeight: '700', textAlign: 'center', marginBottom: 8 },
   tagline: { color: SUB, fontSize: 14, textAlign: 'center', marginBottom: 24 },
 
