@@ -18,7 +18,9 @@ import { config } from './config.js';
 
 console.info('[worker] Starting MindLog worker process…');
 console.info(`[worker] Redis: ${config.redisUrl}`);
-console.info(`[worker] AI insights: ${config.aiInsightsEnabled ? 'ENABLED' : 'disabled'}`);
+console.info(
+  `[worker] AI insights: ${config.aiInsightsEnabled ? `ENABLED (${config.aiProvider}/${config.aiProvider === 'ollama' ? config.ollamaModel : config.anthropicModel})` : 'disabled'}`,
+);
 
 // Start workers
 const rulesWorker          = startRulesWorker();

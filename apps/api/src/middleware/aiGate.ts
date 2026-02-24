@@ -38,7 +38,8 @@ export async function aiGate(
     });
   }
 
-  if (!config.anthropicBaaSigned) {
+  // Ollama runs locally — no PHI leaves the machine, so no BAA is required
+  if (config.aiProvider !== 'ollama' && !config.anthropicBaaSigned) {
     return reply.status(503).send({
       success: false,
       error: {

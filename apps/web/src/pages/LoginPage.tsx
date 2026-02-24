@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, ApiError } from '../services/api.js';
 import { authActions } from '../stores/auth.js';
+import { FernIcon } from '../components/FernIcon.js';
 import '../styles/pages/login.css';
 
 // Partial token is stored in sessionStorage between login and MFA steps
@@ -159,6 +160,9 @@ export function LoginPage() {
 
         {/* Hero content — brand + trust signals */}
         <div className="login-hero-content">
+          <div className="login-hero-fern">
+            <FernIcon size={140} glow />
+          </div>
           <h1 className="login-hero-brand">
             Mind<span>Log</span>
           </h1>

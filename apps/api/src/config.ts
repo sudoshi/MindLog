@@ -47,9 +47,16 @@ export const config = {
   aiInsightsEnabled: optionalBool('AI_INSIGHTS_ENABLED', false),
   anthropicBaaSigned: optionalBool('ANTHROPIC_BAA_SIGNED', false),
 
+  // AI provider: 'anthropic' (cloud, requires BAA) or 'ollama' (local, no BAA)
+  aiProvider: optional('AI_PROVIDER', 'anthropic') as 'anthropic' | 'ollama',
+
   // Anthropic (gated — only used if both flags above are true)
   anthropicApiKey: process.env['ANTHROPIC_API_KEY'] ?? '',
   anthropicModel: optional('ANTHROPIC_MODEL', 'claude-sonnet-4-5-20250929'),
+
+  // Ollama (local inference — no BAA required, data never leaves the machine)
+  ollamaBaseUrl: optional('OLLAMA_BASE_URL', 'http://localhost:11434'),
+  ollamaModel: optional('OLLAMA_MODEL', 'alibayram/medgemma:27b'),
 
   // Notifications — Expo Push + Resend email
   expoPushAccessToken: process.env['EXPO_PUSH_ACCESS_TOKEN'] ?? '',

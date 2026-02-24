@@ -16,6 +16,7 @@ import { ALERT_RULE_KEYS, ALERT_THRESHOLDS, type AlertRuleKey } from '@mindlog/s
 import { sql } from '@mindlog/db';
 import { config } from '../config.js';
 import { publishAlert } from '../plugins/websocket.js';
+import { generateCompletion } from '../services/llmClient.js';
 
 // ---------------------------------------------------------------------------
 // Queue — exported so API routes can enqueue jobs
@@ -411,7 +412,8 @@ async function evaluateJournalSentiment(
   _orgId: string,
   entryDate: string,
 ): Promise<AlertCandidate | null> {
-  if (!config.aiInsightsEnabled || !config.anthropicBaaSigned) return null;
+  if (!config.aiInsightsEnabled) return null;
+  if (config.aiProvider !== 'ollama' && !config.anthropicBaaSigned) return null;
 
   const entries = await sql<{ body: string }[]>`
     SELECT je.body
@@ -427,19 +429,10 @@ async function evaluateJournalSentiment(
 
   const combinedText = entries.map((e) => e.body).join('\n\n---\n\n');
 
-  // Dynamic import — keeps SDK out of the bundle when AI is disabled
-  const { default: Anthropic } = await import('@anthropic-ai/sdk');
-  const client = new Anthropic({ apiKey: config.anthropicApiKey });
-
   let analysis: { sentiment: string; crisis_indicators: boolean; summary: string };
   try {
-    const message = await client.messages.create({
-      model: config.anthropicModel,
-      max_tokens: 256,
-      messages: [
-        {
-          role: 'user',
-          content: `You are a mental health clinical assistant. Analyze the following journal entries and respond ONLY with valid JSON (no markdown, no explanation).
+    const result = await generateCompletion(
+      `You are a mental health clinical assistant. Analyze the following journal entries and respond ONLY with valid JSON (no markdown, no explanation).
 
 Journal entries (most recent first):
 <entries>
@@ -455,22 +448,22 @@ Respond with:
 
 "concerning" = hopelessness, worthlessness, or passive SI language.
 "crisis_indicators" = true ONLY for explicit active suicidal ideation.`,
-        },
-      ],
-    });
+      { maxTokens: 256, jsonMode: true },
+    );
 
-    const text = message.content[0]?.type === 'text' ? message.content[0].text : '{}';
-    analysis = JSON.parse(text) as typeof analysis;
+    analysis = JSON.parse(result.text) as typeof analysis;
   } catch {
     return null; // malformed response or API error — skip silently
   }
+
+  const usedModel = config.aiProvider === 'ollama' ? config.ollamaModel : config.anthropicModel;
 
   if (analysis.crisis_indicators) {
     return {
       ruleKey: ALERT_RULE_KEYS.JOURNAL_SENTIMENT,
       severity: 'critical',
       title: 'Journal: crisis indicators detected',
-      detail: { sentiment: analysis.sentiment, summary: analysis.summary, model: config.anthropicModel },
+      detail: { sentiment: analysis.sentiment, summary: analysis.summary, model: usedModel },
     };
   }
   if (analysis.sentiment === 'concerning') {
@@ -478,7 +471,7 @@ Respond with:
       ruleKey: ALERT_RULE_KEYS.JOURNAL_SENTIMENT,
       severity: 'warning',
       title: 'Journal: concerning sentiment detected',
-      detail: { sentiment: analysis.sentiment, summary: analysis.summary, model: config.anthropicModel },
+      detail: { sentiment: analysis.sentiment, summary: analysis.summary, model: usedModel },
     };
   }
   return null;

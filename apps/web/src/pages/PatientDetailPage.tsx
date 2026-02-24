@@ -214,7 +214,7 @@ function buildHeatmapDays(
   data: HeatmapEntry[],
   numDays = 90,
 ): Array<{ date: string; mood: number | null; completion_pct: number | null; has_safety_flag: boolean }> {
-  const map = new Map(data.map((e) => [e.entry_date, e]));
+  const map = new Map(data.map((e) => [e.entry_date.split('T')[0]!, e]));
   const today = new Date();
   return Array.from({ length: numDays }, (_, i) => {
     const d = new Date(today);

@@ -26,6 +26,7 @@ import { sql } from '@mindlog/db';
 import { config } from '../config.js';
 import { connection } from './rules-engine.js';
 import { computeRiskScore, persistRiskScore } from '../services/riskScoring.js';
+import { generateCompletion, computeCostCents } from '../services/llmClient.js';
 
 // ---------------------------------------------------------------------------
 // Queue — exported so routes can enqueue jobs
@@ -97,11 +98,8 @@ async function recordUsage(
   jobType:   AiInsightJobType,
   inputTokens:  number,
   outputTokens: number,
+  costCents:    number,
 ): Promise<void> {
-  // Approximate cost: claude-sonnet-4-6 = $3 per 1M input, $15 per 1M output
-  const costCents = Math.round(
-    (inputTokens * 3 + outputTokens * 15) / 10_000,
-  );
   const monthYear = new Date().toISOString().substring(0, 7); // YYYY-MM
 
   await sql`
@@ -336,23 +334,20 @@ async function runInference(
   rawResponse:  unknown;
   inputTokens:  number;
   outputTokens: number;
+  modelId:      string;
+  costCents:    number;
 }> {
-  const { default: Anthropic } = await import('@anthropic-ai/sdk');
-  const client = new Anthropic({ apiKey: config.anthropicApiKey });
-
   const prompt = jobType === 'detect_anomaly'
     ? buildAnomalyDetectionPrompt(snapshot)
     : buildWeeklySummaryPrompt(snapshot);
 
-  const message = await client.messages.create({
-    model:      'claude-sonnet-4-6',
-    max_tokens: 1024,
+  const result = await generateCompletion(prompt, {
+    maxTokens:   1024,
     temperature: jobType === 'detect_anomaly' ? 0.0 : 0.3,
-    messages:   [{ role: 'user', content: prompt }],
+    jsonMode:    true,
   });
 
-  const text = message.content[0]?.type === 'text' ? message.content[0].text : '{}';
-  const parsed = JSON.parse(text) as {
+  const parsed = JSON.parse(result.text) as {
     narrative?:    string;
     key_findings?: string[];
     recommended_focus?: string;
@@ -371,8 +366,10 @@ async function runInference(
     narrative,
     key_findings:  parsed.key_findings ?? [],
     rawResponse:   parsed,
-    inputTokens:   message.usage.input_tokens,
-    outputTokens:  message.usage.output_tokens,
+    inputTokens:   result.inputTokens,
+    outputTokens:  result.outputTokens,
+    modelId:       result.modelId,
+    costCents:     computeCostCents(result),
   };
 }
 
@@ -384,8 +381,12 @@ async function processAiInsightJob(job: { data: AiInsightJobData }): Promise<voi
   const { patientId, orgId, jobType, clinicianId, periodDays = 7 } = job.data;
 
   // ── Gate: env flags ────────────────────────────────────────────────────────
-  if (!config.aiInsightsEnabled || !config.anthropicBaaSigned) {
+  if (!config.aiInsightsEnabled) {
     console.warn(`[ai-worker] Skipping job ${jobType} — AI not enabled`);
+    return;
+  }
+  if (config.aiProvider !== 'ollama' && !config.anthropicBaaSigned) {
+    console.warn(`[ai-worker] Skipping job ${jobType} — BAA not signed (Anthropic provider)`);
     return;
   }
 
@@ -422,10 +423,12 @@ async function processAiInsightJob(job: { data: AiInsightJobData }): Promise<voi
   let key_findings: string[];
   let inputTokens:  number;
   let outputTokens: number;
+  let modelId:      string;
+  let costCents:    number;
 
   try {
     const result = await runInference(jobType, snapshot);
-    ({ narrative, key_findings, inputTokens, outputTokens } = result);
+    ({ narrative, key_findings, inputTokens, outputTokens, modelId, costCents } = result);
   } catch (err) {
     console.error(`[ai-worker] Inference error for ${jobType} / patient ${patientId}:`, err);
     throw err; // Let BullMQ retry
@@ -456,7 +459,7 @@ async function processAiInsightJob(job: { data: AiInsightJobData }): Promise<voi
       ${narrative},
       ${JSON.stringify(key_findings)}::JSONB,
       ${riskDelta},
-      'claude-sonnet-4-6',
+      ${modelId},
       ${inputTokens},
       ${outputTokens},
       TRUE
@@ -464,7 +467,7 @@ async function processAiInsightJob(job: { data: AiInsightJobData }): Promise<voi
   `;
 
   // ── Record usage ───────────────────────────────────────────────────────────
-  await recordUsage(patientId, orgId, jobType, inputTokens, outputTokens);
+  await recordUsage(patientId, orgId, jobType, inputTokens, outputTokens, costCents);
 
   console.info(
     `[ai-worker] ✓ ${jobType} — patient ${patientId} — `
