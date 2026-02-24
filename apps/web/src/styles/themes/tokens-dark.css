@@ -70,7 +70,7 @@
   --critical: #E85A6B;
   --critical-dark: #C94A5A;
   --critical-light: #FF6B7D;
-  --critical-bg: rgba(232, 90, 107, 0.12);
+  --critical-bg: rgba(232, 90, 107, 0.20);
   --critical-border: rgba(232, 90, 107, 0.3);
   --critical-glow: rgba(232, 90, 107, 0.25);
 
@@ -78,7 +78,7 @@
   --warning: #E5A84B;
   --warning-dark: #C9923A;
   --warning-light: #F0B85C;
-  --warning-bg: rgba(229, 168, 75, 0.12);
+  --warning-bg: rgba(229, 168, 75, 0.20);
   --warning-border: rgba(229, 168, 75, 0.3);
   --warning-glow: rgba(229, 168, 75, 0.25);
 
@@ -86,7 +86,7 @@
   --success: #2DD4BF;
   --success-dark: #20B8A5;
   --success-light: #45E0CF;
-  --success-bg: rgba(45, 212, 191, 0.12);
+  --success-bg: rgba(45, 212, 191, 0.20);
   --success-border: rgba(45, 212, 191, 0.3);
   --success-glow: rgba(45, 212, 191, 0.25);
 
@@ -94,7 +94,7 @@
   --info: #60A5FA;
   --info-dark: #4A94E8;
   --info-light: #78B4FF;
-  --info-bg: rgba(96, 165, 250, 0.12);
+  --info-bg: rgba(96, 165, 250, 0.20);
   --info-border: rgba(96, 165, 250, 0.3);
   --info-glow: rgba(96, 165, 250, 0.25);
 

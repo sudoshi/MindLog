@@ -25,9 +25,11 @@
 }
 
 html {
-  font-size: 16px; /* Clinical workstation requirement - do not scale */
+  font-size: 16px;
   -webkit-text-size-adjust: 100%;
 }
+@media (min-width: 2560px) { html { font-size: 18px; } }
+@media (min-width: 3840px) { html { font-size: 20px; } }
 
 body {
   margin: 0;

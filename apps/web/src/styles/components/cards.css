@@ -160,6 +160,22 @@
   font-size: var(--text-5xl);
 }
 
+/* Semantic metric value colors */
+.metric-value.critical { color: var(--critical); text-shadow: 0 0 24px var(--critical-glow); }
+.metric-value.warning  { color: var(--warning);  text-shadow: 0 0 18px var(--warning-glow); }
+.metric-value.safe     { color: var(--success);  text-shadow: 0 0 16px var(--success-glow); }
+.metric-value.info     { color: var(--info);     text-shadow: 0 0 16px var(--info-glow); }
+
+/* Metric delta (sub-text below value) */
+.metric-delta {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  margin-top: var(--space-1);
+}
+.metric-delta.up   { color: var(--success); }
+.metric-delta.down { color: var(--critical); }
+.metric-delta.flat { color: var(--text-muted); }
+
 .metric-label {
   font-size: var(--text-sm);
   color: var(--text-muted);

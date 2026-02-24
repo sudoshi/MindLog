@@ -1,6 +1,6 @@
 // =============================================================================
 // MindLog Web — Population Dashboard (redesigned to match prototype)
-// Layout: 5-metric row + alert strip + two-column (heatmap/dist LEFT, alerts/checkin RIGHT)
+// Layout: 5-metric row + two-column (heatmap/dist LEFT, alerts/checkin RIGHT)
 // =============================================================================
 
 import { useState, useEffect, useCallback } from 'react';
@@ -58,10 +58,21 @@ interface AlertItem {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function moodVar(v: number | null): string {
+function moodColor(v: number | null): string {
   if (!v) return 'rgba(255,255,255,0.08)';
   const idx = Math.max(1, Math.min(10, Math.round(v)));
-  return `var(--m${idx})`;
+  return MOOD_COLORS[idx - 1] ?? 'rgba(255,255,255,0.08)';
+}
+
+const RISK_COLORS: Record<string, string> = {
+  critical: '#E85A6B',
+  high: '#F59E0B',
+  moderate: '#E5A84B',
+  low: '#2DD4BF',
+};
+
+function riskColor(level: string | null): string {
+  return RISK_COLORS[level ?? ''] ?? 'rgba(255,255,255,0.12)';
 }
 
 function fmtRelative(iso: string): string {
@@ -314,42 +325,72 @@ function CaseloadMoodPanel({ caseload }: { caseload: CaseloadRow[] }) {
     return (ord[a.status] ?? 4) - (ord[b.status] ?? 4);
   });
 
+  // Determine if anyone logged mood today — if not, fall back to risk level coloring
+  const hasMoodData = caseload.some((r) => r.todays_mood !== null);
+  const title = hasMoodData ? "Today's Mood — Caseload" : 'Risk Level — Caseload';
+  const subtitle = hasMoodData
+    ? 'One cell per patient · Border = crisis'
+    : 'One cell per patient · No check-ins yet today';
+
   return (
     <div className="panel anim anim-d2" style={{ marginBottom: 14 }}>
       <div className="panel-header">
         <div>
-          <div className="panel-title">Today's Mood — Caseload</div>
-          <div className="panel-sub">One cell per patient · Border = crisis</div>
+          <div className="panel-title">{title}</div>
+          <div className="panel-sub">{subtitle}</div>
         </div>
         <div className="panel-action" onClick={() => navigate('/patients')}>All patients →</div>
       </div>
       <div style={{ padding: '16px 20px' }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-          {sorted.map((row, idx) => (
-            <div
-              key={`${row.patient_id}-${idx}`}
-              title={`${row.last_name}, ${row.first_name} — Mood: ${row.todays_mood ?? 'not logged'}`}
-              onClick={() => navigate(`/patients/${row.patient_id}`)}
-              style={{
-                width: 18, height: 18, borderRadius: 3,
-                background: moodVar(row.todays_mood),
-                border: row.status === 'crisis' ? '1px solid var(--critical)' : '1px solid transparent',
-                cursor: 'pointer', flexShrink: 0,
-              }}
-            />
-          ))}
+          {sorted.map((row, idx) => {
+            // Use mood color if available, otherwise fall back to risk level
+            const bg = row.todays_mood
+              ? moodColor(row.todays_mood)
+              : riskColor(row.risk_level);
+            return (
+              <div
+                key={`${row.patient_id}-${idx}`}
+                title={`${row.last_name}, ${row.first_name} — ${row.todays_mood ? `Mood: ${row.todays_mood}` : `Risk: ${row.risk_level ?? 'unknown'}`}`}
+                onClick={() => navigate(`/patients/${row.patient_id}`)}
+                style={{
+                  width: 18, height: 18, borderRadius: 3,
+                  background: bg,
+                  border: row.status === 'crisis' ? '1px solid var(--critical)' : '1px solid transparent',
+                  cursor: 'pointer', flexShrink: 0,
+                }}
+              />
+            );
+          })}
         </div>
         <div style={{ display: 'flex', gap: 12, marginTop: 10, flexWrap: 'wrap' }}>
-          {[1,3,5,7,9].map((m) => (
-            <div key={m} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              <div style={{ width: 10, height: 10, borderRadius: 2, background: moodVar(m) }} />
-              <span style={{ fontSize: 12, color: 'var(--ink-soft)' }}>{m}</span>
-            </div>
-          ))}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <div style={{ width: 10, height: 10, borderRadius: 2, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)' }} />
-            <span style={{ fontSize: 12, color: 'var(--ink-soft)' }}>Not logged</span>
-          </div>
+          {hasMoodData ? (
+            <>
+              {[1,3,5,7,9].map((m) => (
+                <div key={m} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <div style={{ width: 10, height: 10, borderRadius: 2, background: moodColor(m) }} />
+                  <span style={{ fontSize: 12, color: 'var(--ink-soft)' }}>{m}</span>
+                </div>
+              ))}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <div style={{ width: 10, height: 10, borderRadius: 2, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)' }} />
+                <span style={{ fontSize: 12, color: 'var(--ink-soft)' }}>Not logged</span>
+              </div>
+            </>
+          ) : (
+            <>
+              {(['critical', 'high', 'moderate', 'low'] as const).map((level) => (
+                <div key={level} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <div style={{ width: 10, height: 10, borderRadius: 2, background: RISK_COLORS[level] }} />
+                  <span style={{ fontSize: 12, color: 'var(--ink-soft)', textTransform: 'capitalize' }}>{level}</span>
+                </div>
+              ))}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <div style={{ width: 10, height: 10, borderRadius: 2, background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.15)' }} />
+                <span style={{ fontSize: 12, color: 'var(--ink-soft)' }}>Unknown</span>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>
@@ -357,10 +398,17 @@ function CaseloadMoodPanel({ caseload }: { caseload: CaseloadRow[] }) {
 }
 
 const MOOD_BUCKETS = [
-  { label: 'High (8–10)', min: 8, max: 10, color: 'var(--m9)' },
-  { label: 'Good (6–7)', min: 6, max: 7, color: 'var(--m7)' },
-  { label: 'Moderate (4–5)', min: 4, max: 5, color: 'var(--m4)' },
-  { label: 'Low (1–3)', min: 1, max: 3, color: 'var(--m2)' },
+  { label: 'High (8–10)', min: 8, max: 10, color: '#2BB5C4' },
+  { label: 'Good (6–7)', min: 6, max: 7, color: '#5BB8A0' },
+  { label: 'Moderate (4–5)', min: 4, max: 5, color: '#CC9220' },
+  { label: 'Low (1–3)', min: 1, max: 3, color: '#D04A2A' },
+];
+
+const RISK_BUCKETS = [
+  { label: 'Critical', key: 'critical', color: '#E85A6B' },
+  { label: 'High', key: 'high', color: '#F59E0B' },
+  { label: 'Moderate', key: 'moderate', color: '#E5A84B' },
+  { label: 'Low', key: 'low', color: '#2DD4BF' },
 ];
 
 function MoodDistributionPanel({
@@ -371,37 +419,65 @@ function MoodDistributionPanel({
   onBucketClick?: (bucket: typeof MOOD_BUCKETS[number]) => void;
 }) {
   const logged = caseload.filter((r) => r.todays_mood !== null);
-  const maxCount = Math.max(...MOOD_BUCKETS.map((b) =>
+  const hasMoodData = logged.length > 0;
+
+  // Risk-level distribution (used when no one has logged mood)
+  const riskCounts = RISK_BUCKETS.map((b) => ({
+    ...b,
+    count: caseload.filter((r) => r.risk_level === b.key).length,
+  }));
+  const maxRiskCount = Math.max(...riskCounts.map((r) => r.count), 1);
+
+  const maxMoodCount = Math.max(...MOOD_BUCKETS.map((b) =>
     logged.filter((r) => (r.todays_mood ?? 0) >= b.min && (r.todays_mood ?? 0) <= b.max).length
   ), 1);
 
   return (
     <div className="panel anim anim-d3" style={{ marginBottom: 14 }}>
       <div className="panel-header">
-        <div className="panel-title">Mood Distribution — Today</div>
-        <div className="panel-sub">Reported by {logged.length} patients</div>
+        <div className="panel-title">
+          {hasMoodData ? 'Mood Distribution — Today' : 'Risk Distribution — Caseload'}
+        </div>
+        <div className="panel-sub">
+          {hasMoodData
+            ? `Reported by ${logged.length} patients`
+            : `${caseload.length} patients · No check-ins yet today`}
+        </div>
       </div>
       <div style={{ padding: '12px 0' }}>
-        {MOOD_BUCKETS.map((b) => {
-          const count = logged.filter((r) =>
-            (r.todays_mood ?? 0) >= b.min && (r.todays_mood ?? 0) <= b.max
-          ).length;
-          const pct = Math.round((count / maxCount) * 100);
-          return (
-            <div
-              key={b.label}
-              className={`mini-bar-row${onBucketClick ? ' clickable' : ''}`}
-              onClick={() => onBucketClick?.(b)}
-              style={onBucketClick ? { cursor: 'pointer' } : undefined}
-            >
-              <div className="mini-bar-label">{b.label}</div>
-              <div className="mini-bar-track">
-                <div className="mini-bar-fill" style={{ width: `${pct}%`, background: b.color }} />
-              </div>
-              <div className="mini-bar-val">{count}</div>
-            </div>
-          );
-        })}
+        {hasMoodData
+          ? MOOD_BUCKETS.map((b) => {
+              const count = logged.filter((r) =>
+                (r.todays_mood ?? 0) >= b.min && (r.todays_mood ?? 0) <= b.max
+              ).length;
+              const pct = Math.round((count / maxMoodCount) * 100);
+              return (
+                <div
+                  key={b.label}
+                  className={`mini-bar-row${onBucketClick ? ' clickable' : ''}`}
+                  onClick={() => onBucketClick?.(b)}
+                  style={onBucketClick ? { cursor: 'pointer' } : undefined}
+                >
+                  <div className="mini-bar-label">{b.label}</div>
+                  <div className="mini-bar-track">
+                    <div className="mini-bar-fill" style={{ width: `${pct}%`, background: b.color }} />
+                  </div>
+                  <div className="mini-bar-val">{count}</div>
+                </div>
+              );
+            })
+          : riskCounts.map((b) => {
+              const pct = Math.round((b.count / maxRiskCount) * 100);
+              return (
+                <div key={b.key} className="mini-bar-row">
+                  <div className="mini-bar-label">{b.label}</div>
+                  <div className="mini-bar-track">
+                    <div className="mini-bar-fill" style={{ width: `${pct}%`, background: b.color }} />
+                  </div>
+                  <div className="mini-bar-val">{b.count}</div>
+                </div>
+              );
+            })}
       </div>
     </div>
   );
@@ -489,7 +565,7 @@ function CheckInActivityPanel({ caseload }: { caseload: CaseloadRow[] }) {
               {row.todays_mood != null && (
                 <div
                   className="mood-dot"
-                  style={{ background: moodVar(row.todays_mood) }}
+                  style={{ background: moodColor(row.todays_mood) }}
                   title={`Mood: ${row.todays_mood}`}
                 />
               )}
@@ -514,7 +590,6 @@ export function DashboardPage() {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [caseload, setCaseload] = useState<CaseloadRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [topCritical, setTopCritical] = useState<AlertItem | null>(null);
   const [drilldown, setDrilldown] = useState<DrilldownConfig | null>(null);
 
   const fetchData = useCallback(async () => {
@@ -538,18 +613,9 @@ export function DashboardPage() {
     }
   }, [token]);
 
-  // Fetch top critical alert for the alert strip
-  const fetchTopCritical = useCallback(async () => {
-    if (!token) return;
-    try {
-      const res = await api.get<{ items: AlertItem[] }>('/alerts?limit=1&severity=critical&status=new', token);
-      setTopCritical(res.items?.[0] ?? null);
-    } catch { /* silent */ }
-  }, [token]);
+  useEffect(() => { void fetchData(); }, [fetchData]);
 
-  useEffect(() => { void fetchData(); void fetchTopCritical(); }, [fetchData, fetchTopCritical]);
-
-  useAlertSocket({ token, onAlert: () => { void fetchData(); void fetchTopCritical(); } });
+  useAlertSocket({ token, onAlert: () => { void fetchData(); } });
 
   // Derived KPIs
   const criticalAlerts = snapshot?.critical_alerts_count ?? 0;
@@ -608,24 +674,6 @@ export function DashboardPage() {
           onClick={() => !loading && setDrilldown(buildCheckInRateDrilldown(caseload))}
         />
       </div>
-
-      {/* ── Safety alert strip (top critical alert) ── */}
-      {topCritical && (
-        <div
-          className="alert-strip anim anim-d1"
-          onClick={() => navigate(`/patients/${topCritical.patient_id}`)}
-        >
-          <div className="alert-strip-icon">⚠️</div>
-          <div className="alert-strip-text">
-            <div className="alert-strip-title">{topCritical.title}</div>
-            <div className="alert-strip-body">
-              {topCritical.rule_key} · {fmtRelative(topCritical.created_at)}
-              {topCritical.patient_name ? ` · ${topCritical.patient_name}` : ''}
-            </div>
-          </div>
-          <div className="alert-strip-action">Review Now →</div>
-        </div>
-      )}
 
       {/* ── Two-column layout ── */}
       {loading ? (

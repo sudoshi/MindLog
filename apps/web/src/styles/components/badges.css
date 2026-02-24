@@ -126,25 +126,25 @@
 }
 
 .severity-badge.critical {
-  background: rgba(232, 90, 107, 0.2);
+  background: var(--critical-bg);
   color: var(--critical);
   border: 1px solid var(--critical-border);
 }
 
 .severity-badge.warning {
-  background: rgba(229, 168, 75, 0.2);
+  background: var(--warning-bg);
   color: var(--warning);
   border: 1px solid var(--warning-border);
 }
 
 .severity-badge.info {
-  background: rgba(96, 165, 250, 0.2);
+  background: var(--info-bg);
   color: var(--info);
   border: 1px solid var(--info-border);
 }
 
 .severity-badge.success {
-  background: rgba(45, 212, 191, 0.2);
+  background: var(--success-bg);
   color: var(--success);
   border: 1px solid var(--success-border);
 }
