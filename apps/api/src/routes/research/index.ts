@@ -4,7 +4,7 @@
 // IRB-approved de-identified data exports for clinical research.
 // All data is de-identified via HIPAA Safe Harbour method before export.
 //
-// Endpoints (all require admin or researcher role — clinician only for cohorts):
+// Endpoints (all require admin role):
 //   POST  /research/exports              — request new export
 //   GET   /research/exports/:id          — check export status / get download URL
 //   GET   /research/cohorts              — list saved cohort definitions
@@ -25,7 +25,14 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { sql } from '@mindlog/db';
-import { UuidSchema, PaginationSchema, CreateResearchExportSchema, CreateCohortSchema } from '@mindlog/shared';
+import {
+  UuidSchema, PaginationSchema, CreateResearchExportSchema, CreateCohortSchema,
+  CohortQuerySchema, CohortCountSchema, CreateCohortSchemaV2, UpdateCohortSchemaV2,
+  TriggerOmopExportSchema,
+  type CohortFilterGroup,
+} from '@mindlog/shared';
+import { omopExportQueue, type OmopExportJobData } from '../../workers/omop-export-worker.js';
+import { queryCohort, countCohort, captureCohortSnapshot } from '../../services/cohortQueryEngine.js';
 import { connection } from '../../workers/rules-engine.js';
 import { Queue } from 'bullmq';
 
@@ -77,8 +84,6 @@ const DEFAULT_INCLUDE_FIELDS = [
 export default async function researchRoutes(fastify: FastifyInstance): Promise<void> {
   // Research routes require admin role
   const adminOnly     = { preHandler: [fastify.requireRole(['admin'])] };
-  const clinicianOnly = { preHandler: [fastify.requireRole(['clinician', 'admin'])] };
-
   // ── POST /research/exports ───────────────────────────────────────────────
   fastify.post('/', adminOnly, async (request, reply) => {
     const body = CreateResearchExportSchema.parse(request.body);
@@ -173,13 +178,14 @@ export default async function researchRoutes(fastify: FastifyInstance): Promise<
   );
 
   // ── GET /research/cohorts ─────────────────────────────────────────────────
-  fastify.get('/', clinicianOnly, async (request, reply) => {
+  fastify.get('/', adminOnly, async (request, reply) => {
     const { page, limit } = PaginationSchema.parse(request.query);
     const offset = (page - 1) * limit;
 
     const [rows, countRow] = await Promise.all([
       sql`
         SELECT cd.id, cd.name, cd.description, cd.filters,
+               cd.filter_version, cd.is_pinned, cd.color,
                cd.last_count, cd.last_run_at, cd.created_at,
                c.first_name || ' ' || c.last_name AS created_by_name
         FROM cohort_definitions cd
@@ -208,7 +214,7 @@ export default async function researchRoutes(fastify: FastifyInstance): Promise<
   });
 
   // ── POST /research/cohorts ────────────────────────────────────────────────
-  fastify.post('/cohorts', clinicianOnly, async (request, reply) => {
+  fastify.post('/cohorts', adminOnly, async (request, reply) => {
     const body = CreateCohortSchema.parse(request.body);
 
     const [row] = await sql<{ id: string }[]>`
@@ -229,7 +235,7 @@ export default async function researchRoutes(fastify: FastifyInstance): Promise<
   // ── GET /research/cohorts/:id/count ──────────────────────────────────────
   fastify.get<{ Params: { id: string } }>(
     '/cohorts/:id/count',
-    clinicianOnly,
+    adminOnly,
     async (request, reply) => {
       const { id } = z.object({ id: UuidSchema }).parse(request.params);
 
@@ -266,11 +272,217 @@ export default async function researchRoutes(fastify: FastifyInstance): Promise<
     },
   );
 
+  // ── POST /research/cohorts/query ─────────────────────────────────────────
+  // Execute v2 filter DSL → return matching patients + aggregates
+  fastify.post('/cohorts/query', adminOnly, async (request, reply) => {
+    const body = CohortQuerySchema.parse(request.body);
+    const orgId = (request.user as { sub: string; org_id: string }).org_id;
+
+    const result = await queryCohort({
+      orgId,
+      filters: body.filters,
+      limit: body.limit,
+      offset: body.offset,
+      sortBy: body.sort_by,
+      sortDir: body.sort_dir,
+    });
+
+    return reply.send({ success: true, data: result });
+  });
+
+  // ── POST /research/cohorts/count ───────────────────────────────────────────
+  // Live count from v2 filter group (no pagination)
+  fastify.post('/cohorts/count', adminOnly, async (request, reply) => {
+    const body = CohortCountSchema.parse(request.body);
+    const orgId = (request.user as { sub: string; org_id: string }).org_id;
+    const count = await countCohort(orgId, body.filters);
+    return reply.send({ success: true, data: { count } });
+  });
+
+  // ── POST /research/cohorts/v2 ──────────────────────────────────────────────
+  // Create a v2 cohort definition (structured filter DSL)
+  fastify.post('/cohorts/v2', adminOnly, async (request, reply) => {
+    const body = CreateCohortSchemaV2.parse(request.body);
+    const user = request.user as { sub: string; org_id: string };
+
+    const [row] = await sql<{ id: string }[]>`
+      INSERT INTO cohort_definitions (name, description, created_by, organisation_id, filters, filter_version, color)
+      VALUES (
+        ${body.name},
+        ${body.description ?? null},
+        ${user.sub}::UUID,
+        ${user.org_id}::UUID,
+        ${sql`${JSON.stringify(body.filters)}::jsonb`},
+        2,
+        ${body.color}
+      )
+      RETURNING id
+    `;
+
+    return reply.status(201).send({ success: true, data: { id: row!.id } });
+  });
+
+  // ── PUT /research/cohorts/:id ──────────────────────────────────────────────
+  // Update a cohort definition
+  fastify.put<{ Params: { id: string } }>(
+    '/cohorts/:id',
+    adminOnly,
+    async (request, reply) => {
+      const { id } = z.object({ id: UuidSchema }).parse(request.params);
+      const body = UpdateCohortSchemaV2.parse(request.body);
+      const orgId = (request.user as { sub: string; org_id: string }).org_id;
+
+      // Verify cohort exists and belongs to org
+      const [existing] = await sql<{ id: string }[]>`
+        SELECT id FROM cohort_definitions
+        WHERE id = ${id}::UUID AND organisation_id = ${orgId}::UUID
+        LIMIT 1
+      `;
+      if (!existing) {
+        return reply.status(404).send({ success: false, error: { code: 'NOT_FOUND', message: 'Cohort not found' } });
+      }
+
+      await sql`
+        UPDATE cohort_definitions SET
+          name = COALESCE(${body.name ?? null}, name),
+          description = COALESCE(${body.description ?? null}, description),
+          filters = COALESCE(${body.filters ? sql`${JSON.stringify(body.filters)}::jsonb` : null}, filters),
+          color = COALESCE(${body.color ?? null}, color),
+          is_pinned = COALESCE(${body.is_pinned ?? null}, is_pinned),
+          filter_version = CASE WHEN ${body.filters !== undefined} THEN 2 ELSE filter_version END,
+          updated_at = NOW()
+        WHERE id = ${id}::UUID
+      `;
+
+      return reply.send({ success: true, data: { id } });
+    },
+  );
+
+  // ── DELETE /research/cohorts/:id ───────────────────────────────────────────
+  fastify.delete<{ Params: { id: string } }>(
+    '/cohorts/:id',
+    adminOnly,
+    async (request, reply) => {
+      const { id } = z.object({ id: UuidSchema }).parse(request.params);
+      const orgId = (request.user as { sub: string; org_id: string }).org_id;
+
+      const [deleted] = await sql<{ id: string }[]>`
+        DELETE FROM cohort_definitions
+        WHERE id = ${id}::UUID AND organisation_id = ${orgId}::UUID
+        RETURNING id
+      `;
+
+      if (!deleted) {
+        return reply.status(404).send({ success: false, error: { code: 'NOT_FOUND', message: 'Cohort not found' } });
+      }
+
+      return reply.send({ success: true, data: { id: deleted.id } });
+    },
+  );
+
+  // ── GET /research/cohorts/:id/stats ────────────────────────────────────────
+  // Current aggregates + historical snapshots
+  fastify.get<{ Params: { id: string } }>(
+    '/cohorts/:id/stats',
+    adminOnly,
+    async (request, reply) => {
+      const { id } = z.object({ id: UuidSchema }).parse(request.params);
+      const orgId = (request.user as { sub: string; org_id: string }).org_id;
+
+      const [cohort] = await sql<{ filters: CohortFilterGroup; filter_version: number }[]>`
+        SELECT filters, filter_version FROM cohort_definitions
+        WHERE id = ${id}::UUID AND organisation_id = ${orgId}::UUID
+        LIMIT 1
+      `;
+
+      if (!cohort) {
+        return reply.status(404).send({ success: false, error: { code: 'NOT_FOUND', message: 'Cohort not found' } });
+      }
+
+      // Only v2 cohorts support stats via query engine
+      if (cohort.filter_version < 2) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'UNSUPPORTED', message: 'Stats only available for v2 cohorts. Re-save with the new filter builder.' },
+        });
+      }
+
+      const currentResult = await queryCohort({ orgId, filters: cohort.filters, limit: 0, offset: 0 });
+
+      const snapshots = await sql`
+        SELECT computed_at, patient_count, avg_mood, avg_phq9, avg_gad7,
+               risk_distribution, med_adherence_pct, avg_tracking_streak
+        FROM cohort_snapshots
+        WHERE cohort_id = ${id}::UUID
+        ORDER BY computed_at DESC
+        LIMIT 30
+      `;
+
+      // Compute deltas if snapshots exist
+      let trends = null;
+      if (snapshots.length >= 2) {
+        const latest = snapshots[0]!;
+        const earliest = snapshots[snapshots.length - 1]!;
+        trends = {
+          patient_count_change: (latest.patient_count as number) - (earliest.patient_count as number),
+          avg_phq9_change: latest.avg_phq9 != null && earliest.avg_phq9 != null
+            ? Number(latest.avg_phq9) - Number(earliest.avg_phq9) : null,
+          avg_mood_change: latest.avg_mood != null && earliest.avg_mood != null
+            ? Number(latest.avg_mood) - Number(earliest.avg_mood) : null,
+        };
+      }
+
+      return reply.send({
+        success: true,
+        data: { current: currentResult.aggregates, snapshots, trends },
+      });
+    },
+  );
+
+  // ── POST /research/cohorts/:id/snapshot ────────────────────────────────────
+  // Trigger a point-in-time snapshot capture
+  fastify.post<{ Params: { id: string } }>(
+    '/cohorts/:id/snapshot',
+    adminOnly,
+    async (request, reply) => {
+      const { id } = z.object({ id: UuidSchema }).parse(request.params);
+      const orgId = (request.user as { sub: string; org_id: string }).org_id;
+
+      const [cohort] = await sql<{ filters: CohortFilterGroup; filter_version: number }[]>`
+        SELECT filters, filter_version FROM cohort_definitions
+        WHERE id = ${id}::UUID AND organisation_id = ${orgId}::UUID
+        LIMIT 1
+      `;
+
+      if (!cohort) {
+        return reply.status(404).send({ success: false, error: { code: 'NOT_FOUND', message: 'Cohort not found' } });
+      }
+
+      if (cohort.filter_version < 2) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'UNSUPPORTED', message: 'Snapshots only available for v2 cohorts.' },
+        });
+      }
+
+      await captureCohortSnapshot(id, orgId, cohort.filters);
+
+      return reply.send({ success: true, data: { message: 'Snapshot captured' } });
+    },
+  );
+
+  // ── POST /research/mv/refresh ──────────────────────────────────────────────
+  // Admin-only: manually refresh the materialized view
+  fastify.post('/mv/refresh', adminOnly, async (_request, reply) => {
+    await sql`REFRESH MATERIALIZED VIEW CONCURRENTLY mv_patient_cohort_stats`;
+    return reply.send({ success: true, data: { message: 'Materialized view refreshed' } });
+  });
+
   // ── GET /research/omop-concepts ───────────────────────────────────────────
   // Search OMOP/SNOMED/ICD-10 concept codes for building cohort filters.
   fastify.get<{ Querystring: { search?: string; vocabulary?: string; limit?: string } }>(
     '/omop-concepts',
-    clinicianOnly,
+    adminOnly,
     async (request, reply) => {
       const { search, vocabulary } = request.query;
       const limit = Math.min(50, Math.max(1, Number(request.query.limit ?? 20)));
@@ -297,6 +509,153 @@ export default async function researchRoutes(fastify: FastifyInstance): Promise<
       return reply.send({ success: true, data: { items: rows, total: rows.length } });
     },
   );
+
+  // ── POST /research/omop/export ──────────────────────────────────────────
+  // Trigger a manual OMOP CDM export
+  fastify.post('/omop/export', adminOnly, async (request, reply) => {
+    const body = TriggerOmopExportSchema.parse(request.body);
+
+    const [row] = await sql<{ id: string }[]>`
+      INSERT INTO omop_export_runs (triggered_by, output_mode, full_refresh)
+      VALUES ('manual', ${body.output_mode}, ${body.full_refresh})
+      RETURNING id
+    `;
+
+    if (!row) {
+      return reply.status(500).send({
+        success: false,
+        error: { code: 'INTERNAL_ERROR', message: 'Failed to create OMOP export record' },
+      });
+    }
+
+    const jobData: OmopExportJobData = {
+      exportRunId: row.id,
+      triggeredBy: 'manual',
+      outputMode:  body.output_mode,
+      fullRefresh: body.full_refresh,
+    };
+
+    await omopExportQueue.add('omop-export', jobData, {
+      jobId:    `omop:manual:${row.id}`,
+      attempts: 2,
+      backoff:  { type: 'fixed', delay: 15000 },
+    });
+
+    return reply.status(202).send({
+      success: true,
+      data: {
+        id:      row.id,
+        status:  'pending',
+        message: 'OMOP CDM export queued. Poll GET /research/omop/exports/:id for status.',
+      },
+    });
+  });
+
+  // ── GET /research/omop/exports/:id ──────────────────────────────────────
+  // Check OMOP export status + get download URLs
+  fastify.get<{ Params: { id: string } }>(
+    '/omop/exports/:id',
+    adminOnly,
+    async (request, reply) => {
+      const { id } = z.object({ id: UuidSchema }).parse(request.params);
+
+      const [row] = await sql`
+        SELECT id, status, triggered_by, output_mode, full_refresh,
+               record_counts, file_urls, error_message,
+               started_at, completed_at, created_at
+        FROM omop_export_runs
+        WHERE id = ${id}::UUID
+        LIMIT 1
+      `;
+
+      if (!row) {
+        return reply.status(404).send({
+          success: false,
+          error: { code: 'NOT_FOUND', message: 'OMOP export not found' },
+        });
+      }
+
+      return reply.send({ success: true, data: row });
+    },
+  );
+
+  // ── GET /research/omop/hwm ──────────────────────────────────────────────
+  // Returns the omop_export_hwm singleton row (high-water marks)
+  fastify.get('/omop/hwm', adminOnly, async (_request, reply) => {
+    const [row] = await sql`
+      SELECT patients_hwm, daily_entries_hwm, validated_assessments_hwm,
+             patient_medications_hwm, patient_diagnoses_hwm,
+             appointments_hwm, passive_health_hwm, journal_entries_hwm,
+             updated_at
+      FROM omop_export_hwm
+      WHERE id = 1
+      LIMIT 1
+    `;
+
+    if (!row) {
+      return reply.status(404).send({
+        success: false,
+        error: { code: 'NOT_FOUND', message: 'HWM row not found — run migration 016' },
+      });
+    }
+
+    return reply.send({ success: true, data: row });
+  });
+
+  // ── POST /research/omop/hwm/reset ────────────────────────────────────────
+  // Resets all HWM timestamps to epoch → forces full re-export on next run
+  fastify.post('/omop/hwm/reset', adminOnly, async (_request, reply) => {
+    await sql`
+      UPDATE omop_export_hwm SET
+        patients_hwm              = '1970-01-01T00:00:00Z',
+        daily_entries_hwm         = '1970-01-01T00:00:00Z',
+        validated_assessments_hwm = '1970-01-01T00:00:00Z',
+        patient_medications_hwm   = '1970-01-01T00:00:00Z',
+        patient_diagnoses_hwm     = '1970-01-01T00:00:00Z',
+        appointments_hwm          = '1970-01-01T00:00:00Z',
+        passive_health_hwm        = '1970-01-01T00:00:00Z',
+        journal_entries_hwm       = '1970-01-01T00:00:00Z',
+        updated_at                = NOW()
+      WHERE id = 1
+    `;
+
+    return reply.send({
+      success: true,
+      data: { message: 'All watermarks reset to epoch. Next export will be a full refresh.' },
+    });
+  });
+
+  // ── GET /research/omop/exports ──────────────────────────────────────────
+  // Paginated list of recent OMOP exports
+  fastify.get('/omop/exports', adminOnly, async (request, reply) => {
+    const { page, limit } = PaginationSchema.parse(request.query);
+    const offset = (page - 1) * limit;
+
+    const [rows, countRow] = await Promise.all([
+      sql`
+        SELECT id, status, triggered_by, output_mode, full_refresh,
+               record_counts, file_urls, error_message,
+               started_at, completed_at, created_at
+        FROM omop_export_runs
+        ORDER BY created_at DESC
+        LIMIT ${limit} OFFSET ${offset}
+      `,
+      sql<{ count: string }[]>`
+        SELECT COUNT(*)::TEXT AS count FROM omop_export_runs
+      `,
+    ]);
+
+    return reply.send({
+      success: true,
+      data: {
+        items: rows,
+        total: Number(countRow[0]?.count ?? 0),
+        page,
+        limit,
+        has_next: offset + rows.length < Number(countRow[0]?.count ?? 0),
+      },
+    });
+  });
 }
 
 // ---------------------------------------------------------------------------

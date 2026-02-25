@@ -17,7 +17,11 @@ const InsightsQuerySchema = z.object({
 
 const AiHistoryQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(20).default(10),
-  type:  z.enum(['weekly_summary', 'trend_narrative', 'anomaly_detection', 'risk_stratification']).optional(),
+  type:  z.enum(['weekly_summary', 'trend_narrative', 'anomaly_detection', 'risk_stratification', 'nightly_deep_analysis']).optional(),
+});
+
+const RiskHistoryQuerySchema = z.object({
+  days: z.coerce.number().int().min(7).max(365).default(90),
 });
 
 const ChatBodySchema = z.object({
@@ -374,23 +378,39 @@ export default async function insightsRoutes(fastify: FastifyInstance): Promise<
     const { limit, type } = AiHistoryQuerySchema.parse(request.query);
 
     const insights = await sql<{
-      id:           string;
-      insight_type: string;
-      period_start: string;
-      period_end:   string;
-      narrative:    string;
-      key_findings: unknown;
-      risk_delta:   number | null;
-      model_id:     string;
-      generated_at: string;
+      id:                  string;
+      insight_type:        string;
+      period_start:        string;
+      period_end:          string;
+      narrative:           string;
+      key_findings:        unknown;
+      risk_delta:          number | null;
+      model_id:            string;
+      generated_at:        string;
+      structured_findings: unknown;
+      clinical_trajectory: string | null;
     }[]>`
       SELECT id, insight_type, period_start, period_end,
-             narrative, key_findings, risk_delta, model_id, generated_at
+             narrative, key_findings, risk_delta, model_id, generated_at,
+             structured_findings, clinical_trajectory
       FROM patient_ai_insights
       WHERE patient_id = ${patientId}
         ${type ? sql`AND insight_type = ${type}` : sql``}
       ORDER BY generated_at DESC
       LIMIT ${limit}
+    `;
+
+    // Fetch latest 30 risk history points for inline sparkline
+    const riskHistory = await sql<{
+      score:       number;
+      band:        string;
+      computed_at: string;
+    }[]>`
+      SELECT score, band, computed_at
+      FROM patient_risk_history
+      WHERE patient_id = ${patientId}
+      ORDER BY computed_at DESC
+      LIMIT 30
     `;
 
     return reply.send({
@@ -401,8 +421,53 @@ export default async function insightsRoutes(fastify: FastifyInstance): Promise<
         risk_score_factors:    patient?.risk_score_factors ?? null,
         risk_score_updated_at: patient?.risk_score_updated_at ?? null,
         insights,
+        risk_history: riskHistory.reverse(),
         disclaimer: 'AI-generated content is for clinical decision support only. Not a substitute for clinical assessment.',
       },
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // GET /insights/:patientId/risk-history — longitudinal risk scores (clinician)
+  // ---------------------------------------------------------------------------
+  fastify.get('/:patientId/risk-history', auth, async (request, reply) => {
+    if (request.user.role !== 'clinician') {
+      return reply.status(403).send({ success: false, error: { code: 'FORBIDDEN', message: 'Clinician access only' } });
+    }
+
+    const { patientId } = request.params as { patientId: string };
+    const clinicianId   = request.user.sub;
+
+    // Verify care team membership
+    const [membership] = await sql<{ id: string }[]>`
+      SELECT id FROM care_team_members
+      WHERE clinician_id = ${clinicianId}
+        AND patient_id   = ${patientId}
+        AND unassigned_at IS NULL
+    `;
+    if (!membership) {
+      return reply.status(403).send({ success: false, error: { code: 'NOT_ON_CARE_TEAM', message: 'You are not on this patient\'s care team.' } });
+    }
+
+    const { days } = RiskHistoryQuerySchema.parse(request.query);
+    const since = new Date(Date.now() - days * 86400_000).toISOString().split('T')[0]!;
+
+    const history = await sql<{
+      score:       number;
+      band:        string;
+      factors:     unknown;
+      computed_at: string;
+    }[]>`
+      SELECT score, band, factors, computed_at
+      FROM patient_risk_history
+      WHERE patient_id  = ${patientId}
+        AND computed_at >= ${since}::date
+      ORDER BY computed_at ASC
+    `;
+
+    return reply.send({
+      success: true,
+      data: { patient_id: patientId, days, history },
     });
   });
 
@@ -449,10 +514,11 @@ export default async function insightsRoutes(fastify: FastifyInstance): Promise<
     }
 
     const body = request.body as { type?: string; period_days?: number };
-    const jobType = (['weekly_summary', 'trend_narrative', 'anomaly_detection'].includes(body?.type ?? ''))
-      ? (body.type as 'weekly_summary' | 'trend_narrative' | 'anomaly_detection')
+    const allowedTypes = ['weekly_summary', 'trend_narrative', 'anomaly_detection', 'nightly_deep_analysis'] as const;
+    const jobType = allowedTypes.includes(body?.type as typeof allowedTypes[number])
+      ? (body.type as typeof allowedTypes[number])
       : 'weekly_summary';
-    const periodDays = Math.max(7, Math.min(30, Number(body?.period_days ?? 7)));
+    const periodDays = Math.max(7, Math.min(30, Number(body?.period_days ?? (jobType === 'nightly_deep_analysis' ? 30 : 7))));
 
     const job = await aiInsightsQueue.add(jobType, {
       patientId,

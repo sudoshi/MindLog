@@ -132,6 +132,25 @@ function SignInForm() {
       >
         <Text style={styles.primaryBtnText}>{loading ? 'Signing in…' : 'Sign In'}</Text>
       </TouchableOpacity>
+
+      {/* Demo quick-fill */}
+      <View style={styles.demoSection}>
+        <Text style={styles.demoLabel}>Quick demo login</Text>
+        <View style={styles.demoRow}>
+          <TouchableOpacity
+            style={styles.demoBtn}
+            onPress={() => { setEmail('alice@mindlogdemo.com'); setPassword('Demo@Patient1!'); }}
+          >
+            <Text style={styles.demoBtnText}>Patient</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.demoBtn}
+            onPress={() => { setEmail('dr.kim@mindlogdemo.com'); setPassword('Demo@Clinic1!'); }}
+          >
+            <Text style={styles.demoBtnText}>Clinician</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
     </View>
   );
 }
@@ -482,6 +501,15 @@ const styles = StyleSheet.create({
   },
   primaryBtnDisabled: { opacity: 0.6 },
   primaryBtnText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+
+  demoSection: { marginTop: 16, alignItems: 'center' },
+  demoLabel: { color: SUB, fontSize: 12, marginBottom: 8 },
+  demoRow: { flexDirection: 'row', gap: 12 },
+  demoBtn: {
+    paddingVertical: 8, paddingHorizontal: 20, borderRadius: 8,
+    borderWidth: 1, borderColor: BORDER, backgroundColor: BG,
+  },
+  demoBtnText: { color: SUB, fontSize: 13, fontWeight: '600' },
 
   safetyCard: {
     marginTop: 32, padding: 16, borderRadius: 12,

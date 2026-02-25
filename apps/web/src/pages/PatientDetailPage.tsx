@@ -139,24 +139,61 @@ interface AssessmentScore {
 type Tab = 'overview' | 'trends' | 'journal' | 'notes' | 'alerts' | 'medications' | 'ai';
 
 // AI types
+interface StructuredFindings {
+  trajectory_rationale?: string;
+  domain_findings?: {
+    mood?: string;
+    sleep?: string;
+    anxiety?: string;
+    social?: string;
+    medications?: string;
+  };
+  early_warnings?: Array<{ signal: string; urgency: 'routine' | 'elevated' | 'urgent'; domain: string }>;
+  treatment_response?: string;
+  recommended_focus?: Array<{ area: string; priority: number; rationale: string }>;
+  cross_domain_patterns?: string[];
+}
+
 interface AiInsight {
-  id:           string;
-  insight_type: string;
-  period_start: string;
-  period_end:   string;
-  narrative:    string;
-  key_findings: string[];
-  risk_delta:   number | null;
-  model_id:     string;
-  generated_at: string;
+  id:                   string;
+  insight_type:         string;
+  period_start:         string;
+  period_end:           string;
+  narrative:            string;
+  key_findings:         string[];
+  risk_delta:           number | null;
+  model_id:             string;
+  generated_at:         string;
+  structured_findings?: StructuredFindings | null;
+  clinical_trajectory?: 'improving' | 'stable' | 'declining' | 'acute' | null;
+}
+
+interface RiskHistoryPoint {
+  score:       number;
+  band:        string;
+  computed_at: string;
+}
+
+type RiskDomain = 'safety' | 'mood' | 'engagement' | 'physical' | 'medication';
+
+interface RiskFactorItem {
+  rule:         string;
+  label:        string;
+  domain:       RiskDomain;
+  weight:       number;
+  contribution: number;
+  fired:        boolean;
+  value:        unknown;
+  detail:       string;
 }
 
 interface AiInsightsData {
   patient_id:            string;
   risk_score:            number | null;
-  risk_score_factors:    Array<{ rule: string; label: string; weight: number; fired: boolean; value: unknown }> | null;
+  risk_score_factors:    RiskFactorItem[] | null;
   risk_score_updated_at: string | null;
   insights:              AiInsight[];
+  risk_history:          RiskHistoryPoint[];
   disclaimer:            string;
 }
 
@@ -1236,6 +1273,21 @@ const RISK_BAND_COLOR: Record<string, string> = {
   low:      'var(--safe)',
 };
 
+const DOMAIN_META: Record<RiskDomain, { label: string; icon: string; color: string }> = {
+  safety:     { label: 'Safety',     icon: '⚠', color: 'var(--critical)' },
+  mood:       { label: 'Mood',       icon: '◐', color: '#a78bfa' },
+  engagement: { label: 'Engagement', icon: '◉', color: '#60a5fa' },
+  physical:   { label: 'Physical',   icon: '♡', color: '#34d399' },
+  medication: { label: 'Medication', icon: '⊕', color: '#fbbf24' },
+};
+
+const TRAJECTORY_META: Record<string, { label: string; color: string; icon: string }> = {
+  improving: { label: 'Improving', color: 'var(--safe)',     icon: '↗' },
+  stable:    { label: 'Stable',    color: '#60a5fa',         icon: '→' },
+  declining: { label: 'Declining', color: 'var(--warning)',  icon: '↘' },
+  acute:     { label: 'Acute',     color: 'var(--critical)', icon: '⚡' },
+};
+
 function riskScoreBand(score: number | null): string {
   if (score === null) return 'unknown';
   if (score >= 75) return 'critical';
@@ -1244,26 +1296,442 @@ function riskScoreBand(score: number | null): string {
   return 'low';
 }
 
-function RiskGaugeBar({ score }: { score: number | null }) {
+// ---------------------------------------------------------------------------
+// RiskGaugeArc — SVG semicircular arc gauge
+// ---------------------------------------------------------------------------
+function RiskGaugeArc({ score, delta }: { score: number | null; delta?: number | null }) {
   if (score === null) return <span style={{ color: SUB, fontSize: 13 }}>Not yet computed</span>;
-  const band  = riskScoreBand(score);
+
+  const band = riskScoreBand(score);
   const color = RISK_BAND_COLOR[band]!;
+  const cx = 120, cy = 110, r = 90;
+  const startAngle = Math.PI;
+  const endAngle = 0;
+  const scoreAngle = startAngle - (score / 100) * Math.PI;
+
+  // Arc path helper
+  const arcPath = (start: number, end: number, radius: number) => {
+    const x1 = cx + radius * Math.cos(start);
+    const y1 = cy - radius * Math.sin(start);
+    const x2 = cx + radius * Math.cos(end);
+    const y2 = cy - radius * Math.sin(end);
+    const large = start - end > Math.PI ? 1 : 0;
+    return `M ${x1} ${y1} A ${radius} ${radius} 0 ${large} 1 ${x2} ${y2}`;
+  };
+
+  // Needle position
+  const nx = cx + (r - 8) * Math.cos(scoreAngle);
+  const ny = cy - (r - 8) * Math.sin(scoreAngle);
+
+  // Color segments: green (0-25), yellow (25-50), orange (50-75), red (75-100)
+  const segments = [
+    { from: 0, to: 25, color: 'var(--safe)' },
+    { from: 25, to: 50, color: 'var(--warning)' },
+    { from: 50, to: 75, color: '#e07a3a' },
+    { from: 75, to: 100, color: 'var(--critical)' },
+  ];
+
   return (
-    <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
-        <span style={{ fontSize: 32, fontWeight: 800, color }}>{score}</span>
-        <span style={{ color: SUB, fontSize: 14, alignSelf: 'flex-end', marginBottom: 4 }}>/100</span>
-        <span style={{
-          background: `${color}22`, border: `1px solid ${color}44`,
-          borderRadius: 6, padding: '2px 10px', fontSize: 12, fontWeight: 700,
-          color, textTransform: 'uppercase', letterSpacing: 0.5,
+    <div style={{ textAlign: 'center' }}>
+      <svg width={240} height={130} viewBox="0 0 240 130">
+        {/* Background track */}
+        <path d={arcPath(startAngle, endAngle, r)} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={14} strokeLinecap="round" />
+
+        {/* Color segments */}
+        {segments.map((seg, i) => {
+          const a1 = startAngle - (seg.from / 100) * Math.PI;
+          const a2 = startAngle - (seg.to / 100) * Math.PI;
+          return <path key={i} d={arcPath(a1, a2, r)} fill="none" stroke={seg.color} strokeWidth={14} strokeLinecap="butt" opacity={0.25} />;
+        })}
+
+        {/* Active arc up to score */}
+        <path d={arcPath(startAngle, scoreAngle, r)} fill="none" stroke={color} strokeWidth={14} strokeLinecap="round" />
+
+        {/* Needle dot */}
+        <circle cx={nx} cy={ny} r={6} fill={color} stroke="rgba(0,0,0,0.3)" strokeWidth={1.5} />
+
+        {/* Score text */}
+        <text x={cx} y={cy - 10} textAnchor="middle" fill={color} fontSize={36} fontWeight={800} fontFamily="inherit">{score}</text>
+        <text x={cx} y={cy + 10} textAnchor="middle" fill={SUB} fontSize={12} fontFamily="inherit">{band.toUpperCase()}</text>
+
+        {/* Delta indicator */}
+        {delta != null && delta !== 0 && (
+          <text x={cx} y={cy + 28} textAnchor="middle" fill={delta > 0 ? 'var(--critical)' : 'var(--safe)'} fontSize={12} fontWeight={700} fontFamily="inherit">
+            {delta > 0 ? '▲' : '▼'} {Math.abs(delta)} pts
+          </text>
+        )}
+      </svg>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// RiskFactorBars — Domain-grouped graduated factor bars
+// ---------------------------------------------------------------------------
+function RiskFactorBars({ factors }: { factors: RiskFactorItem[] | null }) {
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+
+  if (!factors || factors.length === 0) return null;
+
+  // Group by domain
+  const grouped = factors.reduce<Record<RiskDomain, RiskFactorItem[]>>((acc, f) => {
+    (acc[f.domain] ??= []).push(f);
+    return acc;
+  }, {} as Record<RiskDomain, RiskFactorItem[]>);
+
+  const domainOrder: RiskDomain[] = ['safety', 'mood', 'engagement', 'physical', 'medication'];
+
+  return (
+    <div style={{ marginTop: 4 }}>
+      <div style={{ fontSize: 12, color: SUB, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10 }}>
+        Risk Factors by Domain
+      </div>
+      {domainOrder.filter(d => grouped[d]?.length).map((domain) => {
+        const items = grouped[domain]!;
+        const meta = DOMAIN_META[domain];
+        const domainTotal = items.reduce((s, f) => s + f.contribution, 0);
+        const domainMax = items.reduce((s, f) => s + f.weight, 0);
+        const isCollapsed = collapsed[domain] ?? false;
+
+        return (
+          <div key={domain} style={{ marginBottom: 10, background: 'var(--glass-01)', border: `1px solid ${BORDER}`, borderRadius: 8, overflow: 'hidden' }}>
+            {/* Domain header */}
+            <button
+              onClick={() => setCollapsed(p => ({ ...p, [domain]: !p[domain] }))}
+              style={{
+                width: '100%', background: 'none', border: 'none', cursor: 'pointer',
+                padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 8,
+              }}
+            >
+              <span style={{ fontSize: 14 }}>{meta.icon}</span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: meta.color, flex: 1, textAlign: 'left' }}>{meta.label}</span>
+              <span style={{ fontSize: 12, fontWeight: 700, color: domainTotal > 0 ? TEXT : SUB }}>
+                {domainTotal}/{domainMax}
+              </span>
+              <span style={{ fontSize: 10, color: SUB, transform: isCollapsed ? 'rotate(0deg)' : 'rotate(180deg)', transition: 'transform 0.2s' }}>▼</span>
+            </button>
+
+            {/* Factors */}
+            {!isCollapsed && (
+              <div style={{ padding: '0 12px 10px' }}>
+                {items.map((factor) => {
+                  const pct = factor.weight > 0 ? (factor.contribution / factor.weight) * 100 : 0;
+                  const barColor = factor.contribution === 0 ? 'rgba(255,255,255,0.06)' : meta.color;
+
+                  return (
+                    <div key={factor.rule} style={{ marginBottom: 6 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3 }}>
+                        <span style={{ fontSize: 12, color: factor.contribution > 0 ? TEXT : SUB, fontWeight: factor.contribution > 0 ? 600 : 400 }}>
+                          {factor.label}
+                        </span>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: factor.contribution > 0 ? meta.color : SUB, minWidth: 36, textAlign: 'right' }}>
+                          {factor.contribution}/{factor.weight}
+                        </span>
+                      </div>
+                      {/* Bar */}
+                      <div style={{ height: 5, background: 'rgba(255,255,255,0.06)', borderRadius: 3, overflow: 'hidden' }}>
+                        <div style={{ height: '100%', width: `${pct}%`, background: barColor, borderRadius: 3, transition: 'width 0.6s ease', opacity: factor.contribution === 0 ? 0 : 0.8 }} />
+                      </div>
+                      {/* Detail text */}
+                      {factor.contribution > 0 && factor.detail && (
+                        <div style={{ fontSize: 11, color: SUB, marginTop: 2, lineHeight: 1.4 }}>{factor.detail}</div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// TrajectorySparklines — SVG mini-charts for risk, PHQ-9, GAD-7
+// ---------------------------------------------------------------------------
+function TrajectorySparklines({ riskHistory, insights }: {
+  riskHistory: RiskHistoryPoint[];
+  insights: AiInsight[];
+}) {
+  // Extract PHQ-9 and GAD-7 scores from insights' structured_findings or key_findings
+  // For now, use risk_history for the main sparkline and assessment data from insights
+  if (riskHistory.length < 2) return null;
+
+  const renderSparkline = (
+    label: string,
+    data: Array<{ value: number; date: string }>,
+    color: string,
+    maxVal: number,
+  ) => {
+    if (data.length < 2) return null;
+    const w = 160, h = 40, pad = 4;
+    const plotW = w - 2 * pad;
+    const plotH = h - 2 * pad;
+    const xStep = plotW / (data.length - 1);
+
+    const points = data.map((d, i) => {
+      const x = pad + i * xStep;
+      const y = pad + plotH - (d.value / maxVal) * plotH;
+      return `${x},${y}`;
+    }).join(' ');
+
+    const last = data[data.length - 1]!;
+    const prev = data.length >= 2 ? data[data.length - 2]! : null;
+    const delta = prev ? last.value - prev.value : 0;
+    const lastX = pad + (data.length - 1) * xStep;
+    const lastY = pad + plotH - (last.value / maxVal) * plotH;
+
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+        <div style={{ width: 56, fontSize: 11, color: SUB, fontWeight: 600 }}>{label}</div>
+        <svg width={w} height={h} style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 4 }}>
+          <polyline points={points} fill="none" stroke={color} strokeWidth={1.5} opacity={0.7} />
+          <circle cx={lastX} cy={lastY} r={3} fill={color} />
+        </svg>
+        <div style={{ fontSize: 12, fontWeight: 700, color, minWidth: 28 }}>{last.value}</div>
+        {delta !== 0 && (
+          <span style={{ fontSize: 11, color: delta > 0 ? 'var(--critical)' : 'var(--safe)', fontWeight: 600 }}>
+            {delta > 0 ? '↑' : '↓'}{Math.abs(delta)}
+          </span>
+        )}
+      </div>
+    );
+  };
+
+  const riskData = riskHistory.map(p => ({ value: p.score, date: p.computed_at }));
+
+  return (
+    <div className="tab-card" style={{ marginBottom: 16 }}>
+      <div style={{ fontSize: 12, color: SUB, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10 }}>
+        Trends
+      </div>
+      {renderSparkline('Risk', riskData, RISK_BAND_COLOR[riskScoreBand(riskData[riskData.length - 1]?.value ?? 0)]!, 100)}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// EarlyWarningSignals — Highlighted warning boxes from deep analysis
+// ---------------------------------------------------------------------------
+function EarlyWarningSignals({ warnings }: {
+  warnings: Array<{ signal: string; urgency: 'routine' | 'elevated' | 'urgent'; domain: string }>;
+}) {
+  if (!warnings || warnings.length === 0) return null;
+
+  // Sort: urgent first, then elevated, then routine
+  const sorted = [...warnings].sort((a, b) => {
+    const order = { urgent: 0, elevated: 1, routine: 2 };
+    return order[a.urgency] - order[b.urgency];
+  });
+
+  const urgencyStyle: Record<string, { bg: string; border: string; color: string; icon: string }> = {
+    urgent:   { bg: 'rgba(239,68,68,0.08)', border: 'rgba(239,68,68,0.3)', color: 'var(--critical)', icon: '🔴' },
+    elevated: { bg: 'rgba(245,158,11,0.08)', border: 'rgba(245,158,11,0.3)', color: 'var(--warning)', icon: '🟡' },
+    routine:  { bg: 'rgba(96,165,250,0.06)', border: 'rgba(96,165,250,0.2)', color: '#60a5fa', icon: '🔵' },
+  };
+
+  return (
+    <div className="tab-card" style={{ marginBottom: 16 }}>
+      <div style={{ fontSize: 12, color: SUB, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10 }}>
+        Early Warning Signals
+      </div>
+      {sorted.map((w, i) => {
+        const s = urgencyStyle[w.urgency] ?? urgencyStyle.routine!;
+        return (
+          <div key={i} style={{
+            background: s.bg, border: `1px solid ${s.border}`, borderRadius: 8,
+            padding: '8px 12px', marginBottom: 6, display: 'flex', alignItems: 'flex-start', gap: 8,
+          }}>
+            <span style={{ fontSize: 12, flexShrink: 0 }}>{s.icon}</span>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 12, color: s.color, fontWeight: 600, lineHeight: 1.5 }}>{w.signal}</div>
+              <div style={{ fontSize: 11, color: SUB, marginTop: 2 }}>
+                <span style={{
+                  display: 'inline-block', background: `${s.color}22`, border: `1px solid ${s.color}33`,
+                  borderRadius: 4, padding: '1px 6px', fontSize: 10, fontWeight: 600, color: s.color,
+                  textTransform: 'uppercase', letterSpacing: 0.3, marginRight: 6,
+                }}>
+                  {w.domain}
+                </span>
+                {w.urgency}
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// DeepInsightPanel — Structured deep insight display
+// ---------------------------------------------------------------------------
+function DeepInsightPanel({ insight }: { insight: AiInsight }) {
+  const [showNarrative, setShowNarrative] = useState(false);
+  const sf = insight.structured_findings as StructuredFindings | null;
+  const trajectory = insight.clinical_trajectory;
+
+  // If no structured findings, render legacy view
+  if (!sf) {
+    return (
+      <div className="tab-card" style={{ marginBottom: 16 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+          <h3 className="tab-section-title" style={{ margin: 0, fontSize: 13 }}>
+            {insight.insight_type === 'weekly_summary' ? 'Weekly Summary' :
+             insight.insight_type === 'detect_anomaly' ? 'Anomaly Detection' :
+             insight.insight_type === 'nightly_deep_analysis' ? 'Deep Analysis' :
+             'Trend Narrative'}
+          </h3>
+          <span style={{ background: `${PRIMARY}22`, border: `1px solid ${PRIMARY}44`, borderRadius: 6, padding: '2px 8px', fontSize: 10, fontWeight: 800, color: PRIMARY, letterSpacing: 0.5 }}>AI</span>
+        </div>
+        <div style={{ fontSize: 11, color: SUB, marginBottom: 10 }}>{format(parseISO(insight.generated_at), 'MMM d, yyyy \'at\' h:mm a')}</div>
+        {insight.key_findings.length > 0 && (
+          <div style={{ marginBottom: 10 }}>
+            {insight.key_findings.map((f, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 4 }}>
+                <div style={{ width: 5, height: 5, borderRadius: 3, background: PRIMARY, marginTop: 5, flexShrink: 0 }} />
+                <span style={{ fontSize: 12, color: TEXT, lineHeight: 1.5 }}>{f}</span>
+              </div>
+            ))}
+          </div>
+        )}
+        <button
+          onClick={() => setShowNarrative(v => !v)}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', color: PRIMARY, fontSize: 12, fontWeight: 600, padding: 0 }}
+        >
+          {showNarrative ? '▲ Hide narrative' : '▼ Show full narrative'}
+        </button>
+        {showNarrative && (
+          <p style={{ fontSize: 13, color: TEXT, lineHeight: 1.6, margin: '8px 0 0', whiteSpace: 'pre-wrap' }}>{insight.narrative}</p>
+        )}
+      </div>
+    );
+  }
+
+  // Structured deep analysis view
+  const trajMeta = trajectory ? TRAJECTORY_META[trajectory] : null;
+
+  return (
+    <div className="tab-card" style={{ marginBottom: 16 }}>
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <h3 className="tab-section-title" style={{ margin: 0, fontSize: 14 }}>Deep Analysis</h3>
+          {trajMeta && (
+            <span style={{
+              background: `${trajMeta.color}18`, border: `1px solid ${trajMeta.color}44`,
+              borderRadius: 6, padding: '2px 10px', fontSize: 12, fontWeight: 700,
+              color: trajMeta.color, letterSpacing: 0.3,
+            }}>
+              {trajMeta.icon} {trajMeta.label}
+            </span>
+          )}
+        </div>
+        <div style={{ fontSize: 11, color: SUB }}>{format(parseISO(insight.generated_at), 'MMM d, yyyy \'at\' h:mm a')}</div>
+      </div>
+
+      {/* Trajectory rationale */}
+      {sf.trajectory_rationale && (
+        <div style={{
+          background: `${trajMeta?.color ?? PRIMARY}0a`, border: `1px solid ${trajMeta?.color ?? PRIMARY}22`,
+          borderRadius: 8, padding: '8px 12px', marginBottom: 14, fontSize: 13, color: TEXT, lineHeight: 1.6,
         }}>
-          {band}
-        </span>
-      </div>
-      <div style={{ height: 8, background: 'rgba(255,255,255,0.08)', borderRadius: 4, overflow: 'hidden', maxWidth: 400 }}>
-        <div style={{ height: '100%', width: `${score}%`, background: color, borderRadius: 4, transition: 'width 0.6s ease' }} />
-      </div>
+          {sf.trajectory_rationale}
+        </div>
+      )}
+
+      {/* Key Findings */}
+      {insight.key_findings.length > 0 && (
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ fontSize: 12, color: SUB, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Key Findings</div>
+          {insight.key_findings.map((f, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 4 }}>
+              <div style={{ width: 5, height: 5, borderRadius: 3, background: PRIMARY, marginTop: 6, flexShrink: 0 }} />
+              <span style={{ fontSize: 13, color: TEXT, lineHeight: 1.5 }}>{f}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Domain Findings */}
+      {sf.domain_findings && (
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ fontSize: 12, color: SUB, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Domain Analysis</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            {(Object.entries(sf.domain_findings) as Array<[string, string | undefined]>).filter(([, v]) => v).map(([domain, text]) => {
+              const dKey = domain === 'anxiety' ? 'mood' : domain === 'sleep' ? 'physical' : domain as RiskDomain;
+              const meta = DOMAIN_META[dKey] ?? { icon: '•', color: SUB, label: domain };
+              return (
+                <div key={domain} style={{
+                  background: 'var(--glass-01)', border: `1px solid ${BORDER}`, borderRadius: 8,
+                  padding: '10px 12px', borderLeft: `3px solid ${meta.color}`,
+                }}>
+                  <div style={{ fontSize: 11, color: meta.color, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>
+                    {meta.icon} {domain}
+                  </div>
+                  <div style={{ fontSize: 12, color: TEXT, lineHeight: 1.5 }}>{text}</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Treatment Response */}
+      {sf.treatment_response && (
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ fontSize: 12, color: SUB, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>Treatment Response</div>
+          <p style={{ fontSize: 13, color: TEXT, lineHeight: 1.6, margin: 0 }}>{sf.treatment_response}</p>
+        </div>
+      )}
+
+      {/* Recommended Focus Areas */}
+      {sf.recommended_focus && sf.recommended_focus.length > 0 && (
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ fontSize: 12, color: SUB, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Recommended Focus</div>
+          {sf.recommended_focus.sort((a, b) => a.priority - b.priority).map((f, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 6 }}>
+              <span style={{
+                background: `${PRIMARY}22`, border: `1px solid ${PRIMARY}33`, borderRadius: '50%',
+                width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 11, fontWeight: 800, color: PRIMARY, flexShrink: 0,
+              }}>
+                {f.priority}
+              </span>
+              <div>
+                <div style={{ fontSize: 13, color: TEXT, fontWeight: 600 }}>{f.area}</div>
+                <div style={{ fontSize: 12, color: SUB, lineHeight: 1.4 }}>{f.rationale}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Cross-Domain Patterns */}
+      {sf.cross_domain_patterns && sf.cross_domain_patterns.length > 0 && (
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ fontSize: 12, color: SUB, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>Cross-Domain Patterns</div>
+          {sf.cross_domain_patterns.map((p, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 4 }}>
+              <span style={{ color: '#a78bfa', fontSize: 12, flexShrink: 0 }}>⟡</span>
+              <span style={{ fontSize: 12, color: TEXT, lineHeight: 1.5 }}>{p}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Expandable full narrative */}
+      <button
+        onClick={() => setShowNarrative(v => !v)}
+        style={{ background: 'none', border: 'none', cursor: 'pointer', color: PRIMARY, fontSize: 12, fontWeight: 600, padding: 0 }}
+      >
+        {showNarrative ? '▲ Hide full narrative' : '▼ Show full narrative'}
+      </button>
+      {showNarrative && (
+        <p style={{ fontSize: 13, color: TEXT, lineHeight: 1.7, margin: '8px 0 0', whiteSpace: 'pre-wrap' }}>{insight.narrative}</p>
+      )}
     </div>
   );
 }
@@ -1299,7 +1767,8 @@ function AiInsightsTab({
   // Left panel state
   const [triggering, setTriggering] = useState(false);
   const [triggerMsg, setTriggerMsg] = useState<string | null>(null);
-  const [expanded, setExpanded]     = useState<string | null>(null);
+  const [triggerType, setTriggerType] = useState<'weekly_summary' | 'nightly_deep_analysis'>('nightly_deep_analysis');
+  const [expandedHistory, setExpandedHistory] = useState<string | null>(null);
 
   // Chat state
   const [discussions, setDiscussions]               = useState<Discussion[]>([]);
@@ -1350,7 +1819,10 @@ function AiInsightsTab({
     setTriggering(true);
     setTriggerMsg(null);
     try {
-      await api.post(`/insights/${patientId}/ai/trigger`, { type: 'weekly_summary', period_days: 7 }, token);
+      await api.post(`/insights/${patientId}/ai/trigger`, {
+        type: triggerType,
+        period_days: triggerType === 'nightly_deep_analysis' ? 30 : 7,
+      }, token);
       setTriggerMsg('Insight generation queued. Results will appear in ~2 minutes.');
       setTimeout(() => onTrigger(), 5_000);
     } catch (e) {
@@ -1388,14 +1860,12 @@ function AiInsightsTab({
         message: msg,
       }, token);
 
-      // Replace optimistic message with real one and add assistant response
       setChatMessages((prev) => [
         ...prev.filter((m) => m.id !== tempId),
         result.clinician_message,
         result.assistant_message,
       ]);
 
-      // If new discussion was created, update state
       if (!activeDiscussionId) {
         setActiveDiscussionId(result.discussion_id);
         void fetchDiscussions();
@@ -1403,9 +1873,8 @@ function AiInsightsTab({
     } catch (e) {
       const err = e as { message?: string };
       setChatError(err.message ?? 'Failed to send message');
-      // Remove optimistic message on error
       setChatMessages((prev) => prev.filter((m) => m.id !== tempId));
-      setChatInput(msg); // Restore input
+      setChatInput(msg);
     } finally {
       setChatSending(false);
     }
@@ -1435,8 +1904,8 @@ function AiInsightsTab({
         <div style={{ fontSize: 36, marginBottom: 12 }}>🔒</div>
         <h3 style={{ color: TEXT, margin: '0 0 8px' }}>AI Insights Not Available</h3>
         <p style={{ color: SUB, maxWidth: 440, margin: '0 auto 16px', fontSize: 14, lineHeight: 1.6 }}>
-          AI-powered clinical insights require a signed Business Associate Agreement with Anthropic
-          and the <code>AI_INSIGHTS_ENABLED=true</code> environment variable. Contact your MindLog
+          AI-powered clinical insights require either a signed Business Associate Agreement with Anthropic
+          or a local Ollama installation, plus <code>AI_INSIGHTS_ENABLED=true</code>. Contact your MindLog
           administrator to enable this feature.
         </p>
       </div>
@@ -1444,124 +1913,63 @@ function AiInsightsTab({
   }
 
   const latestInsight = data?.insights[0] ?? null;
+  const latestDeep = data?.insights.find(i => i.insight_type === 'nightly_deep_analysis') ?? null;
+  const olderInsights = data?.insights.slice(1) ?? [];
+  const riskHistory = data?.risk_history ?? [];
   const updatedAt = data?.risk_score_updated_at
     ? format(parseISO(data.risk_score_updated_at), 'MMM d, yyyy \'at\' h:mm a')
     : null;
 
+  // Compute risk delta from history
+  const riskDelta = riskHistory.length >= 2
+    ? riskHistory[riskHistory.length - 1]!.score - riskHistory[riskHistory.length - 2]!.score
+    : null;
+
+  // Extract early warnings from latest deep insight
+  const earlyWarnings = (latestDeep?.structured_findings as StructuredFindings | null)?.early_warnings ?? [];
+
   return (
     <div style={{ display: 'flex', gap: 20, minHeight: 500 }}>
-      {/* ── Left Panel: Summary ── */}
-      <div style={{ width: 420, flexShrink: 0, overflowY: 'auto', maxHeight: 'calc(100vh - 280px)' }}>
-        {/* Risk Score card */}
+      {/* ── Left Panel: Risk & Signals ── */}
+      <div style={{ width: 480, flexShrink: 0, overflowY: 'auto', maxHeight: 'calc(100vh - 280px)' }}>
+        {/* Risk Score arc gauge */}
         <div className="tab-card" style={{ marginBottom: 16 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
             <div>
               <h3 className="tab-section-title" style={{ margin: 0, marginBottom: 4, fontSize: 14 }}>Composite Risk Score</h3>
-              {updatedAt && (
-                <div style={{ fontSize: 11, color: SUB }}>Last computed {updatedAt}</div>
-              )}
+              {updatedAt && <div style={{ fontSize: 11, color: SUB }}>Last computed {updatedAt}</div>}
             </div>
           </div>
+          <RiskGaugeArc score={data?.risk_score ?? null} delta={riskDelta} />
+        </div>
 
-          <RiskGaugeBar score={data?.risk_score ?? null} />
-
-          {/* Risk factor breakdown (compact) */}
-          {data?.risk_score_factors && data.risk_score_factors.length > 0 && (
-            <div style={{ marginTop: 16 }}>
-              <div style={{ fontSize: 11, color: SUB, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>
-                Risk Factors
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-                {data.risk_score_factors.map((factor) => (
-                  <div
-                    key={factor.rule}
-                    style={{
-                      background:   factor.fired ? 'var(--glass-02)' : 'var(--glass-01)',
-                      border:       `1px solid ${factor.fired ? 'var(--critical)44' : 'var(--border)'}`,
-                      borderRadius: 6,
-                      padding:      '6px 10px',
-                      opacity:      factor.fired ? 1 : 0.55,
-                    }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontSize: 11, fontWeight: 600, color: factor.fired ? TEXT : SUB }}>
-                        {factor.label}
-                      </span>
-                      <span style={{
-                        fontSize: 10, fontWeight: 700,
-                        color: factor.fired ? 'var(--critical)' : SUB,
-                      }}>
-                        {factor.fired ? `+${factor.weight}` : '—'}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+        {/* Risk Factor Bars (domain-grouped) */}
+        <div className="tab-card" style={{ marginBottom: 16 }}>
+          <RiskFactorBars factors={data?.risk_score_factors ?? null} />
+          {(!data?.risk_score_factors || data.risk_score_factors.length === 0) && (
+            <div style={{ textAlign: 'center', color: SUB, fontSize: 12, padding: 12 }}>No risk factors computed yet</div>
           )}
         </div>
 
-        {/* Latest AI insight (collapsed) */}
-        {latestInsight && (
-          <div className="tab-card" style={{ marginBottom: 16 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-              <h3 className="tab-section-title" style={{ margin: 0, fontSize: 13 }}>
-                {latestInsight.insight_type === 'weekly_summary' ? 'Latest Summary' :
-                 latestInsight.insight_type === 'anomaly_detection' ? 'Anomaly Detection' :
-                 'Trend Narrative'}
-              </h3>
-              <span style={{
-                background: `${PRIMARY}22`, border: `1px solid ${PRIMARY}44`,
-                borderRadius: 6, padding: '2px 8px', fontSize: 10, fontWeight: 800,
-                color: PRIMARY, letterSpacing: 0.5,
-              }}>
-                AI
-              </span>
-            </div>
-            <div style={{ fontSize: 11, color: SUB, marginBottom: 10 }}>
-              {format(parseISO(latestInsight.generated_at), 'MMM d, yyyy')}
-              {latestInsight.risk_delta !== null && latestInsight.risk_delta !== 0 && (
-                <span style={{
-                  marginLeft: 8, fontWeight: 600,
-                  color: (latestInsight.risk_delta ?? 0) > 0 ? 'var(--critical)' : 'var(--safe)',
-                }}>
-                  {(latestInsight.risk_delta ?? 0) > 0 ? '▲' : '▼'} {Math.abs(latestInsight.risk_delta ?? 0)} pts
-                </span>
-              )}
-            </div>
+        {/* Trajectory Sparklines */}
+        <TrajectorySparklines riskHistory={riskHistory} insights={data?.insights ?? []} />
 
-            {/* Key findings */}
-            {latestInsight.key_findings.length > 0 && (
-              <div style={{ marginBottom: 10 }}>
-                {latestInsight.key_findings.slice(0, 4).map((f, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 4 }}>
-                    <div style={{ width: 5, height: 5, borderRadius: 3, background: PRIMARY, marginTop: 5, flexShrink: 0 }} />
-                    <span style={{ fontSize: 12, color: TEXT, lineHeight: 1.5 }}>{f}</span>
-                  </div>
-                ))}
-              </div>
-            )}
+        {/* Early Warning Signals */}
+        <EarlyWarningSignals warnings={earlyWarnings} />
 
-            {/* Expandable narrative */}
-            <button
-              onClick={() => setExpanded((p) => p === 'narrative' ? null : 'narrative')}
-              style={{
-                background: 'none', border: 'none', cursor: 'pointer',
-                color: PRIMARY, fontSize: 12, fontWeight: 600, padding: 0,
-              }}
-            >
-              {expanded === 'narrative' ? '▲ Hide narrative' : '▼ Show full narrative'}
-            </button>
-            {expanded === 'narrative' && (
-              <p style={{ fontSize: 13, color: TEXT, lineHeight: 1.6, margin: '8px 0 0', whiteSpace: 'pre-wrap' }}>
-                {latestInsight.narrative}
-              </p>
-            )}
-          </div>
-        )}
-
-        {/* Generate Insight button */}
+        {/* Generate Insight controls */}
         <div className="tab-card" style={{ marginBottom: 16 }}>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+            <select
+              value={triggerType}
+              onChange={(e) => setTriggerType(e.target.value as typeof triggerType)}
+              className="sort-select"
+              style={{ fontSize: 12, flex: 1 }}
+            >
+              <option value="nightly_deep_analysis">Deep Analysis (30-day)</option>
+              <option value="weekly_summary">Weekly Summary (7-day)</option>
+            </select>
+          </div>
           <button
             onClick={() => void triggerInsight()}
             disabled={triggering}
@@ -1586,10 +1994,7 @@ function AiInsightsTab({
         </div>
 
         {/* HIPAA disclaimer */}
-        <div style={{
-          background: 'var(--glass-01)', border: `1px solid ${BORDER}`,
-          borderRadius: 8, padding: '10px 12px',
-        }}>
+        <div style={{ background: 'var(--glass-01)', border: `1px solid ${BORDER}`, borderRadius: 8, padding: '10px 12px' }}>
           <p style={{ fontSize: 11, color: SUB, margin: 0, lineHeight: 1.6, fontStyle: 'italic' }}>
             ⚕ {data?.disclaimer ?? 'AI-generated content is for clinical decision support only. It does not constitute a diagnosis or replace clinical assessment.'}
           </p>
@@ -1598,177 +2003,223 @@ function AiInsightsTab({
         {/* Empty state */}
         {!loading && (!data || data.insights.length === 0) && (
           <div style={{ textAlign: 'center', color: SUB, padding: '24px 0', fontSize: 12 }}>
-            No AI insights generated yet. Click "Generate Insight" to create the first summary.
+            No AI insights generated yet. Click "Generate Insight" to create the first analysis.
           </div>
         )}
       </div>
 
-      {/* ── Right Panel: AI Chat ── */}
-      <div style={{
-        flex: 1, minWidth: 400, display: 'flex', flexDirection: 'column',
-        background: 'var(--glass-01)', border: `1px solid ${BORDER}`,
-        borderRadius: 12, overflow: 'hidden',
-      }}>
-        {/* Chat header */}
-        <div style={{
-          padding: '12px 16px', borderBottom: `1px solid ${BORDER}`,
-          display: 'flex', alignItems: 'center', gap: 10,
-        }}>
-          <span style={{ fontSize: 14, fontWeight: 700, color: TEXT, flex: 1 }}>AI Assistant</span>
+      {/* ── Right Panel: Deep Insight + History + Chat ── */}
+      <div style={{ flex: 1, minWidth: 400, display: 'flex', flexDirection: 'column', gap: 16, overflowY: 'auto', maxHeight: 'calc(100vh - 280px)' }}>
+        {/* Latest Deep Insight (structured) or latest insight */}
+        {latestInsight && (
+          <DeepInsightPanel insight={latestDeep ?? latestInsight} />
+        )}
 
-          {/* Discussion selector */}
-          <select
-            value={activeDiscussionId ?? ''}
-            onChange={(e) => {
-              const val = e.target.value;
-              if (val === '') {
-                startNewDiscussion();
-              } else {
-                setActiveDiscussionId(val);
-              }
-            }}
-            className="sort-select"
-            style={{ maxWidth: 200, fontSize: 12 }}
-          >
-            <option value="">New Discussion</option>
-            {discussions.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.title.length > 35 ? d.title.substring(0, 32) + '...' : d.title}
-              </option>
-            ))}
-          </select>
-
-          <button
-            onClick={startNewDiscussion}
-            style={{
-              background: `${PRIMARY}22`, border: `1px solid ${PRIMARY}44`,
-              borderRadius: 6, padding: '4px 10px', fontSize: 12,
-              color: PRIMARY, fontWeight: 600, cursor: 'pointer',
-            }}
-          >
-            + New
-          </button>
-        </div>
-
-        {/* Messages area */}
-        <div style={{
-          flex: 1, overflowY: 'auto', padding: 16,
-          display: 'flex', flexDirection: 'column', gap: 12,
-          maxHeight: 'calc(100vh - 420px)', minHeight: 300,
-        }}>
-          {chatMessages.length === 0 && !chatSending && (
-            <div style={{
-              display: 'flex', flexDirection: 'column', alignItems: 'center',
-              justifyContent: 'center', flex: 1, color: SUB, gap: 8, padding: 32,
-            }}>
-              <span style={{ fontSize: 28, opacity: 0.5 }}>✦</span>
-              <span style={{ fontSize: 13, textAlign: 'center', maxWidth: 300, lineHeight: 1.6 }}>
-                Ask questions about this patient's clinical data, trends, and trajectory.
-              </span>
+        {/* Insight History Timeline */}
+        {olderInsights.length > 0 && (
+          <div className="tab-card" style={{ marginBottom: 0 }}>
+            <div style={{ fontSize: 12, color: SUB, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10 }}>
+              Insight History
             </div>
-          )}
+            {olderInsights.map((insight) => {
+              const isExpanded = expandedHistory === insight.id;
+              const typeLabel = insight.insight_type === 'weekly_summary' ? 'Weekly Summary' :
+                insight.insight_type === 'nightly_deep_analysis' ? 'Deep Analysis' :
+                insight.insight_type === 'detect_anomaly' ? 'Anomaly Detection' : 'Trend';
+              const traj = insight.clinical_trajectory;
+              const trajMeta = traj ? TRAJECTORY_META[traj] : null;
 
-          {chatMessages.map((msg) => (
-            <div
-              key={msg.id}
-              style={{
-                display: 'flex',
-                justifyContent: msg.role === 'clinician' ? 'flex-end' : 'flex-start',
-              }}
-            >
-              <div style={{
-                maxWidth: '80%',
-                padding: '10px 14px',
-                borderRadius: msg.role === 'clinician' ? '12px 12px 4px 12px' : '12px 12px 12px 4px',
-                background: msg.role === 'clinician' ? 'var(--glass-02)' : 'var(--glass-01)',
-                borderLeft: msg.role === 'assistant' ? `3px solid ${PRIMARY}` : 'none',
-                border: msg.role === 'clinician' ? `1px solid ${BORDER}` : `1px solid ${PRIMARY}33`,
-              }}>
-                <div style={{ fontSize: 13, color: TEXT, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
-                  {msg.content}
+              return (
+                <div key={insight.id} style={{
+                  borderLeft: `2px solid ${BORDER}`, paddingLeft: 12, marginBottom: 10,
+                  marginLeft: 4,
+                }}>
+                  <button
+                    onClick={() => setExpandedHistory(p => p === insight.id ? null : insight.id)}
+                    style={{
+                      background: 'none', border: 'none', cursor: 'pointer', padding: 0, width: '100%', textAlign: 'left',
+                      display: 'flex', alignItems: 'center', gap: 8,
+                    }}
+                  >
+                    <div style={{
+                      width: 8, height: 8, borderRadius: '50%', background: PRIMARY, marginLeft: -17,
+                      border: '2px solid var(--bg)', flexShrink: 0,
+                    }} />
+                    <span style={{ fontSize: 12, fontWeight: 600, color: TEXT, flex: 1 }}>{typeLabel}</span>
+                    {trajMeta && (
+                      <span style={{ fontSize: 11, color: trajMeta.color, fontWeight: 600 }}>{trajMeta.icon} {trajMeta.label}</span>
+                    )}
+                    <span style={{ fontSize: 11, color: SUB }}>{format(parseISO(insight.generated_at), 'MMM d')}</span>
+                    <span style={{ fontSize: 10, color: SUB, transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>▼</span>
+                  </button>
+                  {isExpanded && (
+                    <div style={{ marginTop: 8 }}>
+                      {insight.key_findings.length > 0 && (
+                        <div style={{ marginBottom: 6 }}>
+                          {insight.key_findings.slice(0, 4).map((f, i) => (
+                            <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 6, marginBottom: 3 }}>
+                              <div style={{ width: 4, height: 4, borderRadius: 2, background: PRIMARY, marginTop: 5, flexShrink: 0 }} />
+                              <span style={{ fontSize: 12, color: TEXT, lineHeight: 1.4 }}>{f}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <p style={{ fontSize: 12, color: TEXT, lineHeight: 1.5, margin: 0, whiteSpace: 'pre-wrap', maxHeight: 200, overflow: 'auto' }}>
+                        {insight.narrative.length > 500 ? insight.narrative.substring(0, 500) + '…' : insight.narrative}
+                      </p>
+                    </div>
+                  )}
                 </div>
-                <div style={{ fontSize: 10, color: SUB, marginTop: 4, textAlign: msg.role === 'clinician' ? 'right' : 'left' }}>
-                  {format(parseISO(msg.created_at), 'h:mm a')}
-                </div>
-              </div>
-            </div>
-          ))}
-
-          {/* Thinking indicator */}
-          {chatSending && (
-            <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
-              <div style={{
-                padding: '10px 14px', borderRadius: '12px 12px 12px 4px',
-                background: 'var(--glass-01)', borderLeft: `3px solid ${PRIMARY}`,
-                border: `1px solid ${PRIMARY}33`,
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span style={{ color: PRIMARY, fontSize: 13, fontWeight: 600 }}>Thinking</span>
-                  <span style={{ color: PRIMARY, fontSize: 18, animation: 'pulse 1.5s ease-in-out infinite' }}>...</span>
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div ref={messagesEndRef} />
-        </div>
-
-        {/* Error message */}
-        {chatError && (
-          <div style={{
-            margin: '0 16px', padding: '6px 10px', borderRadius: 6, fontSize: 12,
-            background: 'var(--critical-bg)', color: 'var(--critical)',
-          }}>
-            {chatError}
+              );
+            })}
           </div>
         )}
 
-        {/* Input area */}
+        {/* AI Chat */}
         <div style={{
-          padding: '12px 16px', borderTop: `1px solid ${BORDER}`,
-          display: 'flex', gap: 10, alignItems: 'flex-end',
+          flex: 1, minHeight: 350, display: 'flex', flexDirection: 'column',
+          background: 'var(--glass-01)', border: `1px solid ${BORDER}`,
+          borderRadius: 12, overflow: 'hidden',
         }}>
-          <textarea
-            ref={textareaRef}
-            value={chatInput}
-            onChange={(e) => setChatInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Ask about this patient..."
-            disabled={chatSending}
-            rows={1}
-            style={{
-              flex: 1, resize: 'none', background: 'var(--glass-02)',
-              border: `1px solid ${BORDER}`, borderRadius: 8,
-              padding: '8px 12px', fontSize: 13, color: TEXT,
-              lineHeight: 1.5, maxHeight: 96, overflow: 'auto',
-              outline: 'none', fontFamily: 'inherit',
-            }}
-            onInput={(e) => {
-              const el = e.currentTarget;
-              el.style.height = 'auto';
-              el.style.height = `${Math.min(el.scrollHeight, 96)}px`;
-            }}
-          />
-          <button
-            onClick={() => void sendMessage()}
-            disabled={chatSending || !chatInput.trim()}
-            style={{
-              background: chatSending || !chatInput.trim() ? `${PRIMARY}33` : PRIMARY,
-              border: 'none', borderRadius: 8, padding: '8px 16px',
-              color: chatSending || !chatInput.trim() ? `${PRIMARY}88` : '#fff',
-              fontSize: 13, fontWeight: 600,
-              cursor: chatSending || !chatInput.trim() ? 'not-allowed' : 'pointer',
-            }}
-          >
-            Send
-          </button>
-        </div>
+          {/* Chat header */}
+          <div style={{
+            padding: '12px 16px', borderBottom: `1px solid ${BORDER}`,
+            display: 'flex', alignItems: 'center', gap: 10,
+          }}>
+            <span style={{ fontSize: 14, fontWeight: 700, color: TEXT, flex: 1 }}>AI Assistant</span>
+            <select
+              value={activeDiscussionId ?? ''}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val === '') startNewDiscussion();
+                else setActiveDiscussionId(val);
+              }}
+              className="sort-select"
+              style={{ maxWidth: 200, fontSize: 12 }}
+            >
+              <option value="">New Discussion</option>
+              {discussions.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.title.length > 35 ? d.title.substring(0, 32) + '...' : d.title}
+                </option>
+              ))}
+            </select>
+            <button
+              onClick={startNewDiscussion}
+              style={{
+                background: `${PRIMARY}22`, border: `1px solid ${PRIMARY}44`,
+                borderRadius: 6, padding: '4px 10px', fontSize: 12,
+                color: PRIMARY, fontWeight: 600, cursor: 'pointer',
+              }}
+            >
+              + New
+            </button>
+          </div>
 
-        {/* Chat footer disclaimer */}
-        <div style={{ padding: '6px 16px 10px', borderTop: `1px solid ${BORDER}22` }}>
-          <p style={{ fontSize: 10, color: SUB, margin: 0, fontStyle: 'italic', opacity: 0.7 }}>
-            ⚕ AI-generated · For clinical decision support only · Always apply clinical judgment
-          </p>
+          {/* Messages area */}
+          <div style={{
+            flex: 1, overflowY: 'auto', padding: 16,
+            display: 'flex', flexDirection: 'column', gap: 12,
+            maxHeight: 'calc(100vh - 520px)', minHeight: 200,
+          }}>
+            {chatMessages.length === 0 && !chatSending && (
+              <div style={{
+                display: 'flex', flexDirection: 'column', alignItems: 'center',
+                justifyContent: 'center', flex: 1, color: SUB, gap: 8, padding: 32,
+              }}>
+                <span style={{ fontSize: 28, opacity: 0.5 }}>✦</span>
+                <span style={{ fontSize: 13, textAlign: 'center', maxWidth: 300, lineHeight: 1.6 }}>
+                  Ask questions about this patient's clinical data, trends, and trajectory.
+                </span>
+              </div>
+            )}
+
+            {chatMessages.map((msg) => (
+              <div key={msg.id} style={{ display: 'flex', justifyContent: msg.role === 'clinician' ? 'flex-end' : 'flex-start' }}>
+                <div style={{
+                  maxWidth: '80%', padding: '10px 14px',
+                  borderRadius: msg.role === 'clinician' ? '12px 12px 4px 12px' : '12px 12px 12px 4px',
+                  background: msg.role === 'clinician' ? 'var(--glass-02)' : 'var(--glass-01)',
+                  borderLeft: msg.role === 'assistant' ? `3px solid ${PRIMARY}` : 'none',
+                  border: msg.role === 'clinician' ? `1px solid ${BORDER}` : `1px solid ${PRIMARY}33`,
+                }}>
+                  <div style={{ fontSize: 13, color: TEXT, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{msg.content}</div>
+                  <div style={{ fontSize: 10, color: SUB, marginTop: 4, textAlign: msg.role === 'clinician' ? 'right' : 'left' }}>
+                    {format(parseISO(msg.created_at), 'h:mm a')}
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            {chatSending && (
+              <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+                <div style={{
+                  padding: '10px 14px', borderRadius: '12px 12px 12px 4px',
+                  background: 'var(--glass-01)', borderLeft: `3px solid ${PRIMARY}`,
+                  border: `1px solid ${PRIMARY}33`,
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ color: PRIMARY, fontSize: 13, fontWeight: 600 }}>Thinking</span>
+                    <span style={{ color: PRIMARY, fontSize: 18, animation: 'pulse 1.5s ease-in-out infinite' }}>...</span>
+                  </div>
+                </div>
+              </div>
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+
+          {chatError && (
+            <div style={{
+              margin: '0 16px', padding: '6px 10px', borderRadius: 6, fontSize: 12,
+              background: 'var(--critical-bg)', color: 'var(--critical)',
+            }}>
+              {chatError}
+            </div>
+          )}
+
+          {/* Input area */}
+          <div style={{ padding: '12px 16px', borderTop: `1px solid ${BORDER}`, display: 'flex', gap: 10, alignItems: 'flex-end' }}>
+            <textarea
+              ref={textareaRef}
+              value={chatInput}
+              onChange={(e) => setChatInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Ask about this patient..."
+              disabled={chatSending}
+              rows={1}
+              style={{
+                flex: 1, resize: 'none', background: 'var(--glass-02)',
+                border: `1px solid ${BORDER}`, borderRadius: 8,
+                padding: '8px 12px', fontSize: 13, color: TEXT,
+                lineHeight: 1.5, maxHeight: 96, overflow: 'auto',
+                outline: 'none', fontFamily: 'inherit',
+              }}
+              onInput={(e) => {
+                const el = e.currentTarget;
+                el.style.height = 'auto';
+                el.style.height = `${Math.min(el.scrollHeight, 96)}px`;
+              }}
+            />
+            <button
+              onClick={() => void sendMessage()}
+              disabled={chatSending || !chatInput.trim()}
+              style={{
+                background: chatSending || !chatInput.trim() ? `${PRIMARY}33` : PRIMARY,
+                border: 'none', borderRadius: 8, padding: '8px 16px',
+                color: chatSending || !chatInput.trim() ? `${PRIMARY}88` : '#fff',
+                fontSize: 13, fontWeight: 600,
+                cursor: chatSending || !chatInput.trim() ? 'not-allowed' : 'pointer',
+              }}
+            >
+              Send
+            </button>
+          </div>
+
+          <div style={{ padding: '6px 16px 10px', borderTop: `1px solid ${BORDER}22` }}>
+            <p style={{ fontSize: 10, color: SUB, margin: 0, fontStyle: 'italic', opacity: 0.7 }}>
+              ⚕ AI-generated · For clinical decision support only · Always apply clinical judgment
+            </p>
+          </div>
         </div>
       </div>
     </div>
@@ -1961,7 +2412,7 @@ export function PatientDetailPage() {
     setAiLoading(true);
     setAiUnavailable(false);
     try {
-      const d = await api.get<AiInsightsData>(`/insights/${patientId}/ai?limit=5`, token);
+      const d = await api.get<AiInsightsData>(`/insights/${patientId}/ai?limit=10`, token);
       setAiData(d);
     } catch (e) {
       const err = e as { status?: number };

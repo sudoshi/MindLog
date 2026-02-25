@@ -210,22 +210,36 @@ export default async function alertRoutes(fastify: FastifyInstance): Promise<voi
   });
 
   // ---------------------------------------------------------------------------
-  // GET /alerts/:id
+  // GET /alerts/:id (admin sees any; clinician must be on care team)
   // ---------------------------------------------------------------------------
   fastify.get('/:id', clinicianOnly, async (request, reply) => {
     const { id } = z.object({ id: UuidSchema }).parse(request.params);
+    const isAdmin = await isAdminUser(request.user.sub);
 
-    const [alert] = await sql`
-      SELECT ca.*, p.first_name AS patient_first_name, p.last_name AS patient_last_name,
-             p.mrn AS patient_mrn, p.status AS patient_status
-      FROM clinical_alerts ca
-      JOIN patients p ON p.id = ca.patient_id
-      JOIN care_team_members ctm ON ctm.patient_id = ca.patient_id AND ctm.unassigned_at IS NULL
-      WHERE ca.id = ${id}
-        AND ca.organisation_id = ${request.user.org_id}
-        AND ctm.clinician_id = ${request.user.sub}
-      LIMIT 1
-    `;
+    let alert;
+    if (isAdmin) {
+      [alert] = await sql`
+        SELECT ca.*, p.first_name AS patient_first_name, p.last_name AS patient_last_name,
+               p.mrn AS patient_mrn, p.status AS patient_status
+        FROM clinical_alerts ca
+        JOIN patients p ON p.id = ca.patient_id
+        WHERE ca.id = ${id}
+          AND ca.organisation_id = ${request.user.org_id}
+        LIMIT 1
+      `;
+    } else {
+      [alert] = await sql`
+        SELECT ca.*, p.first_name AS patient_first_name, p.last_name AS patient_last_name,
+               p.mrn AS patient_mrn, p.status AS patient_status
+        FROM clinical_alerts ca
+        JOIN patients p ON p.id = ca.patient_id
+        JOIN care_team_members ctm ON ctm.patient_id = ca.patient_id AND ctm.unassigned_at IS NULL
+        WHERE ca.id = ${id}
+          AND ca.organisation_id = ${request.user.org_id}
+          AND ctm.clinician_id = ${request.user.sub}
+        LIMIT 1
+      `;
+    }
 
     if (!alert) {
       return reply.status(404).send({ success: false, error: { code: 'NOT_FOUND', message: 'Alert not found' } });
@@ -235,11 +249,26 @@ export default async function alertRoutes(fastify: FastifyInstance): Promise<voi
   });
 
   // ---------------------------------------------------------------------------
-  // PATCH /alerts/:id/acknowledge
+  // PATCH /alerts/:id/acknowledge (care team check for non-admin)
   // ---------------------------------------------------------------------------
   fastify.patch('/:id/acknowledge', clinicianOnly, async (request, reply) => {
     const { id } = z.object({ id: UuidSchema }).parse(request.params);
     const { note } = z.object({ note: z.string().max(1000).optional() }).parse(request.body ?? {});
+
+    // Care team pre-check (admin bypasses)
+    const isAdmin = await isAdminUser(request.user.sub);
+    if (!isAdmin) {
+      const [access] = await sql<{ id: string }[]>`
+        SELECT ctm.id FROM care_team_members ctm
+        JOIN clinical_alerts ca ON ca.patient_id = ctm.patient_id
+        WHERE ca.id = ${id}
+          AND ctm.clinician_id = ${request.user.sub}
+          AND ctm.unassigned_at IS NULL
+      `;
+      if (!access) {
+        return reply.status(403).send({ success: false, error: { code: 'FORBIDDEN', message: 'Not on this patient\'s care team' } });
+      }
+    }
 
     const [alert] = await sql<{ id: string; patient_id: string; acknowledged_at: string | null }[]>`
       UPDATE clinical_alerts
@@ -269,10 +298,25 @@ export default async function alertRoutes(fastify: FastifyInstance): Promise<voi
   });
 
   // ---------------------------------------------------------------------------
-  // PATCH /alerts/:id/resolve
+  // PATCH /alerts/:id/resolve (care team check for non-admin)
   // ---------------------------------------------------------------------------
   fastify.patch('/:id/resolve', clinicianOnly, async (request, reply) => {
     const { id } = z.object({ id: UuidSchema }).parse(request.params);
+
+    // Care team pre-check (admin bypasses)
+    const isAdmin = await isAdminUser(request.user.sub);
+    if (!isAdmin) {
+      const [access] = await sql<{ id: string }[]>`
+        SELECT ctm.id FROM care_team_members ctm
+        JOIN clinical_alerts ca ON ca.patient_id = ctm.patient_id
+        WHERE ca.id = ${id}
+          AND ctm.clinician_id = ${request.user.sub}
+          AND ctm.unassigned_at IS NULL
+      `;
+      if (!access) {
+        return reply.status(403).send({ success: false, error: { code: 'FORBIDDEN', message: 'Not on this patient\'s care team' } });
+      }
+    }
 
     const [alert] = await sql<{ id: string; patient_id: string }[]>`
       UPDATE clinical_alerts
@@ -302,11 +346,26 @@ export default async function alertRoutes(fastify: FastifyInstance): Promise<voi
   });
 
   // ---------------------------------------------------------------------------
-  // PATCH /alerts/:id/escalate
+  // PATCH /alerts/:id/escalate (care team check for non-admin)
   // ---------------------------------------------------------------------------
   fastify.patch('/:id/escalate', clinicianOnly, async (request, reply) => {
     const { id } = z.object({ id: UuidSchema }).parse(request.params);
     const { escalate_to_clinician_id } = z.object({ escalate_to_clinician_id: UuidSchema }).parse(request.body);
+
+    // Care team pre-check (admin bypasses)
+    const isAdmin = await isAdminUser(request.user.sub);
+    if (!isAdmin) {
+      const [access] = await sql<{ id: string }[]>`
+        SELECT ctm.id FROM care_team_members ctm
+        JOIN clinical_alerts ca ON ca.patient_id = ctm.patient_id
+        WHERE ca.id = ${id}
+          AND ctm.clinician_id = ${request.user.sub}
+          AND ctm.unassigned_at IS NULL
+      `;
+      if (!access) {
+        return reply.status(403).send({ success: false, error: { code: 'FORBIDDEN', message: 'Not on this patient\'s care team' } });
+      }
+    }
 
     const [alert] = await sql<{ id: string; patient_id: string }[]>`
       UPDATE clinical_alerts

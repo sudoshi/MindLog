@@ -294,6 +294,33 @@ export function LoginPage() {
             </button>
           </form>
 
+          {/* Demo quick-fill */}
+          <div className="login-demo-section">
+            <span className="login-demo-label">Quick demo login</span>
+            <div className="login-demo-row">
+              <button
+                type="button"
+                className="login-demo-btn"
+                onClick={() => {
+                  setEmail('dr.kim@mindlogdemo.com');
+                  setPassword('Demo@Clinic1!');
+                }}
+              >
+                Clinician
+              </button>
+              <button
+                type="button"
+                className="login-demo-btn"
+                onClick={() => {
+                  setEmail('admin');
+                  setPassword('admin');
+                }}
+              >
+                Admin
+              </button>
+            </div>
+          </div>
+
           <div className="login-footer">
             <div className="login-footer-divider" />
             <div className="login-hipaa-badge">

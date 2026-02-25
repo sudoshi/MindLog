@@ -623,7 +623,7 @@ async function handleSafetyConcern(
     return;
   }
 
-  const safetySymptomId = safetySymptoms[0].id;
+  const safetySymptomId = safetySymptoms[0]!.id;
 
   // First create the symptom log (required for safety_events)
   const symptomLogResult = await sql<{ id: string }[]>`
@@ -638,7 +638,7 @@ async function handleSafetyConcern(
     return;
   }
 
-  const symptomLogId = symptomLogResult[0].id;
+  const symptomLogId = symptomLogResult[0]!.id;
 
   // Create clinical alert
   await sql`

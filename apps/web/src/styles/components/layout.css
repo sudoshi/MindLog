@@ -449,6 +449,7 @@
   grid-template-columns: repeat(3, 1fr);
   gap: var(--space-5);
   margin-top: var(--space-4);
+  margin-bottom: var(--space-4);
 }
 
 @media (max-width: 1200px) {

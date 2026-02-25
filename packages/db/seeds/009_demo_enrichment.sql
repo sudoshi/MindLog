@@ -43,15 +43,9 @@ UPDATE clinicians
 SET    role = 'admin'
 WHERE  email = 'np.zhang@mindlogdemo.com';
 
--- Add Zhang as 'covering' clinician on every active/inactive patient's team
-INSERT INTO care_team_members (patient_id, clinician_id, role)
-SELECT p.id,
-       c.id,
-       'covering'
-FROM   patients p
-CROSS  JOIN (SELECT id FROM clinicians WHERE email = 'np.zhang@mindlogdemo.com') c
-WHERE  p.organisation_id = (SELECT id FROM _org)
-ON CONFLICT DO NOTHING;
+-- Zhang's admin role bypass now provides org-wide access; no need for
+-- care_team_members rows on every patient.  Original ~22 primary patients
+-- from the base seed remain.
 
 -- =============================================================================
 -- 2. Backfill Phase-8c clinical columns in daily_entries

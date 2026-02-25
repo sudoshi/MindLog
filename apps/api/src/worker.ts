@@ -13,6 +13,7 @@ import { startNightlyScheduler } from './workers/nightly-scheduler.js';
 import { startReportWorker, reportQueue } from './workers/report-generator.js';
 import { startAiInsightsWorker, aiInsightsQueue } from './workers/ai-insights-worker.js';
 import { startResearchExportWorker, researchQueue } from './routes/research/index.js';
+import { startOmopExportWorker, omopExportQueue } from './workers/omop-export-worker.js';
 import { closeDb } from '@mindlog/db';
 import { config } from './config.js';
 
@@ -28,6 +29,7 @@ const scheduler            = startNightlyScheduler();
 const reportWorker         = startReportWorker();
 const aiWorker             = startAiInsightsWorker();
 const researchExportWorker = startResearchExportWorker();
+const omopExportWorker     = startOmopExportWorker();
 
 // Graceful shutdown
 const shutdown = async (signal: string): Promise<void> => {
@@ -38,10 +40,12 @@ const shutdown = async (signal: string): Promise<void> => {
     reportWorker.close(),
     aiWorker.close(),
     researchExportWorker.close(),
+    omopExportWorker.close(),
     rulesQueue.close(),
     reportQueue.close(),
     aiInsightsQueue.close(),
     researchQueue.close(),
+    omopExportQueue.close(),
   ]);
   await closeDb();
   process.exit(0);

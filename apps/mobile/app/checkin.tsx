@@ -122,6 +122,9 @@ const SEVERITY_LEVELS = [1, 3, 5, 7, 10] as const;
 const SEVERITY_LABELS: Record<number, string> = {
   1: 'Very low', 3: 'Low', 5: 'Moderate', 7: 'High', 10: 'Severe',
 };
+const SEVERITY_COLORS: Record<number, string> = {
+  1: '#4ade80', 3: '#2dd4bf', 5: '#fbbf24', 7: '#f97316', 10: '#ef4444',
+};
 
 const SI_OPTIONS = [
   { value: 0, label: 'None',     desc: 'No thoughts of suicide or self-harm' },
@@ -760,17 +763,31 @@ export default function CheckinScreen() {
                           <View style={styles.severityRow}>
                             <Text style={styles.severityLabel}>Intensity:</Text>
                             <View style={styles.severityBtns}>
-                              {SEVERITY_LEVELS.map((lvl) => (
-                                <TouchableOpacity
-                                  key={lvl}
-                                  style={[styles.severityBtn, selected.severity === lvl && styles.severityBtnActive]}
-                                  onPress={() => setTriggerSeverity(trigger.trigger_id, lvl)}
-                                >
-                                  <Text style={[styles.severityBtnText, selected.severity === lvl && styles.severityBtnTextActive]}>{lvl}</Text>
-                                </TouchableOpacity>
-                              ))}
+                              {SEVERITY_LEVELS.map((lvl) => {
+                                const c = SEVERITY_COLORS[lvl] ?? PRIMARY;
+                                const active = selected.severity === lvl;
+                                return (
+                                  <TouchableOpacity
+                                    key={lvl}
+                                    style={[
+                                      styles.severityBtn,
+                                      { borderColor: c + '50' },
+                                      active && { backgroundColor: c, borderColor: c },
+                                    ]}
+                                    onPress={() => setTriggerSeverity(trigger.trigger_id, lvl)}
+                                  >
+                                    <Text style={[
+                                      styles.severityBtnText,
+                                      { color: c },
+                                      active && { color: lvl === 5 ? '#1a1500' : COLOR.WHITE },
+                                    ]}>{lvl}</Text>
+                                  </TouchableOpacity>
+                                );
+                              })}
                             </View>
-                            <Text style={styles.severityDesc}>{SEVERITY_LABELS[selected.severity] ?? ''}</Text>
+                            <Text style={[styles.severityDesc, { color: SEVERITY_COLORS[selected.severity] ?? PRIMARY }]}>
+                              {SEVERITY_LABELS[selected.severity] ?? ''}
+                            </Text>
                           </View>
                         )}
                       </View>
@@ -1109,11 +1126,9 @@ const styles = StyleSheet.create({
   severityRow:           { paddingHorizontal: 14, paddingBottom: 12, gap: 6 },
   severityLabel:         { color: SUB, fontFamily: FONTS.SANS, fontSize: 12 },
   severityBtns:          { flexDirection: 'row', gap: 8 },
-  severityBtn:           { width: 40, height: 40, borderRadius: 8, borderWidth: 1, borderColor: BORDER, alignItems: 'center', justifyContent: 'center', backgroundColor: BG },
-  severityBtnActive:     { backgroundColor: PRIMARY, borderColor: PRIMARY },
-  severityBtnText:       { color: SUB, fontFamily: FONTS.SANS_SEMIBOLD, fontSize: 14 },
-  severityBtnTextActive: { color: COLOR.WHITE, fontFamily: FONTS.SANS_SEMIBOLD },
-  severityDesc:          { color: PRIMARY, fontFamily: FONTS.SANS, fontSize: 11, fontStyle: 'italic' },
+  severityBtn:           { width: 40, height: 40, borderRadius: 8, borderWidth: 1.5, borderColor: BORDER, alignItems: 'center', justifyContent: 'center', backgroundColor: BG },
+  severityBtnText:       { fontFamily: FONTS.SANS_SEMIBOLD, fontSize: 14 },
+  severityDesc:          { fontFamily: FONTS.SANS, fontSize: 11, fontStyle: 'italic' },
 
   selectionCount: { color: PRIMARY, fontFamily: FONTS.SANS_SEMIBOLD, fontSize: 13, marginTop: 4, marginBottom: 8 },
   crisisNote:     { backgroundColor: COLOR.DANGER_BG, borderRadius: 12, borderWidth: 1, borderColor: COLOR.DANGER_BORDER, padding: 16, marginTop: 16, marginBottom: 8 },

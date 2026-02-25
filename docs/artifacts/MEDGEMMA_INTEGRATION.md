@@ -196,8 +196,40 @@ With Ollama + MedGemma running, these features become fully functional in the de
 - Generates clinical alerts (`warning` for concerning, `critical` for crisis indicators)
 
 ### 6.5 Risk Stratification (`risk_stratification`)
-- **Not affected** — this is purely rule-based (7-factor composite score) and never calls an LLM
-- Continues to work regardless of provider setting
+- **Enhanced (v1.1a)** — upgraded from 7 binary rules to 10 graduated rules with literature-backed weights
+- Purely rule-based (no LLM call) — works regardless of provider setting
+- Now writes to both `patients` table (current score) AND `patient_risk_history` table (longitudinal tracking)
+- Rules are domain-grouped: safety, mood, engagement, physical, medication
+- Over-allocation design: 132 max raw score, capped at 100
+
+### 6.6 Nightly Deep Analysis (`nightly_deep_analysis`) — NEW in v1.1a
+
+The most comprehensive AI insight type, designed to run nightly for all consented patients with new data:
+
+- **Enriched clinical snapshot**: ~12 parallel SQL queries build a deep context window including:
+  - Assessment trajectories (PHQ-9, GAD-7, ASRM — last 3 scores with deltas)
+  - Sleep pattern analysis (7d averages, variability, quality trends, short night count)
+  - Passive health summary (steps, HRV, resting HR, trends)
+  - Per-medication adherence rates and longest miss streaks
+  - Social trend analysis (avoidance days, trend direction)
+  - Cross-domain correlations via PostgreSQL `CORR()` (sleep→mood, activity→mood, social→mood)
+  - Prior insight summary for continuity
+  - Active graduated risk factors with domain and detail
+
+- **Structured JSON output**: The LLM returns a structured response with:
+  - `clinical_trajectory` — `improving` / `stable` / `declining` / `acute` with rationale
+  - `narrative` — 3-5 paragraph clinical narrative
+  - `key_findings` — 4-8 prioritized findings
+  - `domain_findings` — per-domain (mood, sleep, anxiety, social, medications) analysis
+  - `early_warnings` — prodromal signals with urgency level and domain tag
+  - `treatment_response` — assessment of current treatment effectiveness
+  - `recommended_focus` — 2-4 prioritized clinical focus areas
+  - `cross_domain_patterns` — inter-domain correlations and patterns
+
+- **Automation**: The nightly scheduler (02:00 EST) automatically fans out jobs for all consented active patients who have new `daily_entries` since their last deep analysis. An efficient `EXISTS` subquery avoids reprocessing patients with no new data.
+
+- **Parameters**: `maxTokens: 2048`, `temperature: 0.2`, `jsonMode: true`
+- **Typical inference time**: 60-120s on CPU (MedGemma 27B), 15-30s on GPU
 
 ---
 
@@ -267,6 +299,9 @@ The 4B variant requires only ~3GB RAM but produces lower quality clinical narrat
 | Journal sentiment | Submit a journal entry via mobile/API | RULE-008 evaluates (check worker logs) |
 | Backward compat | Unset `AI_PROVIDER` (defaults to anthropic) | BAA_REQUIRED 503 on AI endpoints |
 | Backward compat | Set `AI_PROVIDER=anthropic` + `ANTHROPIC_BAA_SIGNED=true` | Uses Anthropic SDK |
+| Deep analysis | Trigger nightly_deep_analysis via dashboard | `patient_ai_insights` row with `structured_findings` JSONB |
+| Risk history | Check `patient_risk_history` table | New row with graduated score and domain-grouped factors |
+| Nightly scheduler | Check worker logs at 02:00 EST | `nightly_deep_analysis` jobs enqueued for consented patients |
 
 ---
 
@@ -307,3 +342,7 @@ Both providers write to the same database tables (`patient_ai_insights`, `ai_usa
 4. **No streaming.** The current implementation waits for the full response. For the worker use case this is fine (background jobs), but if real-time streaming is later needed for an interactive UI, the llmClient would need a `generateStream()` variant.
 
 5. **Single-machine only.** Ollama runs on the same host as the API. For multi-server deployments, you'd either run Ollama on a dedicated GPU server and point `OLLAMA_BASE_URL` at it, or use the Anthropic provider.
+
+6. **Deep analysis latency.** The `nightly_deep_analysis` prompt with enriched clinical snapshot is significantly larger than other prompt types (~3-5x). On CPU-only hardware, expect 60-120 seconds per patient. For large caseloads, consider GPU inference or staggering jobs across the night window.
+
+7. **Structured JSON reliability.** The deep analysis prompt requests a complex structured JSON response. MedGemma 27B generally handles this well with `jsonMode: true`, but occasionally produces incomplete `domain_findings` or omits `cross_domain_patterns`. The worker gracefully falls back to storing what it can parse.

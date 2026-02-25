@@ -9,6 +9,7 @@ import { Worker, Queue } from 'bullmq';
 import { sql } from '@mindlog/db';
 import { connection, rulesQueue, type RulesJobData } from './rules-engine.js';
 import { aiInsightsQueue, type AiInsightJobData } from './ai-insights-worker.js';
+import { omopExportQueue, type OmopExportJobData } from './omop-export-worker.js';
 import { config } from '../config.js';
 
 const SCHEDULER_QUEUE_NAME = 'mindlog-nightly';
@@ -249,7 +250,7 @@ export function startNightlyScheduler(): Worker {
       // Step 5: Weekly AI summaries (gated — only runs if AI is fully enabled)
       // Generates AI narratives for patients who have given ai_insights consent.
       // -----------------------------------------------------------------------
-      if (config.aiInsightsEnabled && config.anthropicBaaSigned) {
+      if (config.aiInsightsEnabled && (config.aiProvider === 'ollama' || config.anthropicBaaSigned)) {
         try {
           const aiPatients = await sql<{ id: string; organisation_id: string }[]>`
             SELECT DISTINCT p.id, p.organisation_id
@@ -279,6 +280,80 @@ export function startNightlyScheduler(): Worker {
           // Non-fatal — AI summaries are supplementary
           console.error('[nightly] AI summary fan-out failed:', err);
         }
+      }
+
+      // -----------------------------------------------------------------------
+      // Step 5B: Nightly deep analysis (gated — same as weekly summaries)
+      // Fans out nightly_deep_analysis jobs for consented active patients
+      // who have new daily_entries since their last deep analysis.
+      // -----------------------------------------------------------------------
+      if (config.aiInsightsEnabled && (config.aiProvider === 'ollama' || config.anthropicBaaSigned)) {
+        try {
+          const deepPatients = await sql<{ id: string; organisation_id: string }[]>`
+            SELECT DISTINCT p.id, p.organisation_id
+            FROM patients p
+            JOIN consent_records cr
+              ON cr.patient_id   = p.id
+             AND cr.consent_type = 'ai_insights'
+             AND cr.granted      = TRUE
+            WHERE p.status = 'active'
+              AND EXISTS (
+                SELECT 1 FROM daily_entries de
+                WHERE de.patient_id   = p.id
+                  AND de.submitted_at IS NOT NULL
+                  AND de.submitted_at > COALESCE(
+                    (SELECT MAX(pai.generated_at)
+                     FROM patient_ai_insights pai
+                     WHERE pai.patient_id  = p.id
+                       AND pai.insight_type = 'nightly_deep_analysis'),
+                    '1970-01-01'::timestamptz
+                  )
+              )
+          `;
+
+          for (const patient of deepPatients) {
+            const jobData: AiInsightJobData = {
+              patientId:  patient.id,
+              orgId:      patient.organisation_id,
+              jobType:    'nightly_deep_analysis',
+              periodDays: 30,
+            };
+            await aiInsightsQueue.add('nightly_deep_analysis', jobData, {
+              jobId: `ai_deep:${patient.id}:${dateStr}`,
+            });
+          }
+          console.info(`[nightly] Enqueued ${deepPatients.length} nightly deep analysis jobs`);
+        } catch (err) {
+          console.error('[nightly] Deep analysis fan-out failed:', err);
+        }
+      }
+
+      // -----------------------------------------------------------------------
+      // Step 6: OMOP CDM nightly export
+      // Incremental ETL of clinical data to OMOP CDM v5.4 TSV files.
+      // -----------------------------------------------------------------------
+      try {
+        const [exportRun] = await sql<{ id: string }[]>`
+          INSERT INTO omop_export_runs (triggered_by, output_mode, full_refresh)
+          VALUES ('nightly', 'tsv_upload', FALSE)
+          RETURNING id
+        `;
+
+        if (exportRun) {
+          const jobData: OmopExportJobData = {
+            exportRunId: exportRun.id,
+            triggeredBy: 'nightly',
+            outputMode:  'tsv_upload',
+            fullRefresh: false,
+          };
+          await omopExportQueue.add('omop-export', jobData, {
+            jobId: `omop:nightly:${dateStr}`,
+          });
+          console.info(`[nightly] Enqueued OMOP CDM export ${exportRun.id}`);
+        }
+      } catch (err) {
+        // Non-fatal — OMOP export failure doesn't block other nightly steps
+        console.error('[nightly] OMOP export enqueue failed:', err);
       }
     },
     { connection, concurrency: 1 },

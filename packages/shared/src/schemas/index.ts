@@ -354,6 +354,70 @@ export const CreateCohortSchema = z.object({
 export type CreateCohortInput = z.infer<typeof CreateCohortSchema>;
 
 // ---------------------------------------------------------------------------
+// Cohort Builder v2 — Filter DSL
+// ---------------------------------------------------------------------------
+
+/** Comparison operators for cohort filter rules */
+export const FilterOpSchema = z.enum(['eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'in', 'contains']);
+export type FilterOp = z.infer<typeof FilterOpSchema>;
+
+/** A single filter criterion */
+export const CohortFilterRuleSchema = z.object({
+  field: z.string().min(1),
+  op: FilterOpSchema,
+  value: z.union([z.string(), z.number(), z.boolean(), z.array(z.string())]),
+});
+export type CohortFilterRule = z.infer<typeof CohortFilterRuleSchema>;
+
+/** Recursive filter group with AND/OR logic */
+export interface CohortFilterGroup {
+  logic: 'AND' | 'OR';
+  rules: (CohortFilterRule | CohortFilterGroup)[];
+}
+
+export const CohortFilterGroupSchema: z.ZodType<CohortFilterGroup> = z.lazy(() =>
+  z.object({
+    logic: z.enum(['AND', 'OR']),
+    rules: z.array(z.union([CohortFilterRuleSchema, CohortFilterGroupSchema])).min(1).max(20),
+  })
+);
+
+/** Query request for executing cohort filters */
+export const CohortQuerySchema = z.object({
+  filters: CohortFilterGroupSchema,
+  limit: z.number().int().min(1).max(200).default(50),
+  offset: z.number().int().min(0).default(0),
+  sort_by: z.enum(['name', 'risk_level', 'latest_phq9', 'latest_gad7', 'avg_mood_30d', 'tracking_streak']).default('name'),
+  sort_dir: z.enum(['asc', 'desc']).default('asc'),
+});
+export type CohortQueryInput = z.infer<typeof CohortQuerySchema>;
+
+/** Count-only request (no pagination needed) */
+export const CohortCountSchema = z.object({
+  filters: CohortFilterGroupSchema,
+});
+export type CohortCountInput = z.infer<typeof CohortCountSchema>;
+
+/** Create/update a v2 cohort definition */
+export const CreateCohortSchemaV2 = z.object({
+  name: z.string().min(1).max(200),
+  description: z.string().max(1000).optional(),
+  filters: CohortFilterGroupSchema,
+  color: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#6edcd0'),
+});
+export type CreateCohortV2Input = z.infer<typeof CreateCohortSchemaV2>;
+
+/** Update a v2 cohort definition (all fields optional) */
+export const UpdateCohortSchemaV2 = z.object({
+  name: z.string().min(1).max(200).optional(),
+  description: z.string().max(1000).optional(),
+  filters: CohortFilterGroupSchema.optional(),
+  color: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+  is_pinned: z.boolean().optional(),
+});
+export type UpdateCohortV2Input = z.infer<typeof UpdateCohortSchemaV2>;
+
+// ---------------------------------------------------------------------------
 // Crisis safety plan
 // ---------------------------------------------------------------------------
 
@@ -428,3 +492,28 @@ export const PaginatedResponseSchema = <T extends z.ZodTypeAny>(itemSchema: T) =
     limit: z.number().int(),
     has_next: z.boolean(),
   });
+
+// ---------------------------------------------------------------------------
+// OMOP CDM Export
+// ---------------------------------------------------------------------------
+
+export const TriggerOmopExportSchema = z.object({
+  output_mode: z.enum(['tsv_upload']).default('tsv_upload'),
+  full_refresh: z.boolean().default(false),
+});
+export type TriggerOmopExportInput = z.infer<typeof TriggerOmopExportSchema>;
+
+export const OmopExportStatusSchema = z.object({
+  id: z.string().uuid(),
+  status: z.enum(['pending', 'processing', 'completed', 'failed']),
+  triggered_by: z.enum(['nightly', 'manual']),
+  output_mode: z.string(),
+  full_refresh: z.boolean(),
+  record_counts: z.record(z.number()).nullable(),
+  file_urls: z.record(z.string()).nullable(),
+  error_message: z.string().nullable(),
+  started_at: z.string().nullable(),
+  completed_at: z.string().nullable(),
+  created_at: z.string(),
+});
+export type OmopExportStatus = z.infer<typeof OmopExportStatusSchema>;
