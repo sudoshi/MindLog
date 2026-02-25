@@ -30,6 +30,12 @@
 19. [Known Gotchas & Lessons Learned](#19-known-gotchas--lessons-learned)
 20. [Appendix: Complete File Inventory](#20-appendix-complete-file-inventory)
 
+### Post-release sections
+
+- [17a. Nightly Batch Bug Fixes & First Successful Population Run](#17a-nightly-batch-bug-fixes--first-successful-population-run)
+- [18a. Security Hardening — Care Team Access Control](#18a-security-hardening--care-team-access-control-2026-02-24)
+20. [Appendix: Complete File Inventory](#20-appendix-complete-file-inventory)
+
 ---
 
 ## 1. Project Genesis & Architecture Decisions
@@ -1301,6 +1307,81 @@ The Ollama gate bug (Phase 3B) is worth documenting as a class of errors: when a
 
 ---
 
+## 17a. Nightly Batch Bug Fixes & First Successful Population Run
+
+**Date:** 2026-02-25
+**Status:** Complete — 246 jobs enqueued (123 weekly + 123 deep), processing with 0 failures
+
+### Background
+
+The nightly scheduler's first run (02:00 AM EST, 2026-02-25) processed all 123 active patients for **risk scoring** (all succeeded), but both **weekly summaries** and **nightly deep analyses** failed for every patient.
+
+### Bug 1: `insight_type` CHECK Constraint Violation (weekly summaries)
+
+**Error:** `new row for relation "patient_ai_insights" violates check constraint "patient_ai_insights_insight_type_check"`
+
+**Root cause:** The `AiInsightJobType` enum used verb-form names (`generate_weekly_summary`, `generate_trend_narrative`, `detect_anomaly`) as BullMQ job identifiers. The worker's INSERT statement stored `jobType` directly as the DB `insight_type`. However, migration 017's CHECK constraint only allows noun-form names (`weekly_summary`, `trend_narrative`, `anomaly_detection`). The mismatch meant every LLM job completed inference successfully but failed at the final persistence step.
+
+| BullMQ `jobType` | DB `insight_type` | Match? |
+|---|---|---|
+| `generate_weekly_summary` | `weekly_summary` | No |
+| `generate_trend_narrative` | `trend_narrative` | No |
+| `detect_anomaly` | `anomaly_detection` | No |
+| `risk_stratification` | *(not inserted — rule-based only)* | N/A |
+| `nightly_deep_analysis` | `nightly_deep_analysis` | Yes |
+
+**Fix:** Added `JOB_TYPE_TO_INSIGHT_TYPE` mapping and `insightTypeForDb()` function. Applied at all three DB touchpoints: the INSERT, the prior-insight lookup, and the usage log UPSERT.
+
+### Bug 2: `SELECT DISTINCT ... ORDER BY` SQL Error (deep analyses)
+
+**Error:** `for SELECT DISTINCT, ORDER BY expressions must appear in select list`
+
+**Root cause:** In `fetchMedAdherenceDetail()` (part of the enriched clinical snapshot builder), the query was:
+
+```sql
+SELECT DISTINCT mal.entry_date::text
+FROM medication_adherence_logs mal ...
+ORDER BY mal.entry_date
+```
+
+PostgreSQL requires that `ORDER BY` expressions appear in the `SELECT` list when using `DISTINCT`. The SELECT had `entry_date::text` (a cast expression) while ORDER BY had `entry_date` (the raw column) — these are different expressions from PostgreSQL's perspective.
+
+**Fix:** Changed to `SELECT DISTINCT mal.entry_date::text AS entry_date ... ORDER BY 1`.
+
+### Bug 3: `UNDEFINED_VALUE` on Route-Triggered Jobs
+
+**Error:** `UNDEFINED_VALUE: Undefined values are not allowed` (postgres.js)
+
+**Root cause:** A mismatch between two enqueue paths:
+- **Nightly scheduler** passes verb-form job types: `jobType: 'generate_weekly_summary'`
+- **Trigger route** passes DB-form types directly: `jobType: 'weekly_summary'`
+
+The `JOB_TYPE_TO_INSIGHT_TYPE` map (from Bug 1 fix) only had verb-form keys. When the route passed `'weekly_summary'`, the lookup returned `undefined`, which postgres.js rejected.
+
+**Fix:** Made `insightTypeForDb()` bidirectional — it maps verb-form to DB-form, and passes through values that are already valid DB-form types. Also fixed `runInference()` to accept both `'detect_anomaly'` and `'anomaly_detection'` for prompt selection.
+
+### Verification
+
+| Check | Result |
+|-------|--------|
+| Weekly summary (route trigger) | `555in/350out` tokens, persisted as `weekly_summary` |
+| Deep analysis (route trigger) | `1087in/955out` tokens, ~5 min inference, structured JSON with trajectory/domain findings/early warnings |
+| `clinical_trajectory` | `'improving'` — correctly parsed from MedGemma output |
+| `structured_findings` JSONB | 6 fields populated: trajectory_rationale, domain_findings (5 domains), early_warnings (3), treatment_response, recommended_focus (4), cross_domain_patterns (2) |
+| Full batch (123 patients) | 246 jobs enqueued, 0 failures after 7 completions |
+
+### Key Learnings
+
+1. **Dual naming conventions are a bug factory.** The verb-form (`generate_weekly_summary`) vs noun-form (`weekly_summary`) split across BullMQ jobs and DB constraints created three separate bugs. Future: use a single canonical form throughout.
+
+2. **PostgreSQL `SELECT DISTINCT` is strict about expression matching.** `ORDER BY col` and `ORDER BY col::text` are different expressions. `ORDER BY 1` is the safest when ordering by a single-column DISTINCT query with type casts.
+
+3. **Test both enqueue paths.** The nightly scheduler and the manual trigger route used different type conventions for the same queue. A single integration test that triggers via the API route would have caught this.
+
+4. **Auto-deploy daemon is invaluable for rapid iteration.** The `find -newer` + `tsc` + `systemctl restart` loop (60-second poll) made it possible to fix three bugs and verify production in under 30 minutes without SSH/sudo access.
+
+---
+
 ## 18. Consolidated Architecture Reference
 
 ### API Response Pattern
@@ -1431,6 +1512,16 @@ const data = await fetch(API_PREFIX + '/patients/me');
 16. **API response unwrapping:** `api.ts` auto-extracts `.data` from responses. Frontend types should represent the unwrapped shape, not the full envelope.
 
 17. **Minimum font size 12px:** Enforced across the dashboard for legibility. Exception: uppercase labels with letter-spacing (11px allowed).
+
+### BullMQ / Worker
+
+18. **Job type ≠ DB type:** BullMQ job names (`generate_weekly_summary`) may differ from the DB CHECK constraint values (`weekly_summary`). Always use a mapping function at the persistence boundary — never store `jobType` directly as a DB column.
+
+19. **PostgreSQL `SELECT DISTINCT` + `ORDER BY`:** When using `DISTINCT`, the `ORDER BY` expression must appear verbatim in the `SELECT` list. `entry_date::text` in SELECT and `entry_date` in ORDER BY are treated as different expressions. Use `ORDER BY 1` for single-column DISTINCT queries with casts.
+
+20. **Multiple enqueue paths, same queue:** The nightly scheduler and manual trigger route can use different type conventions for the same BullMQ queue. Any function consuming job data must handle both input forms defensively.
+
+21. **MedGemma 27B inference times:** Weekly summary (~550 tokens in) ≈ 2 min; deep analysis (~1100 tokens in, structured JSON out) ≈ 5 min on CPU. Full 123-patient batch at concurrency 2 ≈ 7-8 hours.
 
 ---
 
@@ -1622,4 +1713,4 @@ Security audit revealed three categories of endpoints lacking proper care-team g
 
 ---
 
-*Last updated 2026-02-24. This document consolidates learnings from 17 versions, 16 migrations, and 14 existing documentation files into a single development reference.*
+*Last updated 2026-02-25. This document consolidates learnings from 17 versions (+ post-release patches), 16 migrations, and 14 existing documentation files into a single development reference.*

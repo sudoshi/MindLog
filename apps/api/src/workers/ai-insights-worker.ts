@@ -93,6 +93,35 @@ async function hasAiConsent(patientId: string): Promise<boolean> {
 }
 
 // ---------------------------------------------------------------------------
+// Job type → DB insight_type mapping
+//
+// BullMQ job types use verb prefixes (generate_weekly_summary) while the
+// DB CHECK constraint uses noun forms (weekly_summary).
+// ---------------------------------------------------------------------------
+
+const JOB_TYPE_TO_INSIGHT_TYPE: Record<AiInsightJobType, string> = {
+  generate_weekly_summary:  'weekly_summary',
+  generate_trend_narrative: 'trend_narrative',
+  detect_anomaly:           'anomaly_detection',
+  risk_stratification:      'risk_stratification',
+  nightly_deep_analysis:    'nightly_deep_analysis',
+};
+
+const DB_INSIGHT_TYPES = new Set(Object.values(JOB_TYPE_TO_INSIGHT_TYPE));
+
+function insightTypeForDb(jobType: AiInsightJobType | string): string {
+  // Verb-form → DB noun-form (from nightly scheduler)
+  if (jobType in JOB_TYPE_TO_INSIGHT_TYPE) {
+    return JOB_TYPE_TO_INSIGHT_TYPE[jobType as AiInsightJobType];
+  }
+  // Already a DB-form type (from trigger route) — pass through
+  if (DB_INSIGHT_TYPES.has(jobType)) {
+    return jobType;
+  }
+  return jobType; // fallback
+}
+
+// ---------------------------------------------------------------------------
 // Token usage accounting — UPSERT into ai_usage_log
 // ---------------------------------------------------------------------------
 
@@ -110,7 +139,7 @@ async function recordUsage(
     INSERT INTO ai_usage_log
       (patient_id, org_id, month_year, insight_type, input_tokens, output_tokens, cost_cents)
     VALUES
-      (${patientId}, ${orgId}::UUID, ${monthYear}, ${jobType}, ${inputTokens}, ${outputTokens}, ${costCents})
+      (${patientId}, ${orgId}::UUID, ${monthYear}, ${insightTypeForDb(jobType)}, ${inputTokens}, ${outputTokens}, ${costCents})
     ON CONFLICT (patient_id, month_year, insight_type) DO UPDATE SET
       input_tokens   = ai_usage_log.input_tokens  + EXCLUDED.input_tokens,
       output_tokens  = ai_usage_log.output_tokens + EXCLUDED.output_tokens,
@@ -402,13 +431,13 @@ async function fetchMedAdherenceDetail(
 
   // Longest consecutive miss streak (across all meds)
   const allMissed = await sql<{ entry_date: string }[]>`
-    SELECT DISTINCT mal.entry_date::text
+    SELECT DISTINCT mal.entry_date::text AS entry_date
     FROM medication_adherence_logs mal
     JOIN patient_medications pm ON pm.id = mal.patient_medication_id
     WHERE pm.patient_id = ${patientId}
       AND pm.discontinued_at IS NULL AND pm.show_in_app = TRUE
       AND mal.entry_date >= ${since}::date AND mal.taken = FALSE
-    ORDER BY mal.entry_date
+    ORDER BY 1
   `;
   let maxStreak = 0; let curStreak = 0; let lastD: Date | null = null;
   for (const r of allMissed) {
@@ -698,13 +727,14 @@ interface InferenceResult {
 }
 
 async function runInference(
-  jobType:  Exclude<AiInsightJobType, 'risk_stratification'>,
+  jobType:  string,  // accepts both verb-form (scheduler) and DB-form (route trigger)
   snapshot: ClinicalSnapshot | EnrichedClinicalSnapshot,
 ): Promise<InferenceResult> {
   const isDeep = jobType === 'nightly_deep_analysis';
+  const isAnomaly = jobType === 'detect_anomaly' || jobType === 'anomaly_detection';
   const prompt = isDeep
     ? buildDeepAnalysisPrompt(snapshot as EnrichedClinicalSnapshot)
-    : jobType === 'detect_anomaly'
+    : isAnomaly
       ? buildAnomalyDetectionPrompt(snapshot)
       : buildWeeklySummaryPrompt(snapshot);
 
@@ -800,7 +830,7 @@ async function processAiInsightJob(job: { data: AiInsightJobData }): Promise<voi
     SELECT pai.risk_delta AS score
     FROM patient_ai_insights pai
     WHERE patient_id   = ${patientId}
-      AND insight_type = ${jobType}
+      AND insight_type = ${insightTypeForDb(jobType)}
     ORDER BY generated_at DESC
     LIMIT 1
   `;
@@ -853,7 +883,7 @@ async function processAiInsightJob(job: { data: AiInsightJobData }): Promise<voi
     VALUES (
       ${patientId},
       ${clinicianId ?? null},
-      ${jobType},
+      ${insightTypeForDb(jobType)},
       ${periodStart}::date, ${periodEnd}::date,
       ${narrative},
       ${JSON.stringify(key_findings)}::JSONB,
