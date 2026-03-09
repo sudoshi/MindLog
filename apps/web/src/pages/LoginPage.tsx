@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { api, ApiError } from '../services/api.js';
 import { authActions } from '../stores/auth.js';
 import { FernIcon } from '../components/FernIcon.js';
@@ -16,6 +16,7 @@ interface LoginResponseData {
   role?: string;
   mfa_required?: true;
   partial_token?: string;
+  must_change_password?: boolean;
 }
 
 /* ── SVG ICONS (inline to avoid external deps) ── */
@@ -131,6 +132,7 @@ export function LoginPage() {
           900,
           rememberMe,
           data.role ?? 'clinician',
+          data.must_change_password,
         );
 
         // Full page navigation triggers browser's "Save password?" prompt
@@ -293,6 +295,42 @@ export function LoginPage() {
               {loading ? 'Signing in...' : 'Sign in'}
             </button>
           </form>
+
+          {/* Create Account link */}
+          <div style={{
+            textAlign: 'center',
+            marginTop: 20,
+            animation: 'field-reveal 0.6s cubic-bezier(0.16, 1, 0.3, 1) both',
+            animationDelay: '0.42s',
+          }}>
+            <p style={{
+              fontSize: 14,
+              color: 'var(--text-muted, #8A857D)',
+              margin: '0 0 6px',
+            }}>
+              Don&apos;t have an account?
+            </p>
+            <Link
+              to="/register"
+              data-testid="create-account-link"
+              style={{
+                display: 'inline-block',
+                padding: '10px 28px',
+                background: 'var(--glass-01, rgba(255,255,255,0.04))',
+                border: '1px solid var(--accent, #C9A227)',
+                borderRadius: 10,
+                color: 'var(--accent, #C9A227)',
+                fontFamily: 'var(--font-body)',
+                fontSize: 15,
+                fontWeight: 600,
+                textDecoration: 'none',
+                letterSpacing: '0.2px',
+                transition: 'all 0.2s',
+              }}
+            >
+              Create Account
+            </Link>
+          </div>
 
           {/* Demo quick-fill */}
           <div className="login-demo-section">

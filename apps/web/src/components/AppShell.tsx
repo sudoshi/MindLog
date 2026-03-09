@@ -15,6 +15,7 @@ import { API_PREFIX } from '@mindlog/shared';
 import { InvitePatientModal } from './InvitePatientModal.js';
 import { GlobalSearch } from './GlobalSearch.js';
 import { QuickNotePanel } from './QuickNotePanel.js';
+import { ChangePasswordModal } from './ChangePasswordModal.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -102,6 +103,7 @@ export function AppShell() {
   const refreshToken = useAuthStore((s) => s.refreshToken);
   const tokenExpiresAt = useAuthStore((s) => s.tokenExpiresAt);
   const role = useAuthStore((s) => s.role);
+  const mustChangePassword = useAuthStore((s) => s.mustChangePassword);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -419,6 +421,9 @@ export function AppShell() {
         open={showQuickNote}
         onClose={() => setShowQuickNote(false)}
       />
+
+      {/* Change Password Modal — non-dismissable when must_change_password is true */}
+      {mustChangePassword && <ChangePasswordModal />}
 
       {/* Keyboard shortcuts help overlay */}
       {showShortcutsHelp && (

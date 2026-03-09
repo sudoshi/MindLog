@@ -15,6 +15,7 @@ interface AuthState {
   clinicianId: string | null;
   orgId: string | null;
   role: string | null; // 'clinician' | 'admin' | 'patient'
+  mustChangePassword: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -22,12 +23,13 @@ interface AuthState {
 // ---------------------------------------------------------------------------
 
 const KEYS = {
-  accessToken:    'ml_access_token',
-  refreshToken:   'ml_refresh_token',
-  tokenExpiresAt: 'ml_token_expires_at',
-  clinicianId:    'ml_clinician_id',
-  orgId:          'ml_org_id',
-  role:           'ml_role',
+  accessToken:        'ml_access_token',
+  refreshToken:       'ml_refresh_token',
+  tokenExpiresAt:     'ml_token_expires_at',
+  clinicianId:        'ml_clinician_id',
+  orgId:              'ml_org_id',
+  role:               'ml_role',
+  mustChangePassword: 'ml_must_change_password',
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -44,6 +46,7 @@ let state: AuthState = {
   clinicianId: null,
   orgId: null,
   role: null,
+  mustChangePassword: false,
 };
 
 const listeners = new Set<Listener>();
@@ -81,12 +84,14 @@ function writeToStorage(
   clinicianId: string,
   orgId: string,
   role: string,
+  mustChangePassword = false,
 ): void {
   storage.setItem(KEYS.accessToken, token);
   storage.setItem(KEYS.tokenExpiresAt, String(expiresAt));
   storage.setItem(KEYS.clinicianId, clinicianId);
   storage.setItem(KEYS.orgId, orgId);
   storage.setItem(KEYS.role, role);
+  storage.setItem(KEYS.mustChangePassword, String(mustChangePassword));
   if (refreshToken) storage.setItem(KEYS.refreshToken, refreshToken);
 }
 
@@ -112,6 +117,7 @@ export const authActions = {
     expiresIn = 900, // seconds, default 15 min
     remember = false,
     role = 'clinician',
+    mustChangePassword?: boolean,
   ): void {
     const expiresAt = Math.floor(Date.now() / 1000) + expiresIn;
 
@@ -120,7 +126,7 @@ export const authActions = {
     const primary   = remember ? localStorage   : sessionStorage;
     const secondary = remember ? sessionStorage  : localStorage;
     clearStorage(secondary);
-    writeToStorage(primary, token, refreshToken, expiresAt, clinicianId, orgId, role);
+    writeToStorage(primary, token, refreshToken, expiresAt, clinicianId, orgId, role, mustChangePassword ?? false);
 
     setState({
       isAuthenticated: true,
@@ -130,6 +136,7 @@ export const authActions = {
       clinicianId,
       orgId,
       role,
+      mustChangePassword: mustChangePassword ?? false,
     });
   },
 
@@ -163,7 +170,18 @@ export const authActions = {
       clinicianId: null,
       orgId: null,
       role: null,
+      mustChangePassword: false,
     });
+  },
+
+  /** Called after successful password change to clear the flag */
+  clearMustChangePassword(): void {
+    // Update whichever storage currently holds the session
+    const storage = localStorage.getItem(KEYS.accessToken) !== null
+      ? localStorage
+      : sessionStorage;
+    storage.setItem(KEYS.mustChangePassword, 'false');
+    setState({ mustChangePassword: false });
   },
 
   /**
@@ -179,12 +197,13 @@ export const authActions = {
 
     if (!storage) return;
 
-    const token       = storage.getItem(KEYS.accessToken);
-    const refresh     = storage.getItem(KEYS.refreshToken);
-    const expiresAt   = Number(storage.getItem(KEYS.tokenExpiresAt) ?? 0);
-    const clinicianId = storage.getItem(KEYS.clinicianId);
-    const orgId       = storage.getItem(KEYS.orgId);
-    const role        = storage.getItem(KEYS.role) ?? 'clinician';
+    const token              = storage.getItem(KEYS.accessToken);
+    const refresh            = storage.getItem(KEYS.refreshToken);
+    const expiresAt          = Number(storage.getItem(KEYS.tokenExpiresAt) ?? 0);
+    const clinicianId        = storage.getItem(KEYS.clinicianId);
+    const orgId              = storage.getItem(KEYS.orgId);
+    const role               = storage.getItem(KEYS.role) ?? 'clinician';
+    const mustChangePassword = storage.getItem(KEYS.mustChangePassword) === 'true';
 
     // Discard if any required field is missing or the access token is expired.
     // The proactive refresh in AppShell will renew it shortly after mount if
@@ -203,6 +222,7 @@ export const authActions = {
       clinicianId,
       orgId,
       role,
+      mustChangePassword,
     });
   },
 };

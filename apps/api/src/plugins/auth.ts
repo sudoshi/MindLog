@@ -32,6 +32,8 @@ export interface JwtPayload {
   supabase_token?: string;
   factor_id?: string;
   clinician_id?: string;
+  // Direct bcrypt auth — set when user must change temp password
+  must_change_password?: boolean;
 }
 
 // Tell @fastify/jwt what shape our payload has so request.user is correctly typed.

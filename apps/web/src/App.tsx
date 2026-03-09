@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { LoginPage } from './pages/LoginPage.js';
+import { RegisterPage } from './pages/RegisterPage.js';
 import { MfaPage } from './pages/MfaPage.js';
 import { DashboardPage } from './pages/DashboardPage.js';
 import { PatientsPage } from './pages/PatientsPage.js';
@@ -18,6 +19,7 @@ export function App() {
     <Routes>
       {/* Public */}
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/register" element={<RegisterPage />} />
       <Route path="/mfa" element={<MfaPage />} />
 
       {/* Protected — requires authenticated clinician session */}

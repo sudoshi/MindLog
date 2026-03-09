@@ -1,7 +1,9 @@
 // =============================================================================
 // MindLog API — Auth routes
-// POST /api/v1/auth/login        — clinician OR patient login
-// POST /api/v1/auth/mfa/verify   — TOTP second factor (clinicians)
+// POST /api/v1/auth/login           — clinician OR patient login (bcrypt + Supabase)
+// POST /api/v1/auth/register-demo   — public demo clinician registration
+// POST /api/v1/auth/change-password — authenticated password change
+// POST /api/v1/auth/mfa/verify      — TOTP second factor (clinicians)
 // POST /api/v1/auth/refresh
 // POST /api/v1/auth/logout
 // GET  /api/v1/auth/me
@@ -9,11 +11,12 @@
 
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
+import bcrypt from 'bcryptjs';
 import { sql } from '@mindlog/db';
 import { LoginSchema, RefreshTokenSchema, RegisterSchema } from '@mindlog/shared';
 import { config } from '../config.js';
 import { auditLog } from '../middleware/audit.js';
-import { sendWelcomeEmail } from '../services/messaging.js';
+import { sendWelcomeEmail, sendCredentialsEmail } from '../services/messaging.js';
 import type { JwtPayload } from '../plugins/auth.js';
 
 // MFA verify only needs the 6-digit code; factor_id + supabase token
@@ -103,7 +106,81 @@ export default async function authRoutes(fastify: FastifyInstance): Promise<void
       });
     }
 
-    // Authenticate against Supabase Auth
+    // -------------------------------------------------------------------------
+    // DIRECT BCRYPT AUTH: If clinician has a password_hash, verify directly
+    // without Supabase. Falls back to Supabase if password_hash is null.
+    // -------------------------------------------------------------------------
+    const [directClinician] = await sql<{
+      id: string; organisation_id: string; role: string; mfa_enabled: boolean;
+      password_hash: string | null; must_change_password: boolean;
+    }[]>`
+      SELECT id, organisation_id, role, mfa_enabled, password_hash, must_change_password
+      FROM clinicians
+      WHERE email = ${body.email} AND is_active = TRUE
+      LIMIT 1
+    `;
+
+    if (directClinician?.password_hash) {
+      const passwordValid = await bcrypt.compare(body.password, directClinician.password_hash);
+
+      if (!passwordValid) {
+        await auditLog({
+          actor: { sub: 'unknown', email: body.email, role: 'clinician', org_id: 'unknown' },
+          action: 'login',
+          resourceType: 'auth',
+          ipAddress: request.ip,
+          userAgent: request.headers['user-agent'],
+          success: false,
+          failureReason: 'invalid_credentials',
+        });
+        return reply.status(401).send({
+          success: false,
+          error: { code: 'INVALID_CREDENTIALS', message: 'Invalid email or password' },
+        });
+      }
+
+      const payload: JwtPayload = {
+        sub: directClinician.id,
+        email: body.email,
+        role: 'clinician',
+        org_id: directClinician.organisation_id,
+      };
+      const accessToken = fastify.jwt.sign(payload, { expiresIn: config.jwtAccessExpiry });
+
+      await sql`UPDATE clinicians SET last_login_at = NOW() WHERE id = ${directClinician.id}`;
+
+      await auditLog({
+        actor: payload,
+        action: 'login',
+        resourceType: 'auth',
+        resourceId: directClinician.id,
+        ipAddress: request.ip,
+        userAgent: request.headers['user-agent'],
+      });
+
+      return reply.send({
+        success: true,
+        data: {
+          access_token: accessToken,
+          refresh_token: null,
+          clinician_id: directClinician.id,
+          org_id: directClinician.organisation_id,
+          role: directClinician.role,
+          must_change_password: directClinician.must_change_password,
+          user: {
+            id: directClinician.id,
+            email: body.email,
+            role: directClinician.role,
+            org_id: directClinician.organisation_id,
+            must_change_password: directClinician.must_change_password,
+          },
+        },
+      });
+    }
+
+    // -------------------------------------------------------------------------
+    // SUPABASE AUTH: Fallback when clinician has no password_hash
+    // -------------------------------------------------------------------------
     const supabaseRes = await fetch(
       `${config.supabaseUrl}/auth/v1/token?grant_type=password`,
       {
@@ -143,16 +220,16 @@ export default async function authRoutes(fastify: FastifyInstance): Promise<void
     };
 
     // -------------------------------------------------------------------------
-    // Clinician path
+    // Clinician path (Supabase-authenticated, no password_hash)
     // -------------------------------------------------------------------------
-    const [clinician] = await sql<{
+    const clinician = directClinician ?? (await sql<{
       id: string; organisation_id: string; role: string; mfa_enabled: boolean;
     }[]>`
       SELECT id, organisation_id, role, mfa_enabled
       FROM clinicians
       WHERE email = ${body.email} AND is_active = TRUE
       LIMIT 1
-    `;
+    `)[0];
 
     if (clinician) {
       if (clinician.mfa_enabled) {
@@ -263,6 +340,177 @@ export default async function authRoutes(fastify: FastifyInstance): Promise<void
         role: 'patient',
         user: { id: patient.id, email: body.email, role: 'patient', org_id: patient.organisation_id },
       },
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // POST /register-demo — public demo account registration
+  // Generates a temp password, hashes with bcrypt, emails via Resend.
+  // Rate limit: 20 per 15 minutes per IP
+  // ---------------------------------------------------------------------------
+  const RegisterDemoBodySchema = z.object({
+    email: z.string().email('Must be a valid email address'),
+    firstName: z.string().min(1, 'First name is required').max(100),
+    lastName: z.string().min(1, 'Last name is required').max(100),
+    phone: z.string().max(30).optional(),
+  });
+
+  fastify.post('/register-demo', {
+    config: { rateLimit: { max: 20, timeWindow: '15 minutes' } },
+  }, async (request, reply) => {
+    const body = RegisterDemoBodySchema.parse(request.body);
+
+    // Always return success to prevent email enumeration
+    const successResponse = {
+      success: true,
+      data: { message: 'If that email is not already registered, you will receive your credentials shortly.' },
+    };
+
+    // Check if email already exists (clinician)
+    const [existing] = await sql<{ id: string }[]>`
+      SELECT id FROM clinicians
+      WHERE lower(email) = lower(${body.email})
+      LIMIT 1
+    `;
+
+    if (existing) {
+      // Don't reveal that account exists — return same success message
+      return reply.send(successResponse);
+    }
+
+    // Generate 12-char temp password (exclude ambiguous chars: I, l, O, 0)
+    const CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%&*';
+    const tempPassword = Array.from(
+      { length: 12 },
+      () => CHARS[Math.floor(Math.random() * CHARS.length)],
+    ).join('');
+
+    // Hash with bcrypt (12 rounds)
+    const passwordHash = await bcrypt.hash(tempPassword, 12);
+
+    // Demo org: MindLog Demo Clinic
+    const DEMO_ORG_ID = 'f46cc7e7-163a-4291-acc3-148044a5b232';
+
+    // Insert clinician with 'researcher' role (safe default within CHECK constraint)
+    try {
+      const [newClinician] = await sql<{ id: string }[]>`
+        INSERT INTO clinicians (
+          organisation_id, email, first_name, last_name, role,
+          password_hash, must_change_password, is_active, mfa_enabled
+        ) VALUES (
+          ${DEMO_ORG_ID}::UUID,
+          ${body.email.toLowerCase()},
+          ${body.firstName},
+          ${body.lastName},
+          'researcher',
+          ${passwordHash},
+          TRUE,
+          TRUE,
+          FALSE
+        )
+        RETURNING id
+      `;
+
+      if (!newClinician) {
+        fastify.log.error('[register-demo] Insert returned no rows');
+        return reply.send(successResponse);
+      }
+
+      // Audit
+      await auditLog({
+        actor: { sub: newClinician.id, email: body.email, role: 'clinician', org_id: DEMO_ORG_ID },
+        action: 'create',
+        resourceType: 'clinician',
+        resourceId: newClinician.id,
+        ipAddress: request.ip,
+        userAgent: request.headers['user-agent'],
+      });
+
+      // Send credentials email
+      try {
+        await sendCredentialsEmail({
+          to: body.email,
+          firstName: body.firstName,
+          tempPassword,
+        });
+      } catch (err) {
+        fastify.log.error({ err }, '[register-demo] Failed to send credentials email');
+      }
+    } catch (err) {
+      fastify.log.error({ err }, '[register-demo] Failed to create demo clinician');
+    }
+
+    return reply.send(successResponse);
+  });
+
+  // ---------------------------------------------------------------------------
+  // POST /change-password — authenticated password change
+  // Used after login when must_change_password is true
+  // ---------------------------------------------------------------------------
+  const ChangePasswordBodySchema = z.object({
+    currentPassword: z.string().min(1, 'Current password is required'),
+    newPassword: z.string().min(8, 'Password must be at least 8 characters').max(128),
+  });
+
+  fastify.post('/change-password', {
+    preHandler: [fastify.authenticate],
+  }, async (request, reply) => {
+    const body = ChangePasswordBodySchema.parse(request.body);
+
+    if (body.currentPassword === body.newPassword) {
+      return reply.status(400).send({
+        success: false,
+        error: { code: 'SAME_PASSWORD', message: 'New password must be different from current password' },
+      });
+    }
+
+    // Look up clinician's current password_hash
+    const [clinician] = await sql<{
+      id: string; password_hash: string | null;
+    }[]>`
+      SELECT id, password_hash FROM clinicians
+      WHERE email = ${request.user.email} AND is_active = TRUE
+      LIMIT 1
+    `;
+
+    if (!clinician?.password_hash) {
+      return reply.status(400).send({
+        success: false,
+        error: { code: 'NO_PASSWORD', message: 'This account does not use password authentication' },
+      });
+    }
+
+    // Verify current password
+    const currentValid = await bcrypt.compare(body.currentPassword, clinician.password_hash);
+    if (!currentValid) {
+      return reply.status(401).send({
+        success: false,
+        error: { code: 'INVALID_PASSWORD', message: 'Current password is incorrect' },
+      });
+    }
+
+    // Hash new password and update
+    const newHash = await bcrypt.hash(body.newPassword, 12);
+    await sql`
+      UPDATE clinicians
+      SET password_hash = ${newHash},
+          must_change_password = FALSE,
+          updated_at = NOW()
+      WHERE id = ${clinician.id}
+    `;
+
+    await auditLog({
+      actor: request.user,
+      action: 'update',
+      resourceType: 'clinician',
+      resourceId: clinician.id,
+      ipAddress: request.ip,
+      userAgent: request.headers['user-agent'],
+    });
+
+    return reply.send({
+      success: true,
+      data: { message: 'Password changed successfully', must_change_password: false },
     });
   });
 

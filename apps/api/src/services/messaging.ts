@@ -236,6 +236,74 @@ export async function sendWelcomeEmail(opts: WelcomeEmailOpts): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
+// sendCredentialsEmail
+// Sent when a demo account is created with a temporary password.
+// ---------------------------------------------------------------------------
+
+export interface CredentialsEmailOpts {
+  to: string;
+  firstName: string;
+  tempPassword: string;
+}
+
+export async function sendCredentialsEmail(opts: CredentialsEmailOpts): Promise<void> {
+  const { to, firstName, tempPassword } = opts;
+
+  const loginUrl = `${config.webAppUrl}/login`;
+
+  const bodyHtml = `
+    <h2 style="margin:0 0 16px;color:#f0f4ff;font-size:22px;font-weight:700;line-height:1.3;">
+      Welcome to MindLog, ${firstName}!
+    </h2>
+    <p style="margin:0 0 16px;color:#8892a4;font-size:15px;line-height:1.7;">
+      Your demo account has been created. Use the credentials below to sign in
+      to the clinician dashboard.
+    </p>
+
+    <div style="background:#1e2535;border-radius:10px;padding:20px 24px;margin:20px 0;">
+      <p style="margin:0 0 8px;color:#6b7280;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">
+        Your login credentials
+      </p>
+      <p style="margin:0 0 6px;color:#c8d0e0;font-size:14px;line-height:1.6;">
+        <strong style="color:#9ca3af;">Email:</strong> ${to}
+      </p>
+      <p style="margin:0;color:#c8d0e0;font-size:14px;line-height:1.6;">
+        <strong style="color:#9ca3af;">Temporary password:</strong>
+        <code style="color:#6C63FF;font-size:15px;letter-spacing:0.5px;background:#161a27;padding:4px 10px;border-radius:6px;margin-left:6px;">${tempPassword}</code>
+      </p>
+    </div>
+
+    <p style="margin:0 0 4px;color:#c8d0e0;font-size:14px;line-height:1.6;">
+      You will be prompted to change your password on first login.
+    </p>
+
+    <div style="text-align:center;margin:8px 0 4px;">
+      ${ctaButton(loginUrl, 'Sign in to MindLog')}
+    </div>
+
+    <div style="background:#1e2535;border-radius:8px;padding:14px 18px;margin:24px 0 0;">
+      <p style="margin:0;color:#6b7280;font-size:12px;line-height:1.6;">
+        This is an automated message. If you did not request a MindLog account,
+        you can safely ignore this email.
+      </p>
+    </div>
+  `;
+
+  const subject = 'Your MindLog access credentials';
+  const html = emailLayout(bodyHtml);
+  const text = [
+    `Welcome to MindLog, ${firstName}!`,
+    `\nYour demo account has been created.`,
+    `\nEmail: ${to}`,
+    `Temporary password: ${tempPassword}`,
+    `\nYou will be prompted to change your password on first login.`,
+    `\nSign in at: ${loginUrl}`,
+  ].join('\n');
+
+  await send({ to, subject, html, text });
+}
+
+// ---------------------------------------------------------------------------
 // Internal send helper — handles dev fallback + Resend errors
 // ---------------------------------------------------------------------------
 
